@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
-import { Hero } from './components/Hero';
+import { Hero, type DemoRun } from './components/Hero';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
@@ -13,7 +13,7 @@ import { sats, short } from './lib/format';
 
 function Logo() {
   return (
-    <a href="#" className="flex items-center gap-2.5">
+    <a href="#" className="tap flex items-center gap-2.5" aria-label="AgentTab home">
       <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="8" fill="#0ac18e" /><path d="M9 22V10h7.5a4 4 0 0 1 0 8H13m0-8v12" stroke="#05140f" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
       <span className="text-[17px] font-bold tracking-tight">AgentTab</span>
     </a>
@@ -101,6 +101,8 @@ export default function App() {
   const [opened, setOpened] = useState(0);
   const [myTabs, setMyTabs] = useState<TabRecord[]>([]);
   const [menu, setMenu] = useState(false);
+  const [run, setRun] = useState<DemoRun>({ busy: false });
+  const [demoIssue, setDemoIssue] = useState<string | undefined>();
   const wc = useWizardConnect({ dappName: 'AgentTab' });
 
   selectServer(net);
@@ -123,6 +125,30 @@ export default function App() {
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 5) : null, [wallet]);
   const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
+  const mine = useMemo(() => new Set(myTabs.map((t) => t.id)), [myTabs]);
+  const demoEnabled = !!info?.features?.demo;
+
+  useEffect(() => {
+    if (!demoEnabled) { setDemoIssue(undefined); return; }
+    const load = () => api.demoInfo().then((d) => setDemoIssue(d.healthy ? undefined : d.lastError)).catch(() => {});
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [demoEnabled, net]);
+
+  async function runDemo(tab?: string) {
+    const target = tab ?? preferTab;
+    setRun({ busy: true });
+    if (tab) document.getElementById('receipt')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      const r = await api.demoCall(target);
+      setRun({ busy: false, at: Date.now(), result: { ok: true, r } });
+      setDemoIssue(undefined);
+      setOpened((n) => n + 1); // refresh tab cards (spent/remaining)
+    } catch (e) {
+      setRun({ busy: false, at: Date.now(), result: { ok: false, msg: (e as Error).message } });
+    }
+  }
   useEffect(() => { setMyTabs([]); }, [wallet, net]);
 
   return (
@@ -140,7 +166,7 @@ export default function App() {
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
               className="w-[104px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm sm:w-auto" title="Network (chipnet = testnet)">
               <option value="chipnet">Chipnet</option>
-              <option value="mainnet" disabled={!MAINNET_ENABLED}>Mainnet{MAINNET_ENABLED ? '' : ' (soon)'}</option>
+              <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet — live at submission'}</option>
             </select>
             {wallet ? (
               <div className="relative">
@@ -168,13 +194,16 @@ export default function App() {
         </div>
       )}
 
-      <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={!!info?.features?.demo} preferTab={preferTab} onFund={fund} />
+      <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
+        pinTab={preferTab} run={run} onRun={() => runDemo()} onFund={fund} />
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
-        <div className="order-2 min-w-0 lg:order-1"><Feed events={events} net={net} live={live} /></div>
+        <div className="order-2 min-w-0 lg:order-1"><Feed events={events} net={net} live={live} mine={mine} /></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
-          <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)} />
-          <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs} />
+          <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
+            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} />
+          <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
+            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} />
         </div>
       </main>
 

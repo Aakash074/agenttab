@@ -30,8 +30,9 @@ export const explorerAddr = (net: Net, address: string) =>
 export const BUDGETS: Record<Net, bigint[]> = { chipnet: [5_000n, 20_000n, 100_000n], mainnet: [3_000n, 5_000n, 10_000n] };
 export const CONTRACT_SOURCE_URL = BANNER.repoUrl ? `${BANNER.repoUrl.replace(/\/$/, '')}/blob/main/packages/covenant/contracts/AgentTab.cash` : '';
 
+/** Refund timeouts. The provider stops accepting vouchers 6 blocks (~1 h) before the timeout, so 12 blocks is the shortest useful tab. */
 export const DURATIONS = [
-  { label: '1 hour', blocks: 6 },
+  { label: '2 hours', blocks: 12 },
   { label: '1 day', blocks: 144 },
   { label: '1 week', blocks: 1008 },
 ];

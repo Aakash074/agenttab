@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BUDGETS, CONTRACT_SOURCE_URL, DURATIONS, explorerTx, type Net } from '../config';
-import { api, type ServerInfo } from '../lib/api';
+import { ApiError, api, type ServerInfo } from '../lib/api';
 import { blocksToText, sats, short, usd } from '../lib/format';
 import { chain, hex, unhex, type Wallet } from '../lib/wallet';
 
@@ -8,16 +8,17 @@ const HEX33 = /^0[23][0-9a-f]{64}$/i;
 
 type Step = { state: 'idle' } | { state: 'busy'; msg: string } | { state: 'done'; txid: string; budget: bigint } | { state: 'error'; msg: string };
 
-export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, onOpened }: {
-  wallet: Wallet | null; info: ServerInfo | null; infoErr: string | null; net: Net; demoAgentPub: string; onConnect: () => void; onOpened: () => void;
+export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, onOpened, onRunOnTab }: {
+  wallet: Wallet | null; info: ServerInfo | null; infoErr: string | null; net: Net; demoAgentPub: string;
+  onConnect: () => void; onOpened: () => void; onRunOnTab?: (tab: string) => void;
 }) {
   const budgets = BUDGETS[net];
   const [agentPub, setAgentPub] = useState(demoAgentPub);
   const [budget, setBudget] = useState(budgets[1]);
-  const [duration, setDuration] = useState(DURATIONS[1].blocks);
+  const [duration, setDuration] = useState(DURATIONS[net === 'chipnet' ? 0 : 1].blocks);
   const [step, setStep] = useState<Step>({ state: 'idle' });
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [drip, setDrip] = useState<{ busy: boolean; msg?: string; ok?: boolean }>({ busy: false });
+  const [drip, setDrip] = useState<{ busy: boolean; msg?: string; ok?: boolean; until?: number }>({ busy: false });
   const price = BigInt(info?.routes[0]?.price ?? 1000);
   const spendable = budget - 546n;
   const calls = spendable > 0n ? spendable / price : 0n;
@@ -37,17 +38,27 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
   }, [wallet, step.state, drip.ok]);
 
   const keyOk = HEX33.test(agentPub.trim());
-  const funded = balance !== null && balance >= budget + 600n;
+  const FEE_ROOM = 600n;
+  const funded = balance !== null && balance >= budget + FEE_ROOM;
+  const minBudget = budgets[0];
+  const needsDrip = balance !== null && balance < minBudget + FEE_ROOM;
+  // "Use my balance": everything the wallet can put in, if that's a valid tab (provider minimum ~2.2k sats).
+  const maxAffordable = balance !== null ? ((balance - FEE_ROOM) / 100n) * 100n : 0n;
+  const showUseBalance = balance !== null && !funded && maxAffordable >= 2_200n && !budgets.includes(maxAffordable);
+  const dripLocked = !!drip.until && Date.now() < drip.until;
   const blocker = !info ? (infoErr ? 'Provider API unreachable' : 'Waiting for the provider API…')
     : !keyOk ? 'Enter a 33-byte agent public key'
     : balance === null ? 'Checking your balance…'
-    : !funded ? `Need ${sats(budget + 600n - balance)} more sats` : null;
+    : !funded ? `Need ${sats(budget + FEE_ROOM - balance)} more sats${showUseBalance ? ' (or use your balance)' : ''}` : null;
 
   async function getTestCoins() {
     if (!wallet) return;
     setDrip({ busy: true });
     try { const r = await api.drip(wallet.address); setDrip({ busy: false, ok: true, msg: `Sent ${sats(r.sats)} test sats · ${short(r.txid, 6)}` }); }
-    catch (e) { setDrip({ busy: false, ok: false, msg: (e as Error).message }); }
+    catch (e) {
+      const retry = e instanceof ApiError ? Number(e.body.retryInMs ?? 0) : 0;
+      setDrip({ busy: false, ok: false, msg: (e as Error).message, until: retry ? Date.now() + retry : undefined });
+    }
   }
 
   async function open() {
@@ -110,6 +121,12 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               </button>
             ))}
           </div>
+          {(showUseBalance || (!budgets.includes(budget) && budget > 0n)) && (
+            <button onClick={() => setBudget(maxAffordable)} className={`${choice(budget === maxAffordable)} flex items-center justify-between`}>
+              <span><span className="font-mono text-sm font-semibold">Use my balance · {sats(maxAffordable)} sats</span>
+                <span className="block text-[11px] text-dim">≈ {String((maxAffordable - 546n) / price)} calls, keeps ~600 sats for the fee</span></span>
+            </button>
+          )}
         </div>
 
         <div className="grid gap-1.5">
@@ -136,7 +153,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           ))}
           <div className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 border-t border-line pt-2 text-xs text-dim">
             <span>Provider key <span className="font-mono text-muted">{info ? short(info.providerPub, 6) : '…'}</span></span>
-            <a className="py-1 text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
+            <a className="tap text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
           </div>
         </dl>
 
@@ -148,13 +165,13 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               <span>Paying from {wallet.label} · <span className="font-mono">{short(wallet.address.split(':')[1] ?? wallet.address, 6)}</span></span>
               <span className="font-mono">{balance === null ? '…' : `${sats(balance)} sats available`}</span>
             </div>
-            {wallet.kind === 'burner' && balance !== null && !funded && (
+            {wallet.kind === 'burner' && needsDrip && (
               <div className="rounded-lg border border-bch/30 bg-bch/[0.07] p-3 text-sm">
-                <p className="text-muted">This test wallet is empty. Free chipnet coins, no signup:</p>
+                <p className="text-muted">{balance === 0n ? 'This test wallet is empty.' : `This test wallet has ${sats(balance!)} sats, not enough for a tab.`} Free chipnet coins, no signup:</p>
                 {info?.features?.faucet ? (
-                  <button onClick={getTestCoins} disabled={drip.busy || drip.ok}
-                    className="mt-2 w-full rounded-lg bg-bch/90 px-4 py-2.5 font-semibold text-ink hover:bg-bch-2 disabled:opacity-60">
-                    {drip.busy ? 'Sending test coins…' : drip.ok ? 'Test coins on the way' : `Get ${sats(info.features.faucet.dripSats)} free test sats`}
+                  <button onClick={getTestCoins} disabled={drip.busy || drip.ok || dripLocked}
+                    className="mt-2 min-h-[44px] w-full rounded-lg bg-bch/90 px-4 py-2.5 font-semibold text-ink hover:bg-bch-2 disabled:opacity-60">
+                    {drip.busy ? 'Sending test coins…' : drip.ok ? 'Test coins on the way' : dripLocked ? `Try again in ${Math.ceil((drip.until! - Date.now()) / 60_000)} min` : `Get ${sats(info.features.faucet.dripSats)} free test sats`}
                   </button>
                 ) : (
                   <a className="mt-1 inline-block text-bch-2 underline" href="https://chipnet.bch.ninja" target="_blank" rel="noreferrer">Open a chipnet faucet ↗</a>
@@ -173,8 +190,11 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
         )}
         {step.state === 'done' && (
           <p className="slide-in rounded-lg border border-bch/30 bg-bch/10 px-3 py-2.5 text-sm">
-            Tab open with {sats(step.budget)} sats. {isDemo ? 'Hit "Run the demo agent" and it will pay from your tab.' : 'Your agent can start paying now.'}{' '}
-            <a className="font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>
+            Tab open with {sats(step.budget)} sats. {isDemo ? 'The demo agent can now pay from it.' : 'Your agent can start paying now.'}{' '}
+            <a className="tap font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>
+            {isDemo && onRunOnTab && (
+              <button onClick={() => onRunOnTab(`${step.txid}:0`)} className="mt-2 block min-h-[44px] w-full rounded-lg bg-bch px-4 py-2 font-semibold text-ink hover:bg-bch-2">▶ Run agent on this tab</button>
+            )}
           </p>
         )}
         {step.state === 'error' && <p className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2.5 text-sm text-bad">{step.msg}</p>}

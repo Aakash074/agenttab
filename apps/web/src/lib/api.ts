@@ -47,6 +47,14 @@ export interface ServerInfo {
   };
 }
 
+export interface DemoInfo { enabled: boolean; agentPub: string; lastCall?: string; lastError?: string; lastErrorAt?: string; healthy: boolean; balanceSats: string }
+
+export class ApiError extends Error {
+  status: number;
+  body: Record<string, unknown>;
+  constructor(status: number, body: Record<string, unknown>, msg: string) { super(msg); this.status = status; this.body = body; }
+}
+
 export interface DemoCall { tab: string; priceSats: string; cumulativeSats: string; remainingSats: string; answer?: string }
 
 let SERVER = SERVERS.chipnet;
@@ -55,7 +63,7 @@ export const selectServer = (net: Net) => { SERVER = SERVERS[net]; };
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(SERVER + path, init);
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.message ?? body.error ?? `${r.status}`);
+  if (!r.ok) throw new ApiError(r.status, body, body.message ?? body.error ?? `${r.status}`);
   return body as T;
 }
 
@@ -68,5 +76,7 @@ export const api = {
   streamUrl: () => `${SERVER}/feed/stream`,
   contractUrl: () => `${SERVER}/contract`,
   demoCall: (tab?: string) => j<DemoCall>('/demo/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tab ? { tab } : {}) }),
+  demoInfo: () => j<DemoInfo>('/demo'),
+  closeTab: (id: string) => j<{ txid: string; settledSats: string; returnedSats: string }>(`/tabs/${id}/close`, { method: 'POST' }),
   drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };

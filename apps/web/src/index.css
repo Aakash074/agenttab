@@ -10,7 +10,7 @@
   --color-line-2: #2a3a35;
   --color-fg: #e8f3ef;
   --color-muted: #9fb6ae;
-  --color-dim: #7f958d;
+  --color-dim: #8aa098;
   --color-bch: #0ac18e;
   --color-bch-2: #3ee0ae;
   --color-warn: #f5b84b;
@@ -35,3 +35,7 @@ body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); backgro
 
 input, select, button { font: inherit; }
 input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--color-bch) 60%, transparent); outline-offset: 1px; }
+
+/* >=44px touch targets on small screens for inline links */
+.tap { display: inline-flex; align-items: center; min-height: 44px; }
+@media (min-width: 640px) { .tap { min-height: 0; } }

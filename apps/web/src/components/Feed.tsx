@@ -30,7 +30,7 @@ export function describe(e: FeedEvent) {
 
 const VISIBLE = 8;
 
-export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; live: boolean }) {
+export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Net; live: boolean; mine?: Set<string> }) {
   const now = useNow();
   const [all, setAll] = useState(false);
   const shown = all ? events : events.slice(0, VISIBLE);
@@ -50,16 +50,16 @@ export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; liv
         <>
           <ol className={`divide-y divide-line ${all ? 'max-h-[560px] overflow-y-auto' : ''}`}>
             {shown.map((e) => (
-              <li key={e.id} className="slide-in grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[auto_1fr_auto]">
+              <li key={e.id} className={`slide-in grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[auto_1fr_auto] ${mine?.has(e.tab) ? 'bg-bch/[0.06]' : ''}`}>
                 <span className={`mt-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
                 <div className="min-w-0 text-muted">
-                  <div>{describe(e)}</div>
+                  <div>{describe(e)}{mine?.has(e.tab) && <span className="ml-1.5 rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] text-bch-2">your tab</span>}</div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[11px] text-dim">
                     {e.contract
-                      ? <a className="py-1 hover:text-bch-2" href={explorerAddr(net, e.contract)} target="_blank" rel="noreferrer" title="Covenant (P2SH32) address holding this tab">covenant {short(e.contract.split(':')[1] ?? e.contract, 5)}</a>
-                      : <span className="py-1">tab {short(e.tab.split(':')[0])}</span>}
-                    {e.txid && <a className="py-1 text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 6)} ↗</a>}
-                    {e.type === 'pay' && <span className="py-1">off-chain voucher · no tx, no fee</span>}
+                      ? <a className="tap hover:text-bch-2" href={explorerAddr(net, e.contract)} target="_blank" rel="noreferrer" title="Covenant (P2SH32) address holding this tab">covenant {short(e.contract.split(':')[1] ?? e.contract, 5)}</a>
+                      : <span className="tap">tab {short(e.tab.split(':')[0])}</span>}
+                    {e.txid && <a className="tap text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 6)} ↗</a>}
+                    {e.type === 'pay' && <span className="tap">off-chain voucher · no tx, no fee</span>}
                   </div>
                 </div>
                 <time className="col-start-2 whitespace-nowrap text-xs text-dim sm:col-start-auto">{ago(e.at, now)}</time>
