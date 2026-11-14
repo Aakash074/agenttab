@@ -15,11 +15,11 @@ Other BCH "agent budget" designs pay one on-chain transaction per call. AgentTab
 
 | # | Do this | You should see |
 |---|---|---|
-| 1 | Open the app and press **▶ Run the demo agent** | The receipt animates: `402 Payment Required` → voucher #N → `200 OK`. The feed gets a *PAID CALL* row and the counter shows "N API calls · K on-chain txs". |
-| 2 | **Connect → Chipnet test wallet → Get 25,000 free test sats** | The balance appears in about 5 s. No signup and no faucet captcha. |
-| 3 | **Open tab with 20,000 sats** for the prefilled *demo agent*, then **▶ Run agent on this tab** a few times | An *open* tx link (explorer). The receipt is pinned to *your tab* and the voucher count goes up. *Spent* rises on your tab card. No new transactions appear. |
-| 4 | **Close tab now** | "Returned to you: N sats". Open the settle tx in the explorer: it has exactly two outputs, the provider's share and your exact remainder. |
-| 5 | Scroll to **Try to cheat the tab → Run 6 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund and agent-withdraw are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
+| 1 | Open the app and press **"Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back."** and pick *Chipnet test wallet* | The stepper fetches free test coins (no signup), then opens the tab: **one transaction** (explorer link). |
+| 2 | Watch the receipt on the right | `402 Payment Required` → `X-PAYMENT` voucher #1, #2, #3 → `200 OK`. **No transactions** for the calls; the bar drains. |
+| 3 | Wait for step 5 | The tab is closed in **one transaction**: "Change back: 17,000 sats". In the explorer the settle has exactly two outputs, the provider's 3,000 (minus its fee) and your exact remainder. |
+| 4 | Open **Advanced: fund your own agent** | Paste any agent pubkey (from the MCP tool `agent_info`), pick a budget and timeout, and see the covenant source and the provider key. |
+| 5 | Scroll to **Try to cheat the tab → Run 7 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund, agent-withdraw and cancel-to-self are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
 
 For agents, an MCP server (`packages/mcp`) gives Claude or any MCP client `fetch_paid`, `tab_status`, `close_tab` and `agent_info`. On-chain evidence (txids) is in [`docs/chipnet-proof.md`](docs/chipnet-proof.md). The threat model is in [`docs/security.md`](docs/security.md).
 
@@ -38,15 +38,40 @@ Prior art and credit:
 
 `bch-credit` is meant to sit alongside their `exact`-style scheme in the same `accepts[]`, so one server can offer both.
 
-## Honest build timeline
+## Build timeline
 
-All times are UTC. The BLAZE build window opened 2026-11-14 14:00.
+- **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.
+- **2026-11-14 (kickoff day, after 14:00 UTC):** this repo started from scratch.
+  - Covenant, SDK, paywall server, MCP server and web app.
+  - First chipnet settle, refund and attack runs ([proof](docs/chipnet-proof.md)).
+  - Two rounds of UX review.
+- **2026-11-15 → 11-21:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
 
-- **Before kickoff:** an idea gate and a small throwaway prototype (a covenant sketch plus a Vite scaffold), kept in a **separate folder/repo** ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). No files or commits from it are in this repo.
-- **Nov 14, 14:04–14:20:** fresh repo; covenant, SDK and 15 tests; paywall server. First chipnet open → 3 vouchers → settle, an early refund rejected by the node, and a refund after timeout ([proof §1–3](docs/chipnet-proof.md)).
-- **Nov 14, 14:29–14:44:** covenant v2 (owner/agent split); live feed and auto-settle; web app; MCP server, which paid on chipnet both from a tab funded in the web app and from a tab it opened itself.
-- **Nov 14, 14:53–15:15:** UX reviews 1 and 2: hosted demo agent, chipnet drip faucet, mainnet code path (mock-tested, not broadcast), close-tab-now, "Try to cheat the tab" panel, property tests.
-- **Next:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
+## What changed vs the pre-hackathon prototype
+
+| Area | Prototype (before kickoff) | This repo (after kickoff) |
+|---|---|---|
+| Voucher binding | `sha256(contract bytecode) ‖ amount`. Replayable on any second utxo at the same address, or on another tab with the same parameters. | `"AGENTTAB" ‖ funding outpoint ‖ amount`. Bound to one utxo, with a domain tag. |
+| Keys | One key: the agent was the owner, so it could also refund and withdraw. | **Owner** (human wallet: remainder and refund) is separate from **agent** (signs vouchers only, can never withdraw). |
+| Transaction shape | No input or output count checks, so tabs could be bundled and outputs added. | Exactly 1 input and 2 outputs (settle) or 1 output (cancel); tokens forbidden. |
+| Fees | Paid from the owner's remainder (owner ≥ budget − amount − 1000). | The provider pays the fee from its own share. The owner gets **exactly** budget − amount. |
+| Early close | None: the owner waits for the timeout. | `cancel(providerSig)`: the provider can waive the tab and return everything right away (fee capped). |
+| Off-chain | None. | Paywall server: 402 `bch-credit` terms, per-request voucher checks, replay protection, auto-settle/cancel before timeout, live feed. |
+| Agents | None. | MCP server: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps. |
+| UI | Empty Vite scaffold. | One-button journey, live receipt, WizardConnect and chipnet test-wallet signers, "Try to cheat the tab" panel. |
+| Tests | 5 mock tests. | Unit, property and HTTP tests, plus live chipnet attack runs. |
+
+## Design decisions
+
+<!-- HUMAN: write in your own words (judges reward the builder's reasoning, not generated prose). Suggested prompts: -->
+<!-- HUMAN: Why a payment channel (vouchers) instead of one on-chain tx per call? -->
+<!-- HUMAN: Why split owner and agent keys? What happens if the agent's key leaks? -->
+<!-- HUMAN: Why bind vouchers to the funding outpoint rather than the contract bytecode? -->
+<!-- HUMAN: Why does the provider pay the fee, and why is there a cancel path? -->
+<!-- HUMAN: Why x402-shaped HTTP + an MCP server instead of a custom SDK only? -->
+<!-- HUMAN: What would you change for production (PUSD tabs, top-ups, multi-provider)? -->
+
+_To be written by the author._
 
 > **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). This repository was started from scratch after kickoff.
 
@@ -66,7 +91,7 @@ Requires Node 23.6+ (runs TypeScript natively).
 
 ```sh
 npm install
-npm test                                       # 53 tests: covenant 22 (incl. property tests), server 26, mcp 5
+npm test                                       # 58 tests: covenant 24 (incl. property tests), server 29, mcp 5
 npm run typecheck
 
 node packages/covenant/scripts/keygen.ts       # throwaway chipnet keys -> .env (OWNER / AGENT / PROVIDER)

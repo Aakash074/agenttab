@@ -1,0 +1,48 @@
+# Render blueprint: two web services from one repo (free plan). Secrets are set in the Render dashboard.
+services:
+  - type: web
+    name: agenttab-api-chipnet
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node packages/server/src/main.ts
+    healthCheckPath: /.well-known/agenttab
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NETWORK
+        value: chipnet
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PROVIDER_WIF        # chipnet (testnet) WIF
+        sync: false
+      - key: DEMO_AGENT_WIF
+        sync: false
+      - key: FAUCET_WIF
+        sync: false
+      - key: ATTACK_OWNER_WIF
+        sync: false
+  - type: web
+    name: agenttab-api-mainnet
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node packages/server/src/main.ts
+    healthCheckPath: /.well-known/agenttab
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NETWORK
+        value: mainnet
+      - key: ALLOW_MAINNET
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: MAX_TAB_BUDGET_SATS
+        value: "100000"
+      - key: DEMO_ON_MAINNET      # demo agent spends only visitor-funded tabs on mainnet
+        value: "1"
+      - key: PROVIDER_WIF         # MAINNET WIF (provider receives settlements); keep tiny
+        sync: false
+      - key: DEMO_AGENT_WIF       # MAINNET WIF; needs no funds in visitor-tabs-only mode
+        sync: false

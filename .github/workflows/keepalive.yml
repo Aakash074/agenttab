@@ -1,0 +1,14 @@
+# Render free services sleep after ~15 min idle. Ping them every 10 minutes.
+# Set repository variables AGENTTAB_API_CHIPNET / AGENTTAB_API_MAINNET to the Render URLs.
+name: keep-alive
+on:
+  schedule: [{ cron: "*/10 * * * *" }]
+  workflow_dispatch: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in "${{ vars.AGENTTAB_API_CHIPNET }}" "${{ vars.AGENTTAB_API_MAINNET }}"; do
+            [ -n "$u" ] && curl -fsS -m 30 "$u/.well-known/agenttab" > /dev/null && echo "ok $u" || echo "skip/fail $u"
+          done

@@ -98,11 +98,22 @@ The honest settle (2,000 sats to the provider, the exact remainder to the owner)
 
 UX r2 flow: closing the visitor's tab "now" settled 4,000 sats and returned 16,000 in tx `9111c176f58b29956480687bb7a9b58b1d842c26f4a0d6f4da06ba22147e2a0a`. The faucet key was topped up from the public chipnet PoW faucet in tx `e21fe6e397d5076584cf1ec316d3490e1035c1198f421af62fdd3cc3319cf18b`.
 
+## 7. Covenant v3 (adds `cancel`): one-button journey and 7-attack run
+
+> Covenant v3 adds `cancel(providerSig)`. All v2 tabs were settled before the switch (`fea66d9818457062702be9731cd0c01318f50b48b0a4011ffd87d66c65dd3012`, `c8f93d08f4e3e4a6cbb7459b80c6c5e7ed84610155b26e72f9a893d29c10a69f`).
+
+- **Attack run:** the tab was opened in `8aaeed75843e99d1460f3457798d767c3b61908310078884274cd8f0da0b53db`. All 7 attacks were rejected, including the new "provider cancels into its own wallet" (`mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`). The honest settle was accepted in `e56a1c27bce6f49d5a9b59a985e23993342ecc1704832277092a66247460297d`.
+- **One-button journey in the browser:**
+  1. A fresh test wallet was dripped coins.
+  2. It opened a 20,000-sat tab for the demo agent in `6e71c4a2…e7a441cd` (feed / explorer).
+  3. The agent paid 3 calls with vouchers (1,000 / 2,000 / 3,000).
+  4. The close settled 3,000 and returned 17,000 in `3987f76a69652ecbb4dc03aef90ce38d30bc146fc7e3f295bd52eded239b6509`.
+
 ## Confirmation status
 
 All of these transactions were accepted to the chipnet mempool. That means they passed full node script validation, including the covenant. Run `node packages/covenant/scripts/tx-status.ts <txid>...` to check confirmations.
 
-At the last check (2026-11-14 ~14:50 UTC, tip 332322), every tx above was still **0-conf in the mempool**, including the faucet's own funding tx (1 sat/byte). Chipnet blocks 332319 through 332322 were mined without them, which looks like sparse or empty testnet mining. Re-check later with:
+At the last check (2026-11-14 ~16:00 UTC, tip 332326), every tx above was still **0-conf in the mempool**. None was dropped, including the faucet's own funding tx (1 sat/byte). Chipnet blocks 332319 through 332326 were mined without any of them, including the public faucet's own payout, which looks like sparse or empty testnet mining. Re-check later with:
 
 ```sh
 node packages/covenant/scripts/tx-status.ts 6f14f00fc1a4bc9c480038df08fe6c953d5d86cd018f4c2a09cfd73cbf10c8ed 235c78a1d061112ccf904940233ccbfdff3b24c5d3521fc5f790367c8cd4c2a1 2a58b9b19e41c14f51213ae476406f39d33b584ec64e35bb900634e160212757
