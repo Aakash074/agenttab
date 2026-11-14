@@ -10,7 +10,7 @@ import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp, type ExtraHandler } from './app.ts';
 import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
-import { oracleHandler } from './oracle.ts';
+import { bchPrice, oracleHandler } from './oracle.ts';
 import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
 
@@ -53,7 +53,7 @@ if (!mainnet && env.FAUCET_WIF) {
 }
 
 const app = createApp({
-  ledger, network, adminToken: env.ADMIN_TOKEN, extra, features,
+  ledger, network, adminToken: env.ADMIN_TOKEN, extra, features, bchUsd: async () => (await bchPrice())?.usd,
   routes: [{ path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracleHandler(provider, network) }],
 });
 await ledger.refreshTip();

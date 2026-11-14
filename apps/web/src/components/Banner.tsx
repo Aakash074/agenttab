@@ -16,7 +16,7 @@ export function Banner() {
         <Item href={BANNER.deckUrl}>Widget Factory deck</Item>
         <Item href={BANNER.repoUrl}>Source code</Item>
         <Item href={BANNER.prototypeUrl}>Pre-hackathon prototype (disclosure)</Item>
-        <span className="ml-auto flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 max-w-full items-center gap-2 sm:ml-auto">
           <span className="whitespace-nowrap">Vote with EMBER2026:</span>
           <code className="truncate rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[12px]">
             {BANNER.donationZAddress || 'bitcoincash:z… (added before submission)'}

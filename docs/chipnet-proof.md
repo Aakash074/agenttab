@@ -68,6 +68,19 @@ These runs used the server's v2 features: feed, auto-settle and live oracle. The
 
 To reproduce: run `node packages/server/src/main.ts`, then `node packages/mcp/scripts/mcp-demo.ts http://localhost:8402 3`.
 
+## 5. Judge flow in the browser (UX review round 1)
+
+1. A fresh chipnet test wallet got 25,000 sats from the server drip (`POST /faucet/drip`).
+2. That wallet funded a 20,000-sat tab for the hosted demo agent in tx `8ab32555bbe224bdd6e7d15ae6f98cb0b91a1a60b1a8b11e07a212f04c30cbbb`.
+3. "Run the demo agent" paid 1,000 sats from that tab ("from your tab").
+
+The demo agent's own tab was opened in tx `bc3202f132f27d85ab8c83d74bb0fe598d97b44e195932766e000765f236ee06`. The cron and the button pay from it every 60 s.
+
+Server keys were funded from OWNER:
+- faucet: `564407994e443a098e6b310f14810bdce87ebbb5a1428b490953db73d9e2644d`
+- demo agent: `37f85f959414c9e114544fc053644bd0ce706cca62bcf504aa0fdef6ce0a285a`
+- MCP agent top-up: `be0d237d6d56660cb08f8bc8ddf0a471252cbc75658674e953074e3e7d1490ce`
+
 ## Confirmation status
 
 All of these transactions were accepted to the chipnet mempool. That means they passed full node script validation, including the covenant. Run `node packages/covenant/scripts/tx-status.ts <txid>...` to check confirmations.

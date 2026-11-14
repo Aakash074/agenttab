@@ -69,3 +69,7 @@
 12. **Strict two-output shape.** The settle tx can't carry an OP_RETURN memo. This is a deliberate choice for simplicity.
 
 13. **WizardConnect refund is not yet tested with a real wallet.** The refund tx spends a contract input that needs the owner's signature, which the wallet has to fill into a placeholder. Whether Paytaca signs contract inputs over WizardConnect has not been verified. The open-tab flow is the plain P2PKH case.
+14. **Hosted demo agent and drip faucet.** Both are convenience features for judges, and both are chipnet-only by default.
+    - **Demo agent:** its key sits on the server and its spend is bounded by its tab budget. It can pay from a visitor's tab only if the visitor named the demo agent as that tab's agent.
+    - **Drip faucet:** sends free test coins from a server key. It is limited per address, per IP and globally, and refuses to start on mainnet.
+    - Rate limits are in-memory and reset on restart.

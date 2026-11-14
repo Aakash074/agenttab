@@ -23,6 +23,8 @@ export interface AppOptions {
   extra?: ExtraHandler[];
   /** Advertised in /.well-known/agenttab. */
   features?: Record<string, unknown>;
+  /** Optional BCH/USD spot for display (free, cached). */
+  bchUsd?: () => Promise<number | undefined>;
 }
 
 export const CONTRACT_SOURCE = readFileSync(new URL('../../covenant/contracts/AgentTab.cash', import.meta.url), 'utf8');
@@ -101,6 +103,7 @@ export function createApp(o: AppOptions) {
         return json(res, 200, {
           providerPub: o.ledger.providerPubHex(), network: o.network, artifactHash: ARTIFACT_HASH,
           tip: o.ledger.tip, safetyBlocks: o.ledger.safetyBlocks, features: o.features ?? {},
+          bchUsd: await o.bchUsd?.().catch(() => undefined),
           routes: o.routes.map((r) => ({ path: r.path, price: r.price, description: r.description })),
         });
       }

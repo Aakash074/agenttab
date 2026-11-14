@@ -33,14 +33,17 @@ Requires Node 23.6+ (runs TypeScript natively).
 
 ```sh
 npm install
-npm test                                       # covenant 17 + server 12 + mcp 5 tests
+npm test                                       # covenant 17 + server 22 + mcp 5 tests
 npm run typecheck
 
 node packages/covenant/scripts/keygen.ts       # throwaway chipnet keys -> .env (OWNER / AGENT / PROVIDER)
 node packages/covenant/scripts/pubkeys.ts      # print pubkeys/addresses; fund OWNER at https://chipnet.bch.ninja
 
+# fund FAUCET (drip for visitors' test wallets) and DEMO_AGENT (hosted demo agent) from OWNER:
+node packages/covenant/scripts/send.ts <FAUCET address> 300000
+node packages/covenant/scripts/send.ts <DEMO_AGENT address> 200000
 npm run dev:server                             # paywall on http://localhost:8402  (NETWORK=chipnet by default)
-echo "VITE_DEMO_AGENT_PUB=<AGENT_PUB>" > apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.local   # banner links, z-address, demo agent pubkey
 npm run dev:web                                # web on http://localhost:5173 (proxies the API)
 node packages/mcp/scripts/mcp-demo.ts http://localhost:8402 3   # an MCP client paying 3 calls, then closing the tab
 ```
@@ -57,6 +60,10 @@ node packages/mcp/scripts/mcp-demo.ts http://localhost:8402 3   # an MCP client 
 | `POST /tabs/:id/settle` | Settle now. Protected by `ADMIN_TOKEN` if set. |
 | `GET /feed?since=` | Feed events as JSON. |
 | `GET /feed/stream` | Feed events as SSE. |
+| `POST /demo/call` `{tab?}` | The hosted demo agent makes one real paid call through the 402 flow. It uses the visitor's tab for the demo agent if given, else its own tab. Rate-limited. A cron also calls every `DEMO_CRON_SECONDS`. |
+| `GET /demo` | Demo agent status. |
+| `POST /faucet/drip` `{address}` | **Chipnet only.** Sends `DRIP_SATS` to a `bchtest:` P2PKH test wallet. Limited to once per address per day, 2 per IP per hour, 30 per hour in total. |
+| `GET /contract` | `AgentTab.cash` source. |
 
 Server config is read from `.env` or the environment:
 
@@ -69,6 +76,28 @@ Server config is read from `.env` or the environment:
 | `SAFETY_BLOCKS` | `6`. Tabs within 6 blocks of their timeout refuse vouchers and are auto-settled. |
 | `TICK_SECONDS` | `30` |
 | `ADMIN_TOKEN` | Optional; protects the settle endpoint. |
+| `DEMO_AGENT_WIF` | Key for the hosted demo agent. `DEMO_CRON_SECONDS` defaults to 60 (0 turns it off); `DEMO_BUDGET_SATS` defaults to 20000. Off on mainnet unless `DEMO_ON_MAINNET=1`. |
+| `FAUCET_WIF` | Key for the chipnet drip. `DRIP_SATS` defaults to 25000. Never enabled on mainnet. |
+| `MAX_TAB_BUDGET_SATS` | Largest tab the server accepts. Default 100000 on mainnet, unlimited on chipnet. |
+| `TRUST_PROXY=1` | Use X-Forwarded-For for rate limits when behind a reverse proxy. |
+
+### Mainnet
+
+The mainnet path is implemented and tested on a mock chain. **No mainnet transaction has been broadcast by this repo.**
+
+To run it:
+```sh
+NETWORK=mainnet ALLOW_MAINNET=1 PROVIDER_WIF=<mainnet WIF> PORT=8403 node packages/server/src/main.ts
+```
+Then build the web app with `VITE_SERVER_URL_MAINNET=https://…`.
+
+On mainnet:
+- The price defaults to 100 sats per call.
+- Tabs above 100k sats are refused.
+- Budgets in the UI are 3k, 5k and 10k sats.
+- The demo agent and the faucet are off.
+
+`node packages/covenant/scripts/mainnet-dryrun.ts [bitcoincash:q…]` builds the unsigned WizardConnect open-tab transaction against live mainnet UTXOs and prints it. It never signs and never broadcasts.
 
 ### MCP (give your agent a tab)
 

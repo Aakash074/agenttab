@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FeedEvent } from '../lib/api';
 import { ago, sats, short } from '../lib/format';
-import { explorerTx, type Net } from '../config';
+import { explorerAddr, explorerTx, type Net } from '../config';
 
 const KIND: Record<FeedEvent['type'], { label: string; tone: string }> = {
   open: { label: 'TAB OPENED', tone: 'text-sky-300 bg-sky-400/10 ring-sky-400/20' },
@@ -18,17 +18,22 @@ export function useNow(ms = 5000) {
 }
 
 export function describe(e: FeedEvent) {
+  const who = e.demo ? 'Demo agent' : 'Agent';
   switch (e.type) {
-    case 'open': return <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> for an agent</>;
-    case 'pay': return <>Agent paid <b className="text-fg">{sats(e.price)} sats</b> for <code className="font-mono text-fg">{e.route}</code> · voucher total {sats(e.amount)}</>;
+    case 'open': return <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'an agent'}</>;
+    case 'pay': return <>{who} paid <b className="text-fg">{sats(e.price)} sats</b> for <code className="font-mono text-fg">{e.route}</code> · voucher total {sats(e.amount)}</>;
     case 'settle': return <>Provider settled <b className="text-fg">{sats(e.amount)} sats</b>, remainder forced back to owner{e.auto ? ' (auto, before timeout)' : ''}</>;
     case 'expired': return <>Tab reached its timeout with nothing to settle</>;
     case 'closed': return <>Owner reclaimed the tab after timeout</>;
   }
 }
 
+const VISIBLE = 8;
+
 export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; live: boolean }) {
   const now = useNow();
+  const [all, setAll] = useState(false);
+  const shown = all ? events : events.slice(0, VISIBLE);
   return (
     <section id="feed" className="self-start rounded-2xl border border-line bg-panel">
       <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
@@ -40,26 +45,33 @@ export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; liv
         <span className="text-xs text-dim">{live ? 'streaming' : 'polling'}</span>
       </header>
       {events.length === 0 ? (
-        <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Start the demo agent or fund a tab to see it here.</p>
+        <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Fund a tab (or run the demo agent, if this server hosts one) to see it here.</p>
       ) : (
-        <ol className="max-h-[720px] divide-y divide-line overflow-y-auto">
-          {events.map((e) => (
-            <li key={e.id} className="slide-in grid grid-cols-[auto_1fr_auto] items-start gap-3 px-5 py-3 text-sm">
-              <span className={`mt-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
-              <div className="min-w-0 text-muted">
-                <div>{describe(e)}</div>
-                <div className="mt-0.5 font-mono text-[11px] text-dim">
-                  tab {short(e.tab.split(':')[0])}
-                  {e.txid && (
-                    <> · tx <a className="text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">{short(e.txid, 8)}</a></>
-                  )}
-                  {e.type === 'pay' && <> · off-chain voucher, no tx needed</>}
+        <>
+          <ol className={`divide-y divide-line ${all ? 'max-h-[560px] overflow-y-auto' : ''}`}>
+            {shown.map((e) => (
+              <li key={e.id} className="slide-in grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[auto_1fr_auto]">
+                <span className={`mt-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
+                <div className="min-w-0 text-muted">
+                  <div>{describe(e)}</div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[11px] text-dim">
+                    {e.contract
+                      ? <a className="py-1 hover:text-bch-2" href={explorerAddr(net, e.contract)} target="_blank" rel="noreferrer" title="Covenant (P2SH32) address holding this tab">covenant {short(e.contract.split(':')[1] ?? e.contract, 5)}</a>
+                      : <span className="py-1">tab {short(e.tab.split(':')[0])}</span>}
+                    {e.txid && <a className="py-1 text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 6)} ↗</a>}
+                    {e.type === 'pay' && <span className="py-1">off-chain voucher · no tx, no fee</span>}
+                  </div>
                 </div>
-              </div>
-              <time className="whitespace-nowrap text-xs text-dim">{ago(e.at, now)}</time>
-            </li>
-          ))}
-        </ol>
+                <time className="col-start-2 whitespace-nowrap text-xs text-dim sm:col-start-auto">{ago(e.at, now)}</time>
+              </li>
+            ))}
+          </ol>
+          {events.length > VISIBLE && (
+            <button onClick={() => setAll((v) => !v)} className="w-full border-t border-line px-5 py-2.5 text-xs font-medium text-muted hover:text-fg">
+              {all ? 'Show latest only' : `Show all ${events.length} events`}
+            </button>
+          )}
+        </>
       )}
     </section>
   );

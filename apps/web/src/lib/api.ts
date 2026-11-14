@@ -10,6 +10,9 @@ export interface FeedEvent {
   price?: string;
   route?: string;
   auto?: boolean;
+  contract?: string;
+  agent?: string;
+  demo?: boolean;
 }
 
 export interface Stats { tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number }
@@ -36,7 +39,15 @@ export interface ServerInfo {
   tip: number;
   safetyBlocks: number;
   routes: { path: string; price: string; description: string }[];
+  bchUsd?: number;
+  features?: {
+    maxBudgetSats?: string | null;
+    demo?: { agentPub: string; cronSeconds: number };
+    faucet?: { dripSats: string; address: string };
+  };
 }
+
+export interface DemoCall { tab: string; priceSats: string; cumulativeSats: string; remainingSats: string; answer?: string }
 
 let SERVER = SERVERS.chipnet;
 export const selectServer = (net: Net) => { SERVER = SERVERS[net]; };
@@ -55,4 +66,7 @@ export const api = {
   register: (b: { txid: string; vout: number; ownerPub: string; agentPub: string; timeout: number }) =>
     j<TabRecord>('/tabs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }),
   streamUrl: () => `${SERVER}/feed/stream`,
+  contractUrl: () => `${SERVER}/contract`,
+  demoCall: (tab?: string) => j<DemoCall>('/demo/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tab ? { tab } : {}) }),
+  drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };

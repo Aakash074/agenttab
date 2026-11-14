@@ -1,45 +1,62 @@
 import { useEffect, useState } from 'react';
-import { DEMO_AGENT_PUB, DURATIONS, explorerTx, type Net } from '../config';
+import { BUDGETS, CONTRACT_SOURCE_URL, DURATIONS, explorerTx, type Net } from '../config';
 import { api, type ServerInfo } from '../lib/api';
-import { blocksToText, sats, short } from '../lib/format';
-import { hex, unhex, type Wallet } from '../lib/wallet';
+import { blocksToText, sats, short, usd } from '../lib/format';
+import { chain, hex, unhex, type Wallet } from '../lib/wallet';
 
-const BUDGETS = [5_000n, 20_000n, 100_000n];
 const HEX33 = /^0[23][0-9a-f]{64}$/i;
 
 type Step = { state: 'idle' } | { state: 'busy'; msg: string } | { state: 'done'; txid: string; budget: bigint } | { state: 'error'; msg: string };
 
-export function FundTab({ wallet, info, net, onConnect, onOpened }: {
-  wallet: Wallet | null; info: ServerInfo | null; net: Net; onConnect: () => void; onOpened: () => void;
+export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, onOpened }: {
+  wallet: Wallet | null; info: ServerInfo | null; infoErr: string | null; net: Net; demoAgentPub: string; onConnect: () => void; onOpened: () => void;
 }) {
-  const [agentPub, setAgentPub] = useState(DEMO_AGENT_PUB);
-  const [budget, setBudget] = useState(20_000n);
+  const budgets = BUDGETS[net];
+  const [agentPub, setAgentPub] = useState(demoAgentPub);
+  const [budget, setBudget] = useState(budgets[1]);
   const [duration, setDuration] = useState(DURATIONS[1].blocks);
   const [step, setStep] = useState<Step>({ state: 'idle' });
   const [balance, setBalance] = useState<bigint | null>(null);
+  const [drip, setDrip] = useState<{ busy: boolean; msg?: string; ok?: boolean }>({ busy: false });
   const price = BigInt(info?.routes[0]?.price ?? 1000);
-  const calls = budget > 546n ? (budget - 546n) / price : 0n;
+  const spendable = budget - 546n;
+  const calls = spendable > 0n ? spendable / price : 0n;
+  const isDemo = !!demoAgentPub && agentPub.trim().toLowerCase() === demoAgentPub.toLowerCase();
+  const bchUsd = info?.bchUsd;
 
+  useEffect(() => { if (!agentPub && demoAgentPub) setAgentPub(demoAgentPub); }, [demoAgentPub]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setBudget(BUDGETS[net][1]); setStep({ state: 'idle' }); }, [net]);
   useEffect(() => {
     setBalance(null);
     if (!wallet) return;
     let live = true;
     const load = () => wallet.balance().then((b) => live && setBalance(b)).catch(() => {});
     load();
-    const t = setInterval(load, 15_000);
+    const t = setInterval(load, 8_000);
     return () => { live = false; clearInterval(t); };
-  }, [wallet, step.state]);
+  }, [wallet, step.state, drip.ok]);
 
-  const valid = HEX33.test(agentPub.trim()) && budget >= 2_000n && !!info;
+  const keyOk = HEX33.test(agentPub.trim());
+  const funded = balance !== null && balance >= budget + 600n;
+  const blocker = !info ? (infoErr ? 'Provider API unreachable' : 'Waiting for the provider API…')
+    : !keyOk ? 'Enter a 33-byte agent public key'
+    : balance === null ? 'Checking your balance…'
+    : !funded ? `Need ${sats(budget + 600n - balance)} more sats` : null;
+
+  async function getTestCoins() {
+    if (!wallet) return;
+    setDrip({ busy: true });
+    try { const r = await api.drip(wallet.address); setDrip({ busy: false, ok: true, msg: `Sent ${sats(r.sats)} test sats · ${short(r.txid, 6)}` }); }
+    catch (e) { setDrip({ busy: false, ok: false, msg: (e as Error).message }); }
+  }
+
   async function open() {
     if (!wallet || !info) return;
     try {
       setStep({ state: 'busy', msg: wallet.kind === 'wizard' ? 'Approve the transaction in your wallet…' : 'Signing and broadcasting…' });
-      const tip = await import('../lib/wallet').then((m) => m.chain(net).getBlockHeight());
-      const timeout = tip + duration;
+      const timeout = (await chain(net).getBlockHeight()) + duration;
       const txid = await wallet.openTab({ agentPub: unhex(agentPub.trim()), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
       setStep({ state: 'busy', msg: 'Registering the tab with the API provider…' });
-      // Electrum may need a moment to index the new utxo.
       let lastErr: unknown;
       for (let i = 0; i < 6; i++) {
         try {
@@ -56,36 +73,40 @@ export function FundTab({ wallet, info, net, onConnect, onOpened }: {
     }
   }
 
+  const choice = (on: boolean) => `rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-white/[0.03]'}`;
+
   return (
-    <section id="fund" className="rounded-2xl border border-line bg-panel p-6">
+    <section id="fund" className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Fund your agent's tab</h2>
-          <p className="mt-1 text-sm text-muted">You stay the owner. The agent can spend up to the budget, never withdraw. Unused sats come back to you.</p>
+          <p className="mt-1 text-sm text-muted">You stay the owner. The agent can spend up to the budget but can never withdraw it. Unused sats come back to you.</p>
         </div>
-        <span className="rounded-full border border-line-2 px-2.5 py-1 font-mono text-[11px] text-muted">{net}</span>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[11px] ${net === 'mainnet' ? 'border-warn/50 text-warn' : 'border-line-2 text-muted'}`}>{net}</span>
       </div>
 
       <div className="mt-6 grid gap-5">
         <label className="grid gap-1.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-dim">Agent public key</span>
-          <input value={agentPub} onChange={(e) => setAgentPub(e.target.value)} placeholder="02… / 03… (from the agent's MCP tool `agent_info`)"
-            className="rounded-lg border border-line-2 bg-ink px-3 py-2.5 font-mono text-[13px]" spellCheck={false} />
-          <span className="text-xs text-dim">
-            {DEMO_AGENT_PUB && agentPub !== DEMO_AGENT_PUB
-              ? <button className="text-bch-2 hover:underline" onClick={() => setAgentPub(DEMO_AGENT_PUB)}>Use the demo agent</button>
-              : 'Signs vouchers only. It can never move the funds anywhere except to the provider, and only up to what it signed.'}
+          <span className="flex flex-wrap items-center justify-between gap-1 text-xs font-medium uppercase tracking-wider text-dim">
+            Agent public key
+            {isDemo && <span className="rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-bch-2">Demo agent (runs on this server)</span>}
+          </span>
+          <input value={agentPub} onChange={(e) => setAgentPub(e.target.value)} placeholder="02… / 03…"
+            className="w-full min-w-0 rounded-lg border border-line-2 bg-ink px-3 py-2.5 font-mono text-[13px]" spellCheck={false} />
+          <span className="text-xs leading-relaxed text-dim">
+            Your own agent? Paste the <code className="text-muted">agentPub</code> from its MCP tool <code className="text-muted">agent_info</code>.
+            {demoAgentPub && !isDemo && <> Or <button className="text-bch-2 hover:underline" onClick={() => setAgentPub(demoAgentPub)}>use the demo agent</button>.</>}
+            {' '}This key can only sign vouchers. It can't move funds anywhere else.
           </span>
         </label>
 
         <div className="grid gap-1.5">
           <span className="text-xs font-medium uppercase tracking-wider text-dim">Budget</span>
-          <div className="grid grid-cols-3 gap-2">
-            {BUDGETS.map((b) => (
-              <button key={String(b)} onClick={() => setBudget(b)}
-                className={`rounded-lg border px-3 py-2.5 text-left transition ${budget === b ? 'border-bch bg-bch/10' : 'border-line-2 hover:border-line-2/80 hover:bg-white/[0.02]'}`}>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {budgets.map((b) => (
+              <button key={String(b)} onClick={() => setBudget(b)} className={choice(budget === b)}>
                 <div className="font-mono text-sm font-semibold">{sats(b)} sats</div>
-                <div className="text-[11px] text-dim">≈ {String((b - 546n) / price)} calls</div>
+                <div className="text-[11px] text-dim">≈ {String((b - 546n) / price)} calls{bchUsd ? ` · ${usd(b, bchUsd)}` : ''}</div>
               </button>
             ))}
           </div>
@@ -93,48 +114,67 @@ export function FundTab({ wallet, info, net, onConnect, onOpened }: {
 
         <div className="grid gap-1.5">
           <span className="text-xs font-medium uppercase tracking-wider text-dim">Refundable after</span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {DURATIONS.map((d) => (
-              <button key={d.blocks} onClick={() => setDuration(d.blocks)}
-                className={`rounded-lg border px-3 py-2 text-sm transition ${duration === d.blocks ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-white/[0.02]'}`}>
-                {d.label} <span className="text-[11px] text-dim">· {d.blocks} blocks</span>
+              <button key={d.blocks} onClick={() => setDuration(d.blocks)} className={choice(duration === d.blocks)}>
+                <span className="text-sm">{d.label}</span> <span className="text-[11px] text-dim">· {d.blocks} blocks</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="rounded-xl border border-line bg-ink/60 p-4 text-sm">
-          <div className="flex justify-between"><span className="text-muted">Agent can spend at most</span><span className="font-mono">{sats(budget - 546n)} sats · {String(calls)} calls @ {sats(price)}</span></div>
-          <div className="mt-1.5 flex justify-between"><span className="text-muted">Provider can settle</span><span className="font-mono">only the highest signed voucher</span></div>
-          <div className="mt-1.5 flex justify-between"><span className="text-muted">If provider vanishes</span><span className="font-mono">full refund in {blocksToText(duration)}</span></div>
-        </div>
+        <dl className="grid gap-2 rounded-xl border border-line bg-ink/60 p-4 text-sm">
+          {[
+            ['Agent can spend at most', `${sats(spendable)} sats · ${String(calls)} calls @ ${sats(price)}`],
+            ['Kept back for the owner', '546 sats minimum (BCH dust limit for your refund output)'],
+            ['Provider can settle', 'only the highest signed voucher'],
+            ['If the provider vanishes', `full refund after ${duration} blocks (${blocksToText(duration)})`],
+          ].map(([k, v]) => (
+            <div key={k} className="flex flex-wrap justify-between gap-x-4 gap-y-0.5">
+              <dt className="text-muted">{k}</dt><dd className="font-mono text-[13px]">{v}</dd>
+            </div>
+          ))}
+          <div className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 border-t border-line pt-2 text-xs text-dim">
+            <span>Provider key <span className="font-mono text-muted">{info ? short(info.providerPub, 6) : '…'}</span></span>
+            <a className="py-1 text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
+          </div>
+        </dl>
 
         {!wallet ? (
           <button onClick={onConnect} className="rounded-xl bg-bch px-5 py-3 font-semibold text-ink hover:bg-bch-2">Connect a wallet to fund</button>
         ) : (
           <div className="grid gap-2">
-            <div className="flex items-center justify-between text-xs text-dim">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-dim">
               <span>Paying from {wallet.label} · <span className="font-mono">{short(wallet.address.split(':')[1] ?? wallet.address, 6)}</span></span>
               <span className="font-mono">{balance === null ? '…' : `${sats(balance)} sats available`}</span>
             </div>
-            {wallet.kind === 'burner' && balance !== null && balance < budget + 1_000n && (
-              <div className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
-                This test wallet needs chipnet coins. Send free test BCH to
-                <button className="mt-1.5 block w-full break-all rounded bg-ink/60 px-2 py-1.5 text-left font-mono text-[11px] text-fg"
-                  title="Copy" onClick={() => navigator.clipboard?.writeText(wallet.address)}>{wallet.address}</button>
-                <a className="mt-1.5 inline-block underline" href="https://chipnet.bch.ninja" target="_blank" rel="noreferrer">Get test coins from a chipnet faucet →</a>
+            {wallet.kind === 'burner' && balance !== null && !funded && (
+              <div className="rounded-lg border border-bch/30 bg-bch/[0.07] p-3 text-sm">
+                <p className="text-muted">This test wallet is empty. Free chipnet coins, no signup:</p>
+                {info?.features?.faucet ? (
+                  <button onClick={getTestCoins} disabled={drip.busy || drip.ok}
+                    className="mt-2 w-full rounded-lg bg-bch/90 px-4 py-2.5 font-semibold text-ink hover:bg-bch-2 disabled:opacity-60">
+                    {drip.busy ? 'Sending test coins…' : drip.ok ? 'Test coins on the way' : `Get ${sats(info.features.faucet.dripSats)} free test sats`}
+                  </button>
+                ) : (
+                  <a className="mt-1 inline-block text-bch-2 underline" href="https://chipnet.bch.ninja" target="_blank" rel="noreferrer">Open a chipnet faucet ↗</a>
+                )}
+                {drip.msg && <p className={`mt-1.5 text-xs ${drip.ok ? 'text-bch-2' : 'text-warn'}`}>{drip.msg}</p>}
+                <button className="mt-2 block w-full break-all rounded bg-ink/60 px-2 py-1.5 text-left font-mono text-[11px] text-dim" title="Copy address"
+                  onClick={() => navigator.clipboard?.writeText(wallet.address)}>{wallet.address}</button>
               </div>
             )}
-            <button disabled={!valid || step.state === 'busy'} onClick={open}
+            <button disabled={!!blocker || step.state === 'busy'} onClick={open}
               className="rounded-xl bg-bch px-5 py-3 font-semibold text-ink transition hover:bg-bch-2 disabled:cursor-not-allowed disabled:opacity-40">
-              {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats`}
+              {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats${net === 'mainnet' && bchUsd ? ` (${usd(budget, bchUsd)})` : ''}`}
             </button>
+            {blocker && step.state !== 'busy' && <p className="text-center text-xs text-dim">{blocker}</p>}
           </div>
         )}
         {step.state === 'done' && (
           <p className="slide-in rounded-lg border border-bch/30 bg-bch/10 px-3 py-2.5 text-sm">
-            Tab open with {sats(step.budget)} sats. Your agent can start paying now.{' '}
-            <a className="font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)}</a>
+            Tab open with {sats(step.budget)} sats. {isDemo ? 'Hit "Run the demo agent" and it will pay from your tab.' : 'Your agent can start paying now.'}{' '}
+            <a className="font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>
           </p>
         )}
         {step.state === 'error' && <p className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2.5 text-sm text-bad">{step.msg}</p>}

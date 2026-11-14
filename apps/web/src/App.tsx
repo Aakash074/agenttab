@@ -5,8 +5,8 @@ import { Hero } from './components/Hero';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
-import { MAINNET_ENABLED, type Net } from './config';
-import { api, selectServer, type ServerInfo } from './lib/api';
+import { DEMO_AGENT_PUB, MAINNET_ENABLED, type Net } from './config';
+import { api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
 import { burnerWallet, wizardWallet, type Wallet } from './lib/wallet';
 import { sats, short } from './lib/format';
@@ -21,9 +21,15 @@ function Logo() {
 }
 
 function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizard: () => void; onBurner: () => void; onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-line-2 bg-panel p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Connect a wallet">
+      <div className="relative w-full max-w-md rounded-2xl border border-line-2 bg-panel p-6" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-fg">✕</button>
         <h3 className="text-lg font-bold">Connect a wallet</h3>
         <p className="mt-1 text-sm text-muted">You fund the tab and get the remainder back. Your keys never leave your wallet.</p>
         <button onClick={onWizard} className="mt-5 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60">
@@ -31,7 +37,7 @@ function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizar
           <span className="text-bch-2">→</span>
         </button>
         <button onClick={onBurner} disabled={net !== 'chipnet'} className="mt-3 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60 disabled:opacity-40">
-          <span><b>Chipnet test wallet</b><span className="block text-xs text-muted">A throwaway key in this browser. Free test coins only.</span></span>
+          <span><b>Chipnet test wallet</b><span className="block text-xs text-muted">{net === 'chipnet' ? 'A throwaway key in this browser, topped up with free test coins in one click.' : 'Chipnet only. Switch the network to use it.'}</span></span>
           <span className="text-bch-2">→</span>
         </button>
       </div>
@@ -51,7 +57,7 @@ function HowItWorks() {
       <p className="mt-2 max-w-2xl text-muted">x402-style HTTP payments, but the agent doesn't need a transaction per call or a custodial balance. Every rule below is checked by the covenant, not by us.</p>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {steps.map(([n, t, d]) => (
-          <div key={n} className="rounded-2xl border border-line bg-panel p-5">
+          <div key={n} className="min-w-0 rounded-2xl border border-line bg-panel p-5">
             <span className="font-mono text-sm text-bch">{n}</span>
             <h3 className="mt-2 text-lg font-semibold">{t}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">{d}</p>
@@ -59,7 +65,7 @@ function HowItWorks() {
         ))}
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-panel p-5">
+        <div className="min-w-0 rounded-2xl border border-line bg-panel p-5">
           <h3 className="text-sm font-semibold text-muted">What the covenant guarantees</h3>
           <ul className="mt-3 space-y-2 text-sm">
             {['Provider receives at most the signed amount', 'Owner receives exactly budget − amount', 'Vouchers only work on the tab they were signed for', 'Agent key can never withdraw', 'Owner refunds everything after the timeout'].map((x) => (
@@ -67,7 +73,7 @@ function HowItWorks() {
             ))}
           </ul>
         </div>
-        <div className="rounded-2xl border border-line bg-panel p-5">
+        <div className="min-w-0 rounded-2xl border border-line bg-panel p-5">
           <h3 className="text-sm font-semibold text-muted">Give your agent a tab (MCP)</h3>
           <pre className="mt-3 overflow-x-auto rounded-lg bg-ink p-3 font-mono text-[12px] leading-5 text-muted">{`{
   "mcpServers": {
@@ -93,6 +99,8 @@ export default function App() {
   const [showConnect, setShowConnect] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [opened, setOpened] = useState(0);
+  const [myTabs, setMyTabs] = useState<TabRecord[]>([]);
+  const [menu, setMenu] = useState(false);
   const wc = useWizardConnect({ dappName: 'AgentTab' });
 
   selectServer(net);
@@ -113,31 +121,42 @@ export default function App() {
 
   const fund = () => document.getElementById('fund')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 5) : null, [wallet]);
+  const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
+  const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
+  useEffect(() => { setMyTabs([]); }, [wallet, net]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-clip">
       <Banner />
       <header className="sticky top-0 z-40 border-b border-line bg-ink/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <Logo />
           <nav className="ml-6 hidden gap-5 text-sm text-muted md:flex">
             <a href="#feed" className="hover:text-fg">Live feed</a>
             <a href="#fund" className="hover:text-fg">Fund a tab</a>
             <a href="#how" className="hover:text-fg">How it works</a>
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="rounded-lg border border-line-2 bg-panel px-2.5 py-1.5 text-sm">
-              <option value="chipnet">Chipnet (testnet)</option>
+              className="w-[104px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm sm:w-auto" title="Network (chipnet = testnet)">
+              <option value="chipnet">Chipnet</option>
               <option value="mainnet" disabled={!MAINNET_ENABLED}>Mainnet{MAINNET_ENABLED ? '' : ' (soon)'}</option>
             </select>
             {wallet ? (
-              <button onClick={() => { if (wallet.kind === 'wizard') wc.disconnect(); setWallet(null); }}
-                className="rounded-lg border border-line-2 bg-panel px-3 py-1.5 font-mono text-sm" title="Disconnect">
-                {walletLabel}
-              </button>
+              <div className="relative">
+                <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-1.5 font-mono text-sm" aria-expanded={menu}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-bch" />{walletLabel} <span className="text-dim">▾</span>
+                </button>
+                {menu && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-xl border border-line-2 bg-panel p-2 text-sm shadow-xl" onMouseLeave={() => setMenu(false)}>
+                    <div className="px-2 py-1.5 text-xs text-dim">{wallet.label}</div>
+                    <button className="w-full rounded-lg px-2 py-2 text-left hover:bg-white/5" onClick={() => { navigator.clipboard?.writeText(wallet.address); setMenu(false); }}>Copy address</button>
+                    <button className="w-full rounded-lg px-2 py-2 text-left text-bad hover:bg-white/5" onClick={() => { if (wallet.kind === 'wizard') wc.disconnect(); setWallet(null); setMenu(false); }}>Disconnect</button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="rounded-lg bg-bch px-3.5 py-1.5 text-sm font-semibold text-ink hover:bg-bch-2">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-3 py-1.5 text-sm font-semibold text-ink hover:bg-bch-2">Connect</button>
             )}
           </div>
         </div>
@@ -149,13 +168,13 @@ export default function App() {
         </div>
       )}
 
-      <Hero events={events} stats={stats} net={net} onFund={fund} />
+      <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={!!info?.features?.demo} preferTab={preferTab} onFund={fund} />
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
-        <Feed events={events} net={net} live={live} />
-        <div className="grid content-start gap-6">
-          <FundTab wallet={wallet} info={info} net={net} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)} />
-          <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} />
+        <div className="order-2 min-w-0 lg:order-1"><Feed events={events} net={net} live={live} /></div>
+        <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
+          <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)} />
+          <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs} />
         </div>
       </main>
 

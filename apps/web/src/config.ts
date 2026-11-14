@@ -18,13 +18,20 @@ export const SERVERS: Record<Net, string> = {
 /** Public key of the demo agent (shown as a one-click default when funding a tab). */
 export const DEMO_AGENT_PUB: string = import.meta.env.VITE_DEMO_AGENT_PUB ?? '';
 
-export const MAINNET_ENABLED = import.meta.env.VITE_ENABLE_MAINNET === '1';
+/** Mainnet is selectable only when a mainnet API server is configured. */
+export const MAINNET_ENABLED = !!import.meta.env.VITE_SERVER_URL_MAINNET || import.meta.env.VITE_ENABLE_MAINNET === '1';
 
 export const explorerTx = (net: Net, txid: string) =>
   net === 'mainnet' ? `https://explorer.bch.ninja/tx/${txid}` : `https://chipnet.imaginary.cash/tx/${txid}`;
+export const explorerAddr = (net: Net, address: string) =>
+  net === 'mainnet' ? `https://explorer.bch.ninja/address/${address}` : `https://chipnet.imaginary.cash/address/${address}`;
+
+/** Budgets offered per network (mainnet kept tiny). */
+export const BUDGETS: Record<Net, bigint[]> = { chipnet: [5_000n, 20_000n, 100_000n], mainnet: [3_000n, 5_000n, 10_000n] };
+export const CONTRACT_SOURCE_URL = BANNER.repoUrl ? `${BANNER.repoUrl.replace(/\/$/, '')}/blob/main/packages/covenant/contracts/AgentTab.cash` : '';
 
 export const DURATIONS = [
-  { label: '1 hour', blocks: 12 },
+  { label: '1 hour', blocks: 6 },
   { label: '1 day', blocks: 144 },
   { label: '1 week', blocks: 1008 },
 ];
