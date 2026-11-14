@@ -47,9 +47,7 @@
    - The server refuses vouchers inside the `SAFETY_BLOCKS` window (6 blocks).
    - `tick()` auto-settles any tab inside that window.
    - If the server is down for the whole window, the provider loses that revenue.
-2. **No cooperative early close.** If the provider never settles, the owner's funds stay locked until `timeout`.
-   - Keep timeouts short (for example 144 blocks, about 1 day).
-   - A future `close(ownerSig, providerSig)` path could release funds early.
+2. **Early close needs the provider.** `cancel(providerSig)` (covenant v3) lets the provider return the whole budget at once. The server also uses it automatically when too little is owed to settle. If the provider never settles or cancels, the owner waits for `timeout`, so keep timeouts short (12 blocks in the one-button flow). Even when cancelling, the provider can burn at most the 1000-sat fee cap from the owner's refund.
 3. **Pay-before-serve exposure: one call.** The voucher travels with the request, so a provider that takes the voucher and fails to serve gains at most `price` (one call). The owner can stop at any time.
 4. **Opening at 0-conf.** Until the funding tx confirms, the owner could double-spend it. The provider then loses whatever it served against that tab.
    - BCH 0-conf plus double-spend proofs makes this hard. Even so, high-value providers should require 1 confirmation before `register`.
@@ -73,3 +71,4 @@
     - **Demo agent:** its key sits on the server and its spend is bounded by its tab budget. It can pay from a visitor's tab only if the visitor named the demo agent as that tab's agent.
     - **Drip faucet:** sends free test coins from a server key. It is limited per address, per IP and globally, and refuses to start on mainnet.
     - Rate limits are in-memory and reset on restart.
+15. **Render free hosting is ephemeral.** A restart loses the server's record of the highest voucher. The owner never loses: they refund at the timeout. The provider can lose unsettled revenue, so keep tabs short. See `docs/deploy.md`.

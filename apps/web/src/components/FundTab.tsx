@@ -8,9 +8,9 @@ const HEX33 = /^0[23][0-9a-f]{64}$/i;
 
 type Step = { state: 'idle' } | { state: 'busy'; msg: string } | { state: 'done'; txid: string; budget: bigint } | { state: 'error'; msg: string };
 
-export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, onOpened, onRunOnTab }: {
+export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, onOpened, onRunOnTab, openTabs }: {
   wallet: Wallet | null; info: ServerInfo | null; infoErr: string | null; net: Net; demoAgentPub: string;
-  onConnect: () => void; onOpened: () => void; onRunOnTab?: (tab: string) => void;
+  onConnect: () => void; onOpened: () => void; onRunOnTab?: (tab: string) => void; openTabs?: Set<string>;
 }) {
   const budgets = BUDGETS[net];
   const [agentPub, setAgentPub] = useState(demoAgentPub);
@@ -88,7 +88,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
   const choice = (on: boolean) => `rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-white/[0.03]'}`;
 
   return (
-    <section id="fund" className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
+    <section id="fund" className="scroll-mt-24 rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Fund your agent's tab</h2>
@@ -189,7 +189,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
             {blocker && step.state !== 'busy' && <p className="text-center text-xs text-dim">{blocker}</p>}
           </div>
         )}
-        {step.state === 'done' && (
+        {step.state === 'done' && (!openTabs || openTabs.has(`${step.txid}:0`)) && (
           <p className="slide-in rounded-lg border border-bch/30 bg-bch/10 px-3 py-2.5 text-sm">
             Tab open with {sats(step.budget)} sats. {isDemo ? 'The demo agent can now pay from it.' : 'Your agent can start paying now.'}{' '}
             <a className="tap font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>

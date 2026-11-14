@@ -78,7 +78,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
         {t.status === 'open' && (
           <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             {isDemo && onRunOnTab && (
-              <button onClick={() => onRunOnTab(t.id)} disabled={running}
+              <button onClick={() => onRunOnTab(t.id)} disabled={running || busy}
                 className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-ink hover:bg-bch-2 disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5">
                 {running ? 'Paying…' : '▶ Run agent on this tab'}
               </button>
@@ -98,7 +98,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
           </button>
         )}
       </div>
-      {msg && (
+      {msg && !(msg.ok && t.status !== 'open') && (
         <p className={`mt-2 text-sm ${msg.ok ? 'text-bch-2' : 'text-bad'}`}>
           {msg.text} {msg.txid && <a className="font-mono underline" href={explorerTx(net, msg.txid)} target="_blank" rel="noreferrer">{short(msg.txid, 8)}</a>}
         </p>
@@ -120,7 +120,7 @@ export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, on
   useEffect(() => { setTabs([]); load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load, refreshKey]);
 
   return (
-    <section id="tabs" className="rounded-2xl border border-line bg-panel p-6">
+    <section id="tabs" className="scroll-mt-24 rounded-2xl border border-line bg-panel p-6">
       <h2 className="text-xl font-bold">Your tabs</h2>
       {!wallet ? (
         <p className="mt-2 text-sm text-muted">Connect a wallet to see the tabs you funded.</p>

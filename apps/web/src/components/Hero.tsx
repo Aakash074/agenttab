@@ -71,10 +71,11 @@ settle {settle?.txid ? <a className={link} href={explorerTx(net, settle.txid)} t
   );
 }
 
-export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund, journey, onStartJourney, onResetJourney }: {
+export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund, journey, onStartJourney, onResetJourney, apiDown, lastSeen, stale }: {
   events: FeedEvent[]; stats: Stats | null; net: Net; bchUsd?: number; demoEnabled: boolean; demoIssue?: string;
   pinTab?: string; run: DemoRun; onRun: () => void; onFund: () => void;
   journey: JourneyState; onStartJourney: () => void; onResetJourney: () => void;
+  apiDown?: boolean; lastSeen?: number | null; stale?: boolean;
 }) {
   const now = useNow(5000);
   const res = run.result;
@@ -92,6 +93,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
         </div>
         <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1">
           <Receipt events={events} net={net} bchUsd={bchUsd} pinTab={pinTab} />
+          {stale && lastSeen && <p className="mt-2 text-right text-[11px] text-warn">last seen {ago(new Date(lastSeen).toISOString(), now)} · reconnecting</p>}
         </div>
         <div className="min-w-0 md:col-start-1 md:row-start-2">
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
@@ -99,10 +101,11 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
             instantly and for free, and when you close the tab you get your change back. Bitcoin Cash script makes sure nobody can take more than was spent.
           </p>
           <div className="mt-7">
-            <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney} />
+            <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney}
+              disabledReason={apiDown ? 'API reconnecting… (this takes a few seconds)' : undefined} />
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {demoEnabled && !journey.active && (
-                <button onClick={onRun} disabled={run.busy} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
+                <button onClick={onRun} disabled={run.busy || apiDown} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
                   {run.busy ? 'Agent is paying…' : pinTab ? '▶ Just run the agent on your tab' : '▶ Or just watch the demo agent pay once'}
                 </button>
               )}

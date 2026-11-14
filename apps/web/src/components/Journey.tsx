@@ -13,7 +13,11 @@ export interface JourneyState {
   returned?: string;
   action?: 'settle' | 'cancel';
   done?: boolean;
+  /** Live progress text under the current step (e.g. "Getting free test coins… 4 s"). */
+  note?: string;
 }
+
+export const IDLE_JOURNEY: JourneyState = { active: false, calls: 0 };
 
 const STEPS: { id: JourneyStep; label: string }[] = [
   { id: 'wallet', label: 'Connect a wallet' },
@@ -24,14 +28,18 @@ const STEPS: { id: JourneyStep; label: string }[] = [
 ];
 
 /** The one-button judge path: connect → open → 3 paid calls → close → change back. */
-export function Journey({ j, net, bchUsd, onStart, onReset }: { j: JourneyState; net: Net; bchUsd?: number; onStart: () => void; onReset: () => void }) {
+export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disabledReason }: {
+  j?: JourneyState; net: Net; bchUsd?: number; onStart: () => void; onReset: () => void; disabledReason?: string;
+}) {
   const idx = j.step ? STEPS.findIndex((s) => s.id === j.step) : -1;
-  if (!j.active && !j.done) {
+  if (!j.active && !j.done && !j.error) {
     return (
-      <button onClick={onStart}
-        className="group w-full rounded-2xl bg-bch px-5 py-4 text-left text-ink shadow-lg shadow-bch/20 transition hover:bg-bch-2 sm:max-w-xl">
+      <button onClick={onStart} disabled={!!disabledReason} title={disabledReason}
+        className="group w-full rounded-2xl bg-bch px-5 py-4 text-left text-ink shadow-lg shadow-bch/20 transition hover:bg-bch-2 disabled:cursor-wait disabled:opacity-60 sm:max-w-xl">
         <span className="block text-lg font-bold leading-snug">Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back.</span>
-        <span className="mt-1 block text-sm font-medium opacity-80">One click, about 30 seconds, on {net === 'chipnet' ? 'chipnet with free test coins' : 'mainnet with your wallet'} →</span>
+        <span className="mt-1 block text-sm font-medium opacity-80">
+          {disabledReason ?? `One click, about 30 seconds, on ${net === 'chipnet' ? 'chipnet with free test coins' : 'mainnet with your wallet'} →`}
+        </span>
       </button>
     );
   }
@@ -53,7 +61,8 @@ export function Journey({ j, net, bchUsd, onStart, onReset }: { j: JourneyState;
                     {j.budget ? `${sats(j.budget)} sats${bchUsd ? ` (${usd(j.budget, bchUsd)})` : ''} · ` : ''}{short(j.openTxid, 5)} ↗
                   </a>
                 )}
-                {s.id === 'calls' && (state === 'now' || state === 'done') && <span className="ml-2 font-mono text-xs text-muted">{j.calls}/3 paid</span>}
+                {s.id === 'calls' && (state === 'now' || state === 'done') && <span className="ml-2 font-mono text-xs text-muted">{j.calls}/3 paid · 0 transactions · 0 fees</span>}
+                {state === 'now' && j.note && <span className="block text-xs text-dim">{j.note}</span>}
                 {s.id === 'close' && j.closeTxid && (
                   <a className="tap ml-2 font-mono text-xs text-bch-2 hover:underline" href={explorerTx(net, j.closeTxid)} target="_blank" rel="noreferrer">{short(j.closeTxid, 5)} ↗</a>
                 )}

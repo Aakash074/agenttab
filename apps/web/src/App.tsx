@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
 import { Hero, type DemoRun } from './components/Hero';
-import type { JourneyState } from './components/Journey';
+import { IDLE_JOURNEY, type JourneyState } from './components/Journey';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
@@ -11,7 +12,7 @@ import { DEMO_AGENT_PUB, MAINNET_ENABLED, type Net } from './config';
 import { ApiError, api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
 import type { Wallet } from './lib/wallet';
-import { hex, loadWallet, sats, short, unhex } from './lib/format';
+import { ago, hex, loadWallet, sats, short, unhex } from './lib/format';
 
 function Logo() {
   return (
@@ -54,7 +55,7 @@ function HowItWorks() {
     ['03', 'Settle or refund', 'The provider settles once with the highest voucher, and the covenant forces the rest back to you. If the provider vanishes, you refund after the timeout.'],
   ];
   return (
-    <section id="how" className="mx-auto max-w-6xl px-4 py-16">
+    <section id="how" className="scroll-mt-24 mx-auto max-w-6xl px-4 py-16">
       <h2 className="text-3xl font-bold tracking-tight">A bar tab, enforced by Bitcoin Cash script</h2>
       <p className="mt-2 max-w-2xl text-muted">x402-style HTTP payments, but the agent doesn't need a transaction per call or a custodial balance. Every rule below is checked by the covenant, not by us.</p>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -112,9 +113,15 @@ export default function App() {
   selectServer(net);
   useEffect(() => {
     setInfo(null); setInfoErr(null);
-    api.info().then(setInfo).catch((e) => setInfoErr(e.message));
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const load = () => api.info().then((i) => { if (!stop) { setInfo(i); setInfoErr(null); } })
+      .catch((e) => { if (!stop) { setInfoErr(e.message); timer = setTimeout(load, 4000); } });
+    load();
+    const refreshInfo = setInterval(() => api.info().then((i) => !stop && setInfo(i)).catch(() => {}), 60_000);
+    return () => { stop = true; clearTimeout(timer); clearInterval(refreshInfo); };
   }, [net]);
-  const { events, stats, live, error } = useFeed(net);
+  const { events, stats, live, error, lastSeen, stale } = useFeed(net);
 
   useEffect(() => {
     if (wc.state === 'connected' && wc.manager) {
@@ -139,6 +146,17 @@ export default function App() {
   const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
   const mine = useMemo(() => new Set(myTabs.map((t) => t.id)), [myTabs]);
+  const openTabs = useMemo(() => new Set(myTabs.filter((t) => t.status === 'open').map((t) => t.id)), [myTabs]);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }, [toast]);
+  const prevWallet = useRef<Wallet | null>(null);
+  useEffect(() => {
+    if (wallet && !prevWallet.current && !pendingJourney.current && !journey.active) {
+      wallet.balance().then((b) => setToast(`Connected · ${sats(b)} ${net === 'chipnet' ? 'test ' : ''}sats`)).catch(() => setToast('Connected'));
+      document.getElementById('tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    prevWallet.current = wallet;
+  }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
   const demoEnabled = !!info?.features?.demo;
 
   useEffect(() => {
@@ -151,11 +169,16 @@ export default function App() {
 
   // ---- One-button journey: connect → coins → open → 3 paid calls → close → change back ----
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  function journeyBudget(price: bigint) {
-    if (net === 'chipnet') return 20_000n;
-    const fiveCents = info?.bchUsd ? BigInt(Math.ceil((0.05 / info.bchUsd) * 1e8)) : 25_000n;
+  const FEE_ROOM = 600n;
+  /** Target ≈5¢ (20k sats on chipnet), never below what 3 calls + dust + settle need, never above the balance. */
+  function journeyBudget(price: bigint, balance: bigint) {
     const min = 3n * price + 546n + 1_000n;
-    return fiveCents < min ? min : fiveCents > 30_000n ? 30_000n : fiveCents;
+    const target = net === 'chipnet' ? 20_000n
+      : (info?.bchUsd ? BigInt(Math.ceil((0.05 / info.bchUsd) * 1e8)) : 25_000n);
+    const capped = target > 30_000n ? 30_000n : target;
+    const afford = ((balance - FEE_ROOM) / 100n) * 100n;
+    const b = capped < afford ? capped : afford;
+    return { budget: b < min ? min : b, min, enough: afford >= min };
   }
   async function runJourney(w: Wallet) {
     const upd = (p: Partial<JourneyState>) => setJourney((j) => ({ ...j, ...p }));
@@ -164,20 +187,32 @@ export default function App() {
       const demoPub = info.features?.demo?.agentPub;
       if (!demoPub) throw new Error('This server is not hosting the demo agent.');
       const price = BigInt(info.routes[0]?.price ?? 1000);
-      const budget = journeyBudget(price);
-      upd({ step: 'coins', budget });
+      upd({ step: 'coins', note: 'Checking your balance…' });
       let bal = await w.balance();
-      if (bal < budget + 600n) {
-        if (w.kind !== 'burner' || !info.features?.faucet) throw new Error(`Your wallet needs about ${sats(budget + 600n)} sats (a few cents).`);
-        await api.drip(w.address).catch((e) => { if (!(e instanceof ApiError && e.status === 409)) throw e; });
-        for (let i = 0; i < 20 && bal < budget + 600n; i++) { await sleep(1500); bal = await w.balance(); }
-        if (bal < budget + 600n) throw new Error('Test coins are taking a while to arrive. Try again in a moment.');
+      let plan = journeyBudget(price, bal);
+      if (!plan.enough) {
+        if (w.kind !== 'burner' || !info.features?.faucet) throw new Error(`Your wallet needs at least ${sats(plan.min + FEE_ROOM)} sats (a few cents) to open a tab.`);
+        const t0 = Date.now();
+        upd({ note: 'Getting free test coins…' });
+        try { await api.drip(w.address); } catch (e) {
+          if (e instanceof ApiError && e.status === 429) throw new Error(`${e.message} Meanwhile, press "Or just watch the demo agent pay once".`);
+          if (!(e instanceof ApiError && e.status === 409)) throw e;
+        }
+        for (let i = 0; i < 16 && !plan.enough; i++) {
+          await sleep(1000);
+          upd({ note: `Getting free test coins… ${Math.round((Date.now() - t0) / 1000)} s` });
+          bal = await w.balance();
+          plan = journeyBudget(price, bal);
+        }
+        if (!plan.enough) throw new Error('The test coins have not shown up yet. Press "Try again" in a few seconds.');
       }
-      upd({ step: 'open' });
+      const budget = plan.budget;
+      upd({ budget, note: undefined });
+      upd({ step: 'open', note: w.kind === 'wizard' ? 'Approve the transaction in your wallet…' : 'Signing and broadcasting…' });
       const { chain } = await loadWallet();
       const timeout = (await chain(net).getBlockHeight()) + 12;
       const txid = await w.openTab({ agentPub: unhex(demoPub), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
-      upd({ openTxid: txid });
+      upd({ openTxid: txid, note: 'Registering the tab with the API…' });
       let reg: unknown = 'pending';
       for (let i = 0; i < 8 && reg; i++) {
         try { await api.register({ txid, vout: 0, ownerPub: hex(w.ownerPub), agentPub: demoPub, timeout }); reg = null; }
@@ -186,7 +221,7 @@ export default function App() {
       if (reg) throw reg;
       setOpened((n) => n + 1);
       const tab = `${txid}:0`;
-      upd({ step: 'calls', calls: 0 });
+      upd({ step: 'calls', calls: 0, note: undefined });
       for (let i = 1; i <= 3; i++) {
         let r;
         for (let tries = 0; !r; tries++) {
@@ -199,18 +234,24 @@ export default function App() {
         upd({ calls: i });
         if (i < 3) await sleep(4300);
       }
-      upd({ step: 'close' });
+      upd({ step: 'close', note: 'Settling: provider takes what was signed, the rest comes back…' });
       await sleep(800);
       const c = await api.closeTab(tab);
-      upd({ closeTxid: c.txid, returned: c.returnedSats, action: (c as { action?: 'settle' | 'cancel' }).action ?? 'settle', done: true, active: false });
+      upd({ closeTxid: c.txid, returned: c.returnedSats, action: c.action ?? 'settle', done: true, active: false, note: undefined });
       setOpened((n) => n + 1);
     } catch (e) {
-      upd({ error: (e as Error).message });
+      upd({ error: (e as Error).message, active: false, note: undefined });
     }
   }
   function startJourney() {
     setJourney({ active: true, step: 'wallet', calls: 0 });
-    if (!wallet) { pendingJourney.current = true; setShowConnect(true); return; }
+    if (!wallet) {
+      pendingJourney.current = true;
+      // Chipnet: true one click, use a throwaway browser test wallet. Mainnet: ask for WizardConnect.
+      if (net === 'chipnet') loadWallet().then(({ burnerWallet }) => setWallet(burnerWallet()));
+      else setShowConnect(true);
+      return;
+    }
     void runJourney(wallet);
   }
   useEffect(() => {
@@ -227,7 +268,10 @@ export default function App() {
       setDemoIssue(undefined);
       setOpened((n) => n + 1); // refresh tab cards (spent/remaining)
     } catch (e) {
-      setRun({ busy: false, at: Date.now(), result: { ok: false, msg: (e as Error).message } });
+      const m = (e as Error).message;
+      const msg = /tab_closed|no longer usable|tab is (settled|cancelled|closed)/i.test(m) ? 'That tab is closed. Open a new one with the button above.' : m;
+      setRun({ busy: false, at: Date.now(), result: { ok: false, msg } });
+      setOpened((n) => n + 1);
     }
   }
   useEffect(() => { setMyTabs([]); }, [wallet, net]);
@@ -272,16 +316,19 @@ export default function App() {
 
       {(infoErr || error) && (
         <div className="border-b border-warn/30 bg-warn/10 px-4 py-2 text-center text-sm text-warn">
-          Can't reach the AgentTab API on {net} ({infoErr ?? error}). Showing cached data only.
+          Reconnecting to the AgentTab API on {net}…{lastSeen ? ` Showing what was live ${ago(new Date(lastSeen).toISOString())}.` : ''}
         </div>
       )}
 
+      <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
         pinTab={preferTab} run={run} onRun={() => runDemo()} onFund={fund}
-        journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney({ active: false, calls: 0 })} />
+        journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
+        apiDown={!info} lastSeen={lastSeen} stale={stale} />
+      </ErrorBoundary>
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
-        <div className="order-2 min-w-0 lg:order-1"><Feed events={events} net={net} live={live} mine={mine} /></div>
+        <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} /></ErrorBoundary></div></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
           <details id="advanced" className="group rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
             <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold group-open:hidden">
@@ -289,16 +336,20 @@ export default function App() {
               <span className="text-dim">▾</span>
             </summary>
             <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
-              onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} />
+              onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} openTabs={wallet ? openTabs : undefined} />
           </details>
-          <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
-            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} />
+          <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
+            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} /></ErrorBoundary>
         </div>
       </main>
 
-      {info?.features?.attacks && <Suspense fallback={null}><CheatPanel net={net} /></Suspense>}
+      {info?.features?.attacks && <ErrorBoundary label="The attack panel"><Suspense fallback={null}><CheatPanel net={net} /></Suspense></ErrorBoundary>}
 
       <HowItWorks />
+
+      {toast && (
+        <div role="status" className="slide-in fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-bch/40 bg-panel px-4 py-2.5 text-sm shadow-xl">{toast}</div>
+      )}
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-dim">

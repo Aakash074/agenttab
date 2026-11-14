@@ -286,7 +286,7 @@ export class TabLedger extends EventEmitter {
   stats() {
     let paidCalls = 0, earned = 0n, open = 0, onchainTxs = 0, feeSats = 0;
     for (const t of this.tabs.values()) {
-      if (t.tag === 'attack') continue;
+      if (t.tag === 'attack' || t.requests === 0) continue; // headline counts tabs that actually served calls
       paidCalls += t.requests;
       earned += BigInt(t.highest?.amount ?? '0');
       if (t.status === 'open') open++;

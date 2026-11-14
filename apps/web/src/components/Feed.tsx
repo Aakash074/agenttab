@@ -37,7 +37,7 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
   const [all, setAll] = useState(false);
   const shown = all ? events : events.slice(0, VISIBLE);
   return (
-    <section id="feed" className="self-start rounded-2xl border border-line bg-panel">
+    <section id="feed" className="scroll-mt-24 self-start rounded-2xl border border-line bg-panel">
       <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full ${live ? 'bg-bch pulse-dot' : 'bg-dim'}`} />
