@@ -47,6 +47,12 @@ interface Terms {
   extra?: { minTimeoutBlocks?: number; openTab?: string };
 }
 
+/** The tab the caller asked for is closed (settled, waived, refunded or expiring). */
+export class TabClosedError extends Error {
+  tab: string;
+  constructor(tab: string, reason: string) { super(`That tab is closed (${reason}).`); this.tab = tab; }
+}
+
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64');
 const unb64 = (s: string) => JSON.parse(Buffer.from(s, 'base64').toString('utf8'));
 
@@ -87,15 +93,33 @@ export class AgentTabClient {
     return run;
   }
 
-  private async pickTab(origin: string, terms: Terms, price: bigint, preferTab?: string): Promise<LocalTab> {
+  /** Ask the provider whether a tab someone else funded is still open; mark it closed locally if not. */
+  private async stillOpen(t: LocalTab): Promise<boolean> {
+    if (t.fundedBy === 'agent') return true; // our own tabs only close when we close them
+    try {
+      const r = await this.fetch(`${t.origin}/tabs/${t.id}`);
+      if (!r.ok) return true; // provider unreachable/unknown: let the payment attempt decide
+      const st = (await r.json()) as { status?: string; settledTxid?: string };
+      if (st.status && st.status !== 'open') {
+        t.closed = { action: st.status, txid: st.settledTxid ?? '' };
+        this.save();
+        return false;
+      }
+    } catch { /* offline */ }
+    return true;
+  }
+
+  private async pickTab(origin: string, terms: Terms, price: bigint, preferTab?: string, ownTabsOnly = false): Promise<LocalTab> {
     const tip = await this.cfg.provider.getBlockHeight();
     const margin = (terms.extra?.minTimeoutBlocks ?? 7) + 1;
     const usable = (t: LocalTab) => !t.closed && t.origin === origin && t.providerPub === terms.payTo && t.timeout > tip + margin
-      && BigInt(t.signed) + price <= BigInt(t.budget) - DUST;
+      && BigInt(t.signed) + price <= BigInt(t.budget) - DUST && (!ownTabsOnly || t.fundedBy === 'agent');
     const preferred = preferTab ? this.tabs.get(preferTab) : undefined;
-    if (preferred && usable(preferred)) return preferred;
-    const local = preferTab ? undefined : [...this.tabs.values()].find(usable);
-    if (local) return local;
+    if (preferred && usable(preferred) && await this.stillOpen(preferred)) return preferred;
+    if (!preferTab) {
+      for (const t of [...this.tabs.values()].filter(usable)) if (await this.stillOpen(t)) return t;
+    }
+    if (ownTabsOnly) return this.openOwnTab(origin, terms, tip);
 
     // A tab a human funded for this agent at this provider?
     const r = await this.fetch(`${origin}/tabs?agent=${this.agentPubHex}`);
@@ -115,13 +139,11 @@ export class AgentTabClient {
         if (!utxo || utxo.satoshis.toString() !== t.budget) continue;
         this.tabs.set(t.id, t);
         this.save();
-        if (usable(t)) return t;
+        if (usable(t) && (!preferTab || t.id === preferTab)) return t;
       }
     }
-    if (preferTab) {
-      const fallback = [...this.tabs.values()].find(usable);
-      if (fallback) return fallback;
-    }
+    // The caller asked for a specific tab and it is not usable: say so instead of silently paying elsewhere.
+    if (preferTab) throw new TabClosedError(preferTab, this.tabs.get(preferTab)?.closed?.action ?? 'not open or out of budget');
     return this.openOwnTab(origin, terms, tip);
   }
 
@@ -151,8 +173,18 @@ export class AgentTabClient {
   }
 
   /** GET/POST a URL; if it answers 402 bch-credit, pay one call from a tab and retry. */
-  fetchPaid(url: string, init: RequestInit = {}, maxPrice = this.cfg.maxPriceSats, opts: { preferTab?: string } = {}) {
+  fetchPaid(url: string, init: RequestInit = {}, maxPrice = this.cfg.maxPriceSats, opts: { preferTab?: string; ownTabsOnly?: boolean } = {}) {
     return this.exclusive(async () => {
+      try { return await this.payOnce(url, init, maxPrice, opts); } catch (e) {
+        // A tab closed under us (e.g. its owner pressed "Close tab now"): it is now marked closed, try once more.
+        if (e instanceof TabClosedError && !opts.preferTab) return this.payOnce(url, init, maxPrice, opts);
+        throw e;
+      }
+    });
+  }
+
+  private async payOnce(url: string, init: RequestInit, maxPrice: bigint, opts: { preferTab?: string; ownTabsOnly?: boolean }) {
+    {
       const origin = new URL(url).origin;
       const first = await this.fetch(url, init);
       if (first.status !== 402) return { status: first.status, paid: false as const, body: await first.text() };
@@ -164,7 +196,7 @@ export class AgentTabClient {
       if (price > cap) throw new Error(`price ${price} sats exceeds cap ${cap}`);
       if (this.totalSigned() + price > this.cfg.maxTotalSats) throw new Error(`total spend cap ${this.cfg.maxTotalSats} sats reached`);
 
-      const tab = await this.pickTab(origin, terms, price, opts.preferTab);
+      const tab = await this.pickTab(origin, terms, price, opts.preferTab, opts.ownTabsOnly);
       const [txid, vout] = tab.id.split(':');
       const amount = BigInt(tab.signed) + price;
       const v = signVoucher(this.cfg.agentPriv, { txid, vout: Number(vout) }, amount);
@@ -182,7 +214,7 @@ export class AgentTabClient {
           tab.signed = (amount - price).toString();
           tab.closed = { action: err.error, txid: '' };
           this.save();
-          throw new Error(`tab ${tab.id} is no longer usable (${err.error}); retry to use or open another tab`);
+          throw new TabClosedError(tab.id, err.error);
         }
         if (err.error === 'wrong_amount' || err.error === 'replayed_voucher') {
           // Our local count disagrees with the provider; never sign above what we already signed + price.
@@ -196,7 +228,7 @@ export class AgentTabClient {
         tab: tab.id, priceSats: price.toString(), cumulativeSats: amount.toString(),
         remainingSats: (BigInt(tab.budget) - DUST - amount).toString(),
       };
-    });
+    }
   }
 
   async status(id?: string) {

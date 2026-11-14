@@ -252,3 +252,38 @@ describe('cancel path and mainnet demo mode', () => {
     a3.close();
   });
 });
+
+test('regression: house demo agent survives visitors closing their tabs (no stale-tab errors, no hex in messages)', async () => {
+  const n = new MockNetworkProvider();
+  const pPriv = generatePrivateKey(), dPriv = generatePrivateKey(), vPriv = generatePrivateKey();
+  const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+  let b4 = '';
+  const d = createDemo({ ledger: l, provider: n, network: 'mocknet' as never, agentPriv: dPriv, selfUrl: () => b4, route: '/api/oracle', price: 1000n, budgetSats: 20_000n, perIpMs: 0 });
+  const a4 = createApp({ ledger: l, network: 'mocknet', extra: [d.handler], routes: [{ path: '/api/oracle', price: 1000n, description: 't', handler: () => ({ answer: 'ok' }) }] });
+  await new Promise<void>((r) => a4.listen(0, r));
+  b4 = `http://127.0.0.1:${(a4.address() as AddressInfo).port}`;
+  n.addUtxo(p2pkhAddress(pubFromPriv(dPriv)), randomUtxo({ satoshis: 200_000n }));
+  // a visitor funds a tab for the house agent and runs it twice
+  const vc = tabContract({ ownerPub: pubFromPriv(vPriv), agentPub: pubFromPriv(dPriv), providerPub: pubFromPriv(pPriv), timeout: 1_000_000n }, n);
+  const va = p2pkhAddress(pubFromPriv(vPriv));
+  n.addUtxo(va, randomUtxo({ satoshis: 50_000n }));
+  const open = await buildOpen({ provider: n, contract: vc, payerPriv: vPriv, fundingUtxos: await n.getUtxos(va), budget: 10_000n, changeAddress: va }).send();
+  const vt = `${open.txid}:0`;
+  await l.register({ txid: open.txid, vout: 0, ownerPub: binToHex(pubFromPriv(vPriv)), agentPub: binToHex(pubFromPriv(dPriv)), timeout: 1_000_000 });
+  for (let i = 0; i < 2; i++) assert.equal((await d.call(vt)).tab, vt);
+  // the visitor closes it
+  await l.close(vt);
+  // background job keeps working on the agent's own tab, and never touches visitor tabs on its own
+  for (let i = 0; i < 3; i++) {
+    const r = await d.cronTick();
+    assert.notEqual(r.tab, vt);
+  }
+  assert.equal((await d.info()).healthy, true);
+  // a visitor asking for the closed tab gets a friendly 409, no raw hex
+  const res = await fetch(`${b4}/demo/call`, { method: 'POST', body: JSON.stringify({ tab: vt }) });
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.error, 'tab_closed');
+  assert.doesNotMatch(body.message, /[0-9a-f]{16}/);
+  a4.close();
+});

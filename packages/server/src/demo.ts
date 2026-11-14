@@ -3,7 +3,7 @@
 // It spends from a tab a visitor funded for the demo agent (if given), else from its own demo tab.
 import { SignatureTemplate, TransactionBuilder, type NetworkProvider } from 'cashscript';
 import { DUST, p2pkhAddress, pubFromPriv } from '@agenttab/covenant';
-import { AgentTabClient } from '../../mcp/src/agent.ts';
+import { AgentTabClient, TabClosedError } from '../../mcp/src/agent.ts';
 import { MIN_SETTLE, PaymentError, type TabLedger } from './ledger.ts';
 import { json, readBody, type ExtraHandler } from './app.ts';
 import { RateLimiter, clientIp } from './ratelimit.ts';
@@ -44,8 +44,9 @@ export function createDemo(o: DemoOptions) {
   const perIp = new RateLimiter(1, o.perIpMs ?? 4_000);
   const global = new RateLimiter(20, 60_000);
   let lastCall: string | undefined;
-  let lastError: string | undefined;
+  let lastError: string | undefined;        // last failure of any call (diagnostics only)
   let lastErrorAt: string | undefined;
+  let cronFailingSince: string | undefined;  // health is judged only by the background job's own calls
   let lastRecycle: string | undefined;
 
   /** Sweep the provider's settlement proceeds back to the demo agent (chipnet/mocknet only). */
@@ -78,21 +79,24 @@ export function createDemo(o: DemoOptions) {
     }
   }
 
-  async function call(preferTab?: string, routePath?: string) {
+  async function call(preferTab?: string, routePath?: string, fromCron = false) {
     if (o.visitorTabsOnly && !preferTab) throw new PaymentError('needs_tab', 'On mainnet the demo agent only spends a tab you funded for it. Fund one first.', 400);
     const q = questions[Math.floor(Math.random() * questions.length)];
     try {
       const pool = [{ path: o.route, price: o.price }, ...(o.extraRoutes ?? [])];
       const pick = routePath ? (pool.find((p) => p.path === routePath) ?? pool[0]) : (Math.random() < 0.6 ? pool[0] : pool[1 + Math.floor(Math.random() * (pool.length - 1))] ?? pool[0]);
-      const r = await agent.fetchPaid(`${o.selfUrl()}${pick.path}?q=${encodeURIComponent(q)}`, {}, o.price, { preferTab });
+      // Without an explicit visitor tab, the house agent only ever spends its own tabs.
+      const r = await agent.fetchPaid(`${o.selfUrl()}${pick.path}?q=${encodeURIComponent(q)}`, {}, o.price, { preferTab, ownTabsOnly: !preferTab });
       lastCall = new Date().toISOString();
       lastError = undefined;
+      if (fromCron) cronFailingSince = undefined;
       await rollOver();
       recycle().catch((e) => console.error('demo recycle', (e as Error).message));
       return r;
     } catch (e) {
       lastError = (e as Error).message;
       lastErrorAt = new Date().toISOString();
+      if (fromCron && !cronFailingSince) cronFailingSince = lastErrorAt;
       console.error('demo call failed:', lastError);
       throw e;
     }
@@ -100,7 +104,7 @@ export function createDemo(o: DemoOptions) {
 
   const info = async () => ({
     enabled: true, agentPub: agent.agentPubHex, fundingAddress: agent.address, lastCall, lastError, lastErrorAt, lastRecycle,
-    viewers: o.ledger.viewers, healthy: !lastError,
+    viewers: o.ledger.viewers, healthy: !cronFailingSince, failingSince: cronFailingSince,
     balanceSats: (await agent.balance().catch(() => 0n)).toString(),
   });
 
@@ -118,7 +122,8 @@ export function createDemo(o: DemoOptions) {
         ? { tab: r.tab, priceSats: r.priceSats, cumulativeSats: r.cumulativeSats, remainingSats: r.remainingSats, answer: parsed?.answer }
         : { status: r.status });
     } catch (e) {
-      json(res, e instanceof PaymentError ? e.status : 503, { error: 'demo_failed', message: (e as Error).message });
+      if (e instanceof TabClosedError) json(res, 409, { error: 'tab_closed', message: 'That tab is closed. Open a new one to keep paying.' });
+      else json(res, e instanceof PaymentError ? e.status : 503, { error: 'demo_failed', message: (e as Error).message });
     }
     return true;
   };
@@ -131,10 +136,10 @@ export function createDemo(o: DemoOptions) {
     timer = setInterval(() => {
       const since = lastCall ? Date.now() - Date.parse(lastCall) : Infinity;
       if (o.ledger.viewers === 0 && since < idle) return;
-      call().catch(() => {});
+      call(undefined, undefined, true).catch(() => {});
     }, seconds * 1000);
   };
   const stop = () => timer && clearInterval(timer);
 
-  return { agent, call, info, handler, startCron, stop, recycle };
+  return { agent, call, info, handler, startCron, stop, recycle, cronTick: () => call(undefined, undefined, true) };
 }
