@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
 import { Hero, type DemoRun } from './components/Hero';
+import type { JourneyState } from './components/Journey';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
-import { CheatPanel } from './components/CheatPanel';
+const CheatPanel = lazy(() => import('./components/CheatPanel').then((m) => ({ default: m.CheatPanel })));
 import { DEMO_AGENT_PUB, MAINNET_ENABLED, type Net } from './config';
-import { api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
+import { ApiError, api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
-import { burnerWallet, wizardWallet, type Wallet } from './lib/wallet';
-import { sats, short } from './lib/format';
+import type { Wallet } from './lib/wallet';
+import { hex, loadWallet, sats, short, unhex } from './lib/format';
 
 function Logo() {
   return (
@@ -104,6 +105,8 @@ export default function App() {
   const [menu, setMenu] = useState(false);
   const [run, setRun] = useState<DemoRun>({ busy: false });
   const [demoIssue, setDemoIssue] = useState<string | undefined>();
+  const [journey, setJourney] = useState<JourneyState>({ active: false, calls: 0 });
+  const pendingJourney = useRef(false);
   const wc = useWizardConnect({ dappName: 'AgentTab' });
 
   selectServer(net);
@@ -115,14 +118,23 @@ export default function App() {
 
   useEffect(() => {
     if (wc.state === 'connected' && wc.manager) {
-      try { setWallet(wizardWallet(wc.manager, net, wc.walletName ?? 'WizardConnect wallet')); setShowQr(false); } catch { /* keys not ready yet */ }
+      const m = wc.manager;
+      loadWallet().then(({ wizardWallet }) => { setWallet(wizardWallet(m, net, wc.walletName ?? 'WizardConnect wallet')); setShowQr(false); }).catch(() => { /* keys not ready yet */ });
     }
     if (wc.state === 'disconnected' && wallet?.kind === 'wizard') setWallet(null);
   }, [wc.state, wc.manager, wc.walletName, net]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (wallet && wallet.net !== net) setWallet(wallet.kind === 'wizard' && wc.manager ? wizardWallet(wc.manager, net, wallet.label) : null); }, [net]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!wallet || wallet.net === net) return;
+    if (wallet.kind === 'wizard' && wc.manager) { const m = wc.manager; loadWallet().then(({ wizardWallet }) => setWallet(wizardWallet(m, net, wallet.label))); }
+    else setWallet(null);
+  }, [net]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fund = () => document.getElementById('fund')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const fund = () => {
+    const adv = document.getElementById('advanced') as HTMLDetailsElement | null;
+    if (adv) adv.open = true;
+    document.getElementById('fund')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 5) : null, [wallet]);
   const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
@@ -136,6 +148,74 @@ export default function App() {
     const t = setInterval(load, 30_000);
     return () => clearInterval(t);
   }, [demoEnabled, net]);
+
+  // ---- One-button journey: connect → coins → open → 3 paid calls → close → change back ----
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  function journeyBudget(price: bigint) {
+    if (net === 'chipnet') return 20_000n;
+    const fiveCents = info?.bchUsd ? BigInt(Math.ceil((0.05 / info.bchUsd) * 1e8)) : 25_000n;
+    const min = 3n * price + 546n + 1_000n;
+    return fiveCents < min ? min : fiveCents > 30_000n ? 30_000n : fiveCents;
+  }
+  async function runJourney(w: Wallet) {
+    const upd = (p: Partial<JourneyState>) => setJourney((j) => ({ ...j, ...p }));
+    try {
+      if (!info) throw new Error('The provider API is unreachable right now.');
+      const demoPub = info.features?.demo?.agentPub;
+      if (!demoPub) throw new Error('This server is not hosting the demo agent.');
+      const price = BigInt(info.routes[0]?.price ?? 1000);
+      const budget = journeyBudget(price);
+      upd({ step: 'coins', budget });
+      let bal = await w.balance();
+      if (bal < budget + 600n) {
+        if (w.kind !== 'burner' || !info.features?.faucet) throw new Error(`Your wallet needs about ${sats(budget + 600n)} sats (a few cents).`);
+        await api.drip(w.address).catch((e) => { if (!(e instanceof ApiError && e.status === 409)) throw e; });
+        for (let i = 0; i < 20 && bal < budget + 600n; i++) { await sleep(1500); bal = await w.balance(); }
+        if (bal < budget + 600n) throw new Error('Test coins are taking a while to arrive. Try again in a moment.');
+      }
+      upd({ step: 'open' });
+      const { chain } = await loadWallet();
+      const timeout = (await chain(net).getBlockHeight()) + 12;
+      const txid = await w.openTab({ agentPub: unhex(demoPub), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
+      upd({ openTxid: txid });
+      let reg: unknown = 'pending';
+      for (let i = 0; i < 8 && reg; i++) {
+        try { await api.register({ txid, vout: 0, ownerPub: hex(w.ownerPub), agentPub: demoPub, timeout }); reg = null; }
+        catch (e) { reg = e; await sleep(1500); }
+      }
+      if (reg) throw reg;
+      setOpened((n) => n + 1);
+      const tab = `${txid}:0`;
+      upd({ step: 'calls', calls: 0 });
+      for (let i = 1; i <= 3; i++) {
+        let r;
+        for (let tries = 0; !r; tries++) {
+          try { r = await api.demoCall(tab); } catch (e) {
+            if (e instanceof ApiError && e.status === 429 && tries < 5) { await sleep(2500); continue; }
+            throw e;
+          }
+        }
+        setRun({ busy: false, at: Date.now(), result: { ok: true, r } });
+        upd({ calls: i });
+        if (i < 3) await sleep(4300);
+      }
+      upd({ step: 'close' });
+      await sleep(800);
+      const c = await api.closeTab(tab);
+      upd({ closeTxid: c.txid, returned: c.returnedSats, action: (c as { action?: 'settle' | 'cancel' }).action ?? 'settle', done: true, active: false });
+      setOpened((n) => n + 1);
+    } catch (e) {
+      upd({ error: (e as Error).message });
+    }
+  }
+  function startJourney() {
+    setJourney({ active: true, step: 'wallet', calls: 0 });
+    if (!wallet) { pendingJourney.current = true; setShowConnect(true); return; }
+    void runJourney(wallet);
+  }
+  useEffect(() => {
+    if (wallet && pendingJourney.current) { pendingJourney.current = false; void runJourney(wallet); }
+  }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runDemo(tab?: string) {
     const target = tab ?? preferTab;
@@ -197,19 +277,26 @@ export default function App() {
       )}
 
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
-        pinTab={preferTab} run={run} onRun={() => runDemo()} onFund={fund} />
+        pinTab={preferTab} run={run} onRun={() => runDemo()} onFund={fund}
+        journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney({ active: false, calls: 0 })} />
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
         <div className="order-2 min-w-0 lg:order-1"><Feed events={events} net={net} live={live} mine={mine} /></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
-          <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
-            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} />
+          <details id="advanced" className="group rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
+            <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold group-open:hidden">
+              <span>Advanced: fund a tab for your own agent <span className="font-normal text-dim">(agent key, budget, timeout, covenant)</span></span>
+              <span className="text-dim">▾</span>
+            </summary>
+            <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
+              onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} />
+          </details>
           <MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
             onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} />
         </div>
       </main>
 
-      {info?.features?.attacks && <CheatPanel net={net} />}
+      {info?.features?.attacks && <Suspense fallback={null}><CheatPanel net={net} /></Suspense>}
 
       <HowItWorks />
 
@@ -221,12 +308,12 @@ export default function App() {
       </footer>
 
       {showConnect && (
-        <ConnectDialog net={net} onClose={() => setShowConnect(false)}
-          onBurner={() => { setWallet(burnerWallet()); setShowConnect(false); }}
+        <ConnectDialog net={net} onClose={() => { setShowConnect(false); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
+          onBurner={() => { loadWallet().then(({ burnerWallet }) => setWallet(burnerWallet())); setShowConnect(false); }}
           onWizard={() => { setShowConnect(false); wc.connect(); setShowQr(true); }} />
       )}
       {showQr && wc.uri && wc.qrUri && wc.state !== 'connected' && (
-        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => setShowQr(false)}
+        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); if (pendingJourney.current) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
           title="Connect with WizardConnect" subtitle="Scan with Paytaca to fund your agent's tab"
           theme={{ dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35' }} />
       )}

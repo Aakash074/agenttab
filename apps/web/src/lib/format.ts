@@ -23,3 +23,10 @@ export function blocksToText(blocks: number) {
 
 export const usd = (satoshis: bigint | number, price?: number) =>
   price ? `$${((Number(satoshis) / 1e8) * price).toFixed(Number(satoshis) * price < 1e8 * 0.1 ? 4 : 2)}` : '';
+
+/** Tiny hex helpers so UI modules don't pull the BCH libraries into the first bundle. */
+export const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+export const unhex = (h: string) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
+
+/** Lazy-load the wallet / CashScript layer (the heavy part of the bundle). */
+export const loadWallet = () => import('./wallet');

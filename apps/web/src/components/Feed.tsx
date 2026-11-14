@@ -7,6 +7,7 @@ const KIND: Record<FeedEvent['type'], { label: string; tone: string }> = {
   open: { label: 'TAB OPENED', tone: 'text-sky-300 bg-sky-400/10 ring-sky-400/20' },
   pay: { label: 'PAID CALL', tone: 'text-bch-2 bg-bch/10 ring-bch/25' },
   settle: { label: 'SETTLED', tone: 'text-amber-200 bg-amber-300/10 ring-amber-300/25' },
+  cancel: { label: 'WAIVED', tone: 'text-sky-200 bg-sky-300/10 ring-sky-300/20' },
   expired: { label: 'EXPIRED', tone: 'text-muted bg-white/5 ring-white/10' },
   closed: { label: 'REFUNDED', tone: 'text-muted bg-white/5 ring-white/10' },
 };
@@ -23,6 +24,7 @@ export function describe(e: FeedEvent) {
     case 'open': return <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'an agent'}</>;
     case 'pay': return <>{who} paid <b className="text-fg">{sats(e.price)} sats</b> for <code className="font-mono text-fg">{e.route}</code> · voucher total {sats(e.amount)}</>;
     case 'settle': return <>Provider settled <b className="text-fg">{sats(e.amount)} sats</b>, remainder forced back to owner{e.auto ? ' (auto, before timeout)' : ''}</>;
+    case 'cancel': return <>Provider waived the tab: the whole budget went back to the owner{e.auto ? ' (auto, before timeout)' : ''}</>;
     case 'expired': return <>Tab reached its timeout with nothing to settle</>;
     case 'closed': return <>Owner reclaimed the tab after timeout</>;
   }

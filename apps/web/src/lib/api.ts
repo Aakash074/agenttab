@@ -3,7 +3,7 @@ import { SERVERS, type Net } from '../config';
 export interface FeedEvent {
   id: number;
   at: string;
-  type: 'open' | 'pay' | 'settle' | 'expired' | 'closed';
+  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed';
   tab: string;
   txid?: string;
   amount?: string;
@@ -34,7 +34,7 @@ export interface TabRecord {
   highest?: { amount: string; sig: string };
   requests: number;
   openedAt: string;
-  status: 'open' | 'settled' | 'expired' | 'closed';
+  status: 'open' | 'settled' | 'cancelled' | 'expired' | 'closed';
   settledTxid?: string;
   settledAmount?: string;
 }
@@ -86,6 +86,6 @@ export const api = {
   demoInfo: () => j<DemoInfo>('/demo'),
   attacks: () => j<{ last: AttackRun | null; running: boolean }>('/attacks'),
   runAttacks: () => j<{ last: AttackRun | null; running?: boolean; cached?: boolean; retryInMs?: number }>('/attacks/run', { method: 'POST' }),
-  closeTab: (id: string) => j<{ txid: string; settledSats: string; returnedSats: string }>(`/tabs/${id}/close`, { method: 'POST' }),
+  closeTab: (id: string) => j<{ txid: string; action: 'settle' | 'cancel'; settledSats: string; returnedSats: string }>(`/tabs/${id}/close`, { method: 'POST' }),
   drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };

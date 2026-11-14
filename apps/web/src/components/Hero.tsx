@@ -2,6 +2,7 @@ import type { DemoCall, FeedEvent, Stats } from '../lib/api';
 import { ago, sats, short, usd } from '../lib/format';
 import { SERVERS, explorerTx, type Net } from '../config';
 import { useNow } from './Feed';
+import { Journey, type JourneyState } from './Journey';
 
 export type DemoRun = { busy: boolean; at?: number; result?: { ok: true; r: DemoCall } | { ok: false; msg: string } };
 
@@ -70,9 +71,10 @@ settle {settle?.txid ? <a className={link} href={explorerTx(net, settle.txid)} t
   );
 }
 
-export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund }: {
+export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund, journey, onStartJourney, onResetJourney }: {
   events: FeedEvent[]; stats: Stats | null; net: Net; bchUsd?: number; demoEnabled: boolean; demoIssue?: string;
   pinTab?: string; run: DemoRun; onRun: () => void; onFund: () => void;
+  journey: JourneyState; onStartJourney: () => void; onResetJourney: () => void;
 }) {
   const now = useNow(5000);
   const res = run.result;
@@ -93,16 +95,19 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
         </div>
         <div className="min-w-0 md:col-start-1 md:row-start-2">
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
-            Open a <b className="text-fg">refundable tab</b>: lock a budget in a BCH covenant with <b className="text-fg">one transaction</b>, then your agent pays for
-            each API call with a signed voucher, which is instant, free, and off-chain. The provider settles once and can only take what was signed. The rest returns to you.
+            Like a bar tab for software: you put a few cents behind the bar in <b className="text-fg">one transaction</b>, the AI agent pays per API call
+            instantly and for free, and when you close the tab you get your change back. Bitcoin Cash script makes sure nobody can take more than was spent.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            {demoEnabled && (
-              <button onClick={onRun} disabled={run.busy} className="w-full rounded-xl bg-bch px-5 py-3 font-semibold text-ink transition hover:bg-bch-2 disabled:opacity-60 sm:w-auto sm:min-w-[230px]">
-                {run.busy ? 'Agent is paying…' : pinTab ? '▶ Run the agent on your tab' : '▶ Run the demo agent'}
-              </button>
-            )}
-            <button onClick={onFund} className={`w-full rounded-xl px-5 py-3 font-semibold transition sm:w-auto ${demoEnabled ? 'border border-line-2 text-fg hover:border-bch/60' : 'bg-bch text-ink hover:bg-bch-2'}`}>Fund your agent's tab</button>
+          <div className="mt-7">
+            <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney} />
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              {demoEnabled && !journey.active && (
+                <button onClick={onRun} disabled={run.busy} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
+                  {run.busy ? 'Agent is paying…' : pinTab ? '▶ Just run the agent on your tab' : '▶ Or just watch the demo agent pay once'}
+                </button>
+              )}
+              <button onClick={onFund} className="tap font-medium text-muted hover:text-fg">Advanced: fund your own agent</button>
+            </div>
           </div>
           <div className="mt-3 min-h-[44px] text-sm" aria-live="polite">
             {res?.ok === true && (
@@ -112,7 +117,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
               </p>
             )}
             {res?.ok === false && <p className="text-warn">{/rate/i.test(res.msg) ? 'Easy, one call every few seconds.' : res.msg}</p>}
-            {!res && demoEnabled && !demoIssue && <p className="text-dim">The demo agent runs on our server. It pays from its own tab{pinTab ? ', or from the tab you funded for it' : ''}. Watch the receipt and the feed.</p>}
+            {!res && demoEnabled && !demoIssue && !journey.active && <p className="text-dim">The AI agent runs on our server and pays with signed vouchers. Watch the receipt on the right.</p>}
             {!res && demoIssue && <p className="text-warn">The demo agent hit a snag ({demoIssue.slice(0, 120)}). The feed below still shows real payments.</p>}
           </div>
           {stats && (

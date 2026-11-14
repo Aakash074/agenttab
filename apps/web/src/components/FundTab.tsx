@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BUDGETS, CONTRACT_SOURCE_URL, DURATIONS, explorerTx, type Net } from '../config';
 import { ApiError, api, type ServerInfo } from '../lib/api';
-import { blocksToText, sats, short, usd } from '../lib/format';
-import { chain, hex, unhex, type Wallet } from '../lib/wallet';
+import { blocksToText, hex, loadWallet, sats, short, unhex, usd } from '../lib/format';
+import type { Wallet } from '../lib/wallet';
 
 const HEX33 = /^0[23][0-9a-f]{64}$/i;
 
@@ -65,6 +65,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
     if (!wallet || !info) return;
     try {
       setStep({ state: 'busy', msg: wallet.kind === 'wizard' ? 'Approve the transaction in your wallet…' : 'Signing and broadcasting…' });
+      const { chain } = await loadWallet();
       const timeout = (await chain(net).getBlockHeight()) + duration;
       const txid = await wallet.openTab({ agentPub: unhex(agentPub.trim()), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
       setStep({ state: 'busy', msg: 'Registering the tab with the API provider…' });
@@ -131,8 +132,8 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
 
         <div className="grid gap-1.5">
           <span className="text-xs font-medium uppercase tracking-wider text-dim">Refundable after</span>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {DURATIONS.map((d) => (
+          <div className={`grid grid-cols-1 gap-2 ${net === 'mainnet' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+            {DURATIONS.filter((d) => net !== 'mainnet' || d.blocks <= 144).map((d) => (
               <button key={d.blocks} onClick={() => setDuration(d.blocks)} className={choice(duration === d.blocks)}>
                 <span className="text-sm">{d.label}</span> <span className="text-[11px] text-dim">· {d.blocks} blocks</span>
               </button>

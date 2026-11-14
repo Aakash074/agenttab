@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { explorerAddr, explorerTx, type Net } from '../config';
 import { api, type ServerInfo, type TabRecord } from '../lib/api';
-import { blocksToText, sats, short } from '../lib/format';
-import { hex, unhex, type Wallet } from '../lib/wallet';
+import { blocksToText, hex, sats, short, unhex } from '../lib/format';
+import type { Wallet } from '../lib/wallet';
 
 const STATUS: Record<TabRecord['status'], string> = {
-  open: 'text-bch-2 bg-bch/10', settled: 'text-amber-200 bg-amber-300/10', expired: 'text-muted bg-white/5', closed: 'text-muted bg-white/5',
+  open: 'text-bch-2 bg-bch/10', settled: 'text-amber-200 bg-amber-300/10', cancelled: 'text-sky-200 bg-sky-300/10', expired: 'text-muted bg-white/5', closed: 'text-muted bg-white/5',
 };
 
 function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab, running }: {
@@ -21,13 +21,15 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
   const left = t.timeout - tip;
   const refundable = left <= 0 && t.status !== 'settled' && t.status !== 'closed';
   const isDemo = !!demoAgentPub && t.agentPub === demoAgentPub.toLowerCase();
-  const canClose = t.status === 'open' && spent >= 1_046n;
+  const canClose = t.status === 'open';
 
   async function closeNow() {
     setBusy(true); setMsg(null);
     try {
       const r = await api.closeTab(t.id);
-      setMsg({ ok: true, text: `Returned to you: ${sats(r.returnedSats)} sats (provider took ${sats(r.settledSats)}).`, txid: r.txid });
+      setMsg({ ok: true, text: r.action === 'cancel'
+        ? `Returned to you: ${sats(r.returnedSats)} sats (too little was spent to settle, so the provider waived it).`
+        : `Returned to you: ${sats(r.returnedSats)} sats (provider took ${sats(r.settledSats)}).`, txid: r.txid });
       onChange();
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
     setBusy(false);
@@ -61,13 +63,16 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
       <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-sm sm:grid-cols-4">
         <div><dt className="text-[11px] text-dim">Budget</dt><dd className="font-mono">{sats(budget)}</dd></div>
         <div><dt className="text-[11px] text-dim">Spent ({t.requests} calls)</dt><dd className="font-mono">{sats(spent)}</dd></div>
-        <div><dt className="text-[11px] text-dim">{t.status === 'settled' ? 'Returned to you' : 'Remaining'}</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
-        <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="whitespace-nowrap font-mono">{t.status === 'settled' || t.status === 'closed' ? 'closed' : left > 0 ? `in ${blocksToText(left)}` : 'unlocked'}</dd></div>
+        <div><dt className="text-[11px] text-dim">{t.status === 'settled' || t.status === 'cancelled' ? 'Returned to you' : 'Remaining'}</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
+        <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="whitespace-nowrap font-mono">{t.status !== 'open' && t.status !== 'expired' ? 'closed' : left > 0 ? `in ${blocksToText(left)}` : 'unlocked'}</dd></div>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {t.settledTxid && (
           <a className="text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.settledTxid)} target="_blank" rel="noreferrer">
-            Status: settled. Provider took {sats(t.settledAmount)} sats, {sats(budget - spent)} returned to you · <span className="font-mono">{short(t.settledTxid, 6)} ↗</span>
+            {t.status === 'cancelled'
+              ? <>Status: waived. The whole budget (minus the miner fee) went back to you · </>
+              : <>Status: settled. Provider took {sats(t.settledAmount)} sats, {sats(budget - spent)} returned to you · </>}
+            <span className="font-mono">{short(t.settledTxid, 6)} ↗</span>
           </a>
         )}
         {t.status === 'open' && (
@@ -85,7 +90,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
             </button>
           </div>
         )}
-        {t.status !== 'settled' && t.status !== 'closed' && (refundable || !canClose) && (
+        {t.status === 'expired' && (
           <button onClick={refund} disabled={!refundable || busy}
             className="min-h-[44px] rounded-lg border border-line-2 px-3 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:py-1.5"
             title={refundable ? 'Reclaim everything in this tab' : 'Available after the timeout; the provider can settle until then'}>
