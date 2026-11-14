@@ -173,12 +173,12 @@ describe('mainnet code path (mock chain, nothing broadcast)', () => {
     const ok = await buildOpen({ provider: mnet, contract: c, payerPriv: oPriv, fundingUtxos: (await mnet.getUtxos(ownerAddr)).filter((u) => u.txid === tooBig.txid), budget: 5_000n, changeAddress: ownerAddr }).send();
     await ml.register({ txid: ok.txid, vout: 0, ownerPub: binToHex(ownerPub), agentPub: binToHex(agentPub), timeout: Number(timeout) });
     const op = { txid: ok.txid, vout: 0 };
-    for (const a of [100n, 200n, 300n, 1_100n]) {
-      ml.charge({ tab: `${ok.txid}:0`, amount: a, sig: signVoucher(aPriv, op, a).sig }, a === 1_100n ? 800n : 100n);
+    for (const a of [100n, 200n, 300n, 1_300n]) {
+      ml.charge({ tab: `${ok.txid}:0`, amount: a, sig: signVoucher(aPriv, op, a).sig }, a === 1_300n ? 1_000n : 100n);
     }
     const txid = await ml.settle(`${ok.txid}:0`);
     const back = await mnet.getUtxos(ownerAddr);
-    assert.ok(back.some((u) => u.txid === txid && u.satoshis === 5_000n - 1_100n), 'remainder to owner on mainnet-encoded address');
+    assert.ok(back.some((u) => u.txid === txid && u.satoshis === 5_000n - 1_300n), 'remainder to owner on mainnet-encoded address');
   });
 });
 
@@ -190,4 +190,65 @@ test('mainnet guard: a chipnet-encoded output is refused by the builder on a mai
   mnet.addUtxo(addr, randomUtxo({ satoshis: 10_000n }));
   const c = tabContract({ ownerPub: pubFromPriv(k), agentPub: pubFromPriv(k), providerPub: pubFromPriv(k), timeout: 10n }, mnet);
   assert.throws(() => buildOpen({ provider: mnet, contract: c, payerPriv: k, fundingUtxos: [], budget: 5_000n, changeAddress: p2pkhAddress(pubFromPriv(k), 'chipnet') }), /insufficient|wrong network/);
+});
+
+describe('cancel path and mainnet demo mode', () => {
+  async function tabFor(l: TabLedger, n: MockNetworkProvider, agentPub: Uint8Array, pPriv: Uint8Array, timeout = 1_000_000n) {
+    const o = generatePrivateKey();
+    const c = tabContract({ ownerPub: pubFromPriv(o), agentPub, providerPub: pubFromPriv(pPriv), timeout }, n);
+    const addr = p2pkhAddress(pubFromPriv(o));
+    n.addUtxo(addr, randomUtxo({ satoshis: 50_000n }));
+    const open = await buildOpen({ provider: n, contract: c, payerPriv: o, fundingUtxos: await n.getUtxos(addr), budget: 5_000n, changeAddress: addr }).send();
+    await l.register({ txid: open.txid, vout: 0, ownerPub: binToHex(pubFromPriv(o)), agentPub: binToHex(agentPub), timeout: Number(timeout) });
+    return { id: `${open.txid}:0`, op: { txid: open.txid, vout: 0 }, ownerAddr: addr, openTxid: open.txid };
+  }
+
+  test('close with too little owed cancels: the owner gets the whole budget back minus the fee', async () => {
+    const n = new MockNetworkProvider();
+    const pPriv = generatePrivateKey(), aPriv = generatePrivateKey();
+    const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+    const t = await tabFor(l, n, pubFromPriv(aPriv), pPriv);
+    l.charge({ tab: t.id, amount: 600n, sig: signVoucher(aPriv, t.op, 600n).sig }, 600n); // one call, below MIN_SETTLE
+    const r = await l.close(t.id);
+    assert.equal(r.action, 'cancel');
+    const back = (await n.getUtxos(t.ownerAddr)).find((u) => u.txid === r.txid)!;
+    assert.ok(back.satoshis > 5_000n - 1_000n);
+    assert.equal(l.tabs.get(t.id)!.status, 'cancelled');
+    assert.equal(l.events.at(-1)!.type, 'cancel');
+  });
+
+  test('tick auto-cancels a tab inside the safety window when nothing settle-worthy is owed', async () => {
+    const n = new MockNetworkProvider();
+    const pPriv = generatePrivateKey(), aPriv = generatePrivateKey();
+    const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+    n.setBlockHeight(1_000);
+    const t = await tabFor(l, n, pubFromPriv(aPriv), pPriv, 2_000n);
+    n.setBlockHeight(1_995);
+    const r = await l.tick();
+    assert.equal(r.settled.length, 1);
+    assert.equal(l.tabs.get(t.id)!.status, 'cancelled');
+  });
+
+  test('mainnet demo mode: refuses without a visitor tab, never opens its own, pays a visitor tab', async () => {
+    const n = new MockNetworkProvider();
+    const pPriv = generatePrivateKey(), dPriv = generatePrivateKey();
+    const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+    let b3 = '';
+    const d = createDemo({ ledger: l, provider: n, network: 'mocknet' as never, agentPriv: dPriv, selfUrl: () => b3, route: '/api/oracle', price: 600n, budgetSats: 5_000n, perIpMs: 0, visitorTabsOnly: true, maxTotalSats: 1_200n });
+    const a3 = createApp({ ledger: l, network: 'mocknet', extra: [d.handler], routes: [{ path: '/api/oracle', price: 600n, description: 't', handler: () => ({ answer: 'ok' }) }] });
+    await new Promise<void>((r) => a3.listen(0, r));
+    b3 = `http://127.0.0.1:${(a3.address() as AddressInfo).port}`;
+    n.addUtxo(p2pkhAddress(pubFromPriv(dPriv)), randomUtxo({ satoshis: 100_000n })); // even with funds, it must not open its own tab
+    const none = await fetch(`${b3}/demo/call`, { method: 'POST' });
+    assert.equal(none.status, 400);
+    const t = await tabFor(l, n, pubFromPriv(dPriv), pPriv);
+    for (const want of ['600', '1200']) {
+      const r = await (await fetch(`${b3}/demo/call`, { method: 'POST', body: JSON.stringify({ tab: t.id }) })).json();
+      assert.equal(r.cumulativeSats, want);
+    }
+    const capped = await fetch(`${b3}/demo/call`, { method: 'POST', body: JSON.stringify({ tab: t.id }) });
+    assert.notEqual(capped.status, 200, 'total cap stops further spending');
+    assert.equal([...l.tabs.values()].filter((x) => x.agentPub === binToHex(pubFromPriv(dPriv))).length, 1);
+    a3.close();
+  });
 });

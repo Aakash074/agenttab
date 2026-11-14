@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { NetworkProvider } from 'cashscript';
 import {
-  DUST, buildSettle, hexToBin, binToHex, pubFromPriv, tabContract, verifyVoucher,
+  DUST, buildCancel, buildSettle, hexToBin, binToHex, pubFromPriv, tabContract, verifyVoucher,
   type Network, type Outpoint, type Voucher,
 } from '@agenttab/covenant';
 
@@ -21,7 +21,7 @@ export interface TabRecord {
   highest?: { amount: string; sig: string };
   requests: number;
   openedAt: string;
-  status: 'open' | 'settled' | 'expired' | 'closed';
+  status: 'open' | 'settled' | 'cancelled' | 'expired' | 'closed';
   settledTxid?: string;
   settledAmount?: string;
   /** Sizes of the tab's on-chain transactions (fees ≈ bytes at 1 sat/byte). */
@@ -34,7 +34,7 @@ export interface TabRecord {
 export interface FeedEvent {
   id: number;
   at: string;
-  type: 'open' | 'pay' | 'settle' | 'expired' | 'closed';
+  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed';
   tab: string;
   txid?: string;
   amount?: string; // pay: cumulative voucher; settle: settled amount; open: budget
@@ -68,7 +68,7 @@ export interface LedgerOptions {
 export const tabId = (o: Outpoint) => `${o.txid}:${o.vout}`;
 const HEX33 = /^0[23][0-9a-f]{64}$/i;
 /** Smallest voucher worth settling on chain (provider output must stay above dust after the fee). */
-export const MIN_SETTLE = DUST + 500n;
+export const MIN_SETTLE = DUST + 700n;
 
 export class TabLedger extends EventEmitter {
   tabs = new Map<string, TabRecord>();
@@ -225,6 +225,42 @@ export class TabLedger extends EventEmitter {
     }
   }
 
+  /** Provider waives the tab: whole budget (minus fee) back to the owner. Used when too little is owed to settle. */
+  async cancel(id: string, auto = false): Promise<string> {
+    const rec = this.tabs.get(id);
+    if (!rec) throw new PaymentError('unknown_tab', 'unknown tab', 404);
+    if (rec.status !== 'open') throw new PaymentError('tab_closed', `tab is ${rec.status}`, 409);
+    if (this.settling.has(id)) throw new PaymentError('settling', 'close already in progress', 409);
+    this.settling.add(id);
+    try {
+      const contract = this.contractFor(rec);
+      const tabUtxo = (await contract.getUtxos()).find((u) => u.txid === rec.outpoint.txid && u.vout === rec.outpoint.vout);
+      if (!tabUtxo) {
+        rec.status = 'closed';
+        this.emitEvent({ type: 'closed', tab: id });
+        this.persist();
+        throw new PaymentError('tab_spent', 'tab utxo already spent', 409);
+      }
+      const tx = await buildCancel({ provider: this.o.provider, contract, tabUtxo, providerPriv: this.o.providerPriv, ownerPub: hexToBin(rec.ownerPub), network: this.network }).send();
+      rec.settledTxid = tx.txid;
+      rec.settledAmount = '0';
+      rec.settleTxBytes = tx.hex.length / 2;
+      rec.status = 'cancelled';
+      this.emitEvent({ type: 'cancel', tab: id, txid: tx.txid, amount: '0', auto });
+      this.persist();
+      return tx.txid;
+    } finally {
+      this.settling.delete(id);
+    }
+  }
+
+  /** Close a tab now the friendliest way: settle what was signed, or cancel (full refund) if that's too little to settle. */
+  async close(id: string): Promise<{ txid: string; action: 'settle' | 'cancel' }> {
+    const rec = this.tabs.get(id);
+    if (rec?.highest && BigInt(rec.highest.amount) >= MIN_SETTLE) return { txid: await this.settle(id), action: 'settle' };
+    return { txid: await this.cancel(id), action: 'cancel' };
+  }
+
   /** Periodic job: refresh tip; auto-settle (or expire) tabs inside the safety window. */
   async tick(): Promise<{ settled: string[]; expired: string[] }> {
     await this.refreshTip();
@@ -234,10 +270,14 @@ export class TabLedger extends EventEmitter {
       if (rec.highest && BigInt(rec.highest.amount) >= MIN_SETTLE) {
         try { settled.push(await this.settle(rec.id, true)); } catch (e) { console.error('auto-settle failed', rec.id, (e as Error).message); }
       } else {
-        rec.status = 'expired';
-        expired.push(rec.id);
-        this.emitEvent({ type: 'expired', tab: rec.id });
-        this.persist();
+        // Too little owed to settle: give the owner everything back now instead of making them wait for the timeout.
+        try { settled.push(await this.cancel(rec.id, true)); } catch (e) {
+          console.error('auto-cancel failed', rec.id, (e as Error).message);
+          rec.status = 'expired';
+          expired.push(rec.id);
+          this.emitEvent({ type: 'expired', tab: rec.id });
+          this.persist();
+        }
       }
     }
     return { settled, expired };

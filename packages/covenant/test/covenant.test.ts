@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { MockNetworkProvider, SignatureTemplate, TransactionBuilder, randomUtxo, type SpendableUtxo as Utxo } from 'cashscript';
 import { bigIntToBinUint64LE, generatePrivateKey, hexToBin } from '@bitauth/libauth';
 import {
+  buildCancel,
   buildOpen,
   buildRefund,
   buildSettle,
@@ -59,7 +60,7 @@ function rawSettle(c: Ctx, o: {
     new SignatureTemplate(o.signer ?? c.svc.priv), hexToBin(o.voucher.sig), bigIntToBinUint64LE(claim),
   );
   const b = new TransactionBuilder({ provider: c.provider }).addInputs(o.inputs ?? [c.tab], unlocker);
-  b.addOutput(o.providerOut ?? { to: p2pkhAddress(c.svc.pub), amount: claim - 500n });
+  b.addOutput(o.providerOut ?? { to: p2pkhAddress(c.svc.pub), amount: claim - 700n });
   b.addOutput(o.ownerOut ?? { to: p2pkhAddress(c.owner.pub), amount: c.tab.satoshis - claim });
   for (const x of o.extraOutputs ?? []) b.addOutput(x);
   return b.send();
@@ -214,5 +215,27 @@ describe('AgentTab covenant', () => {
       provider: c.provider, contract: c.contract, tabUtxo: c.tab, ownerPriv: c.owner.priv, timeout: TIMEOUT,
     }).send();
     assert.equal((await c.contract.getUtxos()).length, 0);
+  });
+
+  test('cancel: provider waives the tab, owner gets everything back minus the fee', async () => {
+    const c = await setup();
+    const tx = await buildCancel({ provider: c.provider, contract: c.contract, tabUtxo: c.tab, providerPriv: c.svc.priv, ownerPub: c.owner.pub }).send();
+    const back = (await c.provider.getUtxos(p2pkhAddress(c.owner.pub))).find((u) => u.txid === tx.txid)!;
+    assert.ok(back.satoshis >= BUDGET - 1000n && back.satoshis < BUDGET);
+  });
+
+  test('cancel: cannot pay anyone but the owner, cannot take an excessive fee, needs the provider key', async () => {
+    const c = await setup();
+    const cancel = (out: { to: string; amount: bigint }[], signer = c.svc.priv) => {
+      const b = new TransactionBuilder({ provider: c.provider }).addInput(c.tab, c.contract.unlock.cancel(new SignatureTemplate(signer)));
+      for (const o of out) b.addOutput(o);
+      return b.send();
+    };
+    await rejects(cancel([{ to: p2pkhAddress(c.svc.pub), amount: BUDGET - 500n }]));                     // provider pays itself
+    await rejects(cancel([{ to: p2pkhAddress(c.owner.pub), amount: BUDGET - 1_500n }]));                 // fee above cap
+    await rejects(cancel([{ to: p2pkhAddress(c.owner.pub), amount: BUDGET - 500n }], c.agent.priv));     // agent key
+    await rejects(cancel([{ to: p2pkhAddress(c.owner.pub), amount: BUDGET - 500n }], c.owner.priv));     // owner key
+    await rejects(cancel([{ to: p2pkhAddress(c.owner.pub), amount: BUDGET - 5_000n }, { to: p2pkhAddress(c.svc.pub), amount: 4_000n }])); // split
+    await cancel([{ to: p2pkhAddress(c.owner.pub), amount: BUDGET - 500n }]);                            // honest
   });
 });

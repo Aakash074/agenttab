@@ -153,9 +153,13 @@ export function createApp(o: AppOptions) {
         // Harmless to expose (it can only pay out what the agent signed), but rate-limited per client.
         const wait = closeLimiter.take(clientIp(req, process.env.TRUST_PROXY === '1')) || closeLimiter.take(m[1]);
         if (wait) return json(res, 429, { error: 'rate_limited', retryInMs: wait });
-        const txid = await o.ledger.settle(m[1]);
+        const { txid, action } = await o.ledger.close(m[1]);
         const t = o.ledger.tabs.get(m[1])!;
-        return json(res, 200, { txid, settledSats: t.settledAmount, returnedSats: (BigInt(t.budget) - BigInt(t.settledAmount ?? '0')).toString() });
+        return json(res, 200, {
+          txid, action, settledSats: t.settledAmount ?? '0',
+          // cancel: the budget minus the miner fee comes back; settle: exactly budget − settled.
+          returnedSats: (BigInt(t.budget) - BigInt(t.settledAmount ?? '0') - (action === 'cancel' ? BigInt(t.settleTxBytes ?? 0) : 0n)).toString(),
+        });
       }
       if (m && req.method === 'POST' && m[2]) {
         if (o.adminToken && req.headers.authorization !== `Bearer ${o.adminToken}`) return json(res, 401, { error: 'unauthorized' });

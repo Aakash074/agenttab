@@ -42,13 +42,13 @@ Prior art and credit:
 
 All times are UTC. The BLAZE build window opened 2026-11-14 14:00.
 
-- **Before kickoff:** an idea gate and a small throwaway prototype (a covenant sketch plus a Vite scaffold), kept in a **separate folder/repo** (link: _TBD_). No files or commits from it are in this repo.
+- **Before kickoff:** an idea gate and a small throwaway prototype (a covenant sketch plus a Vite scaffold), kept in a **separate folder/repo** ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). No files or commits from it are in this repo.
 - **Nov 14, 14:04–14:20:** fresh repo; covenant, SDK and 15 tests; paywall server. First chipnet open → 3 vouchers → settle, an early refund rejected by the node, and a refund after timeout ([proof §1–3](docs/chipnet-proof.md)).
 - **Nov 14, 14:29–14:44:** covenant v2 (owner/agent split); live feed and auto-settle; web app; MCP server, which paid on chipnet both from a tab funded in the web app and from a tab it opened itself.
 - **Nov 14, 14:53–15:15:** UX reviews 1 and 2: hosted demo agent, chipnet drip faucet, mainnet code path (mock-tested, not broadcast), close-tab-now, "Try to cheat the tab" panel, property tests.
 - **Next:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
 
-> **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo (link: _TBD_). This repository was started from scratch after kickoff.
+> **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). This repository was started from scratch after kickoff.
 
 ## Layout
 

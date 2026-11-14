@@ -26,12 +26,17 @@ export interface DemoOptions {
   recycleBelowSats?: bigint;
   /** With nobody watching the feed, the cron makes at most one call per this many seconds. */
   idleSeconds?: number;
+  /** Mainnet mode: only spend tabs visitors funded for the demo agent; never open its own; no cron. */
+  visitorTabsOnly?: boolean;
+  /** Hard cap on what the demo agent may sign in total (state file), e.g. on mainnet. */
+  maxTotalSats?: bigint;
 }
 
 export function createDemo(o: DemoOptions) {
   const agent = new AgentTabClient({
     agentPriv: o.agentPriv, network: o.network, provider: o.provider,
-    maxBudgetSats: o.budgetSats, maxPriceSats: o.price, maxTotalSats: 10n ** 15n, tabBlocks: 144, stateFile: o.stateFile,
+    maxBudgetSats: o.budgetSats, maxPriceSats: o.price, maxTotalSats: o.maxTotalSats ?? 10n ** 15n, tabBlocks: 144, stateFile: o.stateFile,
+    allowOpen: !o.visitorTabsOnly,
   });
   o.ledger.demoAgentPub = agent.agentPubHex;
   const perIp = new RateLimiter(1, o.perIpMs ?? 4_000);
@@ -49,7 +54,7 @@ export function createDemo(o: DemoOptions) {
     const from = p2pkhAddress(pubFromPriv(o.recycleFromPriv), 'chipnet');
     const utxos = (await o.provider.getUtxos(from)).filter((u) => !u.token);
     const total = utxos.reduce((a, u) => a + u.satoshis, 0n);
-    if (total < 3_000n) return undefined;
+    if (total < 1_500n) return undefined;
     const build = (fee: bigint) => new TransactionBuilder({ provider: o.provider })
       .addInputs(utxos, new SignatureTemplate(o.recycleFromPriv!).unlockP2PKH())
       .addOutput({ to: agent.address, amount: total - fee });
@@ -72,6 +77,7 @@ export function createDemo(o: DemoOptions) {
   }
 
   async function call(preferTab?: string) {
+    if (o.visitorTabsOnly && !preferTab) throw new PaymentError('needs_tab', 'On mainnet the demo agent only spends a tab you funded for it. Fund one first.', 400);
     const q = questions[Math.floor(Math.random() * questions.length)];
     try {
       const r = await agent.fetchPaid(`${o.selfUrl()}${o.route}?q=${encodeURIComponent(q)}`, {}, o.price, { preferTab });
@@ -116,7 +122,7 @@ export function createDemo(o: DemoOptions) {
   let timer: ReturnType<typeof setInterval> | undefined;
   /** Every `seconds` while someone watches the live feed; otherwise at most once per idleSeconds (default 600). */
   const startCron = (seconds: number) => {
-    if (seconds <= 0) return;
+    if (seconds <= 0 || o.visitorTabsOnly) return;
     const idle = (o.idleSeconds ?? 600) * 1000;
     timer = setInterval(() => {
       const since = lastCall ? Date.now() - Date.parse(lastCall) : Infinity;

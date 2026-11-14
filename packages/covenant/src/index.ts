@@ -172,6 +172,23 @@ export function buildSettle(opts: {
   );
 }
 
+/** Provider waives the tab: the whole budget (minus the miner fee, capped at 1000 sats by the covenant) goes back to the owner. */
+export function buildCancel(opts: {
+  provider: NetworkProvider;
+  contract: Contract;
+  tabUtxo: Utxo;
+  providerPriv: Uint8Array;
+  ownerPub: Uint8Array;
+  network?: Network;
+}): TransactionBuilder {
+  const { provider, contract, tabUtxo, providerPriv, ownerPub, network = 'chipnet' } = opts;
+  return withFee((fee) =>
+    new TransactionBuilder({ provider })
+      .addInput(tabUtxo, contract.unlock.cancel(new SignatureTemplate(providerPriv)))
+      .addOutput({ to: p2pkhAddress(ownerPub, network), amount: tabUtxo.satoshis - fee }),
+  );
+}
+
 /** Owner reclaims the whole tab after the timeout. Pass `ownerPriv`, or `ownerSig` =
  *  placeholderSignature() + `to` for wallet signing. */
 export function buildRefund(opts: {

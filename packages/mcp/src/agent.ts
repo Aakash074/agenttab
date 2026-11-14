@@ -22,6 +22,8 @@ export interface AgentConfig {
   tabBlocks: number;
   stateFile?: string;
   fetchImpl?: typeof fetch;
+  /** false = never open tabs from the agent's own funds (only spend tabs someone funded for it). */
+  allowOpen?: boolean;
 }
 
 export interface LocalTab {
@@ -124,6 +126,7 @@ export class AgentTabClient {
   }
 
   private async openOwnTab(origin: string, terms: Terms, tip: number): Promise<LocalTab> {
+    if (this.cfg.allowOpen === false) throw new Error('no funded tab available for this agent (fund one first)');
     const budget = this.cfg.maxBudgetSats;
     const timeout = tip + Math.max(this.cfg.tabBlocks, (terms.extra?.minTimeoutBlocks ?? 7) + 6);
     const contract = tabContract({ ownerPub: this.agentPub, agentPub: this.agentPub, providerPub: hexToBin(terms.payTo), timeout: BigInt(timeout) }, this.cfg.provider);

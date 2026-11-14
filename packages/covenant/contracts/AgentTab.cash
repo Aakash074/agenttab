@@ -11,6 +11,7 @@ pragma cashscript ^0.14.0;
 //  - The provider can settle at any time with the highest voucher it holds:
 //        output 0 -> provider, at most `amount` (provider pays the miner fee out of its own share)
 //        output 1 -> owner, EXACTLY budget - amount (the remainder is forced back)
+//  - The provider can instead `cancel`: the whole budget (minus a fee of at most 1000 sats) returns to the owner.
 //  - After `timeout` (absolute nLockTime: block height < 500M, or unix time >= 500M) the owner
 //    can reclaim everything. The provider must settle before the timeout.
 contract AgentTab(pubkey owner, pubkey agent, pubkey provider, int timeout) {
@@ -41,6 +42,17 @@ contract AgentTab(pubkey owner, pubkey agent, pubkey provider, int timeout) {
         require(tx.outputs[1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
         require(tx.outputs[1].value == remainder);
         require(tx.outputs[1].tokenCategory == 0x);
+    }
+
+    // Provider waives the tab: everything goes back to the owner right away (minus a capped miner fee).
+    // Used when there is too little owed to be worth settling, or as a goodwill early close.
+    function cancel(sig providerSig) {
+        require(tx.inputs.length == 1);
+        require(tx.outputs.length == 1);
+        require(checkSig(providerSig, provider));
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
+        require(tx.outputs[0].value >= tx.inputs[0].value - 1000);
+        require(tx.outputs[0].tokenCategory == 0x);
     }
 
     function refund(sig ownerSig) {

@@ -108,7 +108,7 @@ export function createAttacks(o: {
       new TransactionBuilder({ provider: o.provider })
         .addInput(tabUtxo!, contract.unlock.settle(new SignatureTemplate(signer), hexToBin(sig), bigIntToBinUint64LE(amountBytes)))
         .addOutput(providerOut).addOutput(ownerOut);
-    const fee = 600n;
+    const fee = 800n;
 
     // 2. Provider overclaims: pays itself more than the signed voucher.
     {
@@ -145,9 +145,24 @@ export function createAttacks(o: {
         outcome: r.ok ? 'ACCEPTED' : 'rejected', message: r.message, attemptedTxid: r.attemptedTxid });
     }
 
+    // 7. Provider "cancels" but pays itself instead of the owner.
+    {
+      const b = new TransactionBuilder({ provider: o.provider })
+        .addInput(tabUtxo, contract.unlock.cancel(new SignatureTemplate(o.providerPriv)))
+        .addOutput({ to: providerAddr, amount: budget - fee });
+      const r = await broadcast(b);
+      results.push({ id: 'cancel-to-self', title: 'Provider "cancels" into its own wallet', attempt: 'use the waive-the-tab path but send the budget to the provider', layer: 'chipnet node',
+        outcome: r.ok ? 'ACCEPTED' : 'rejected', message: r.message, attemptedTxid: r.attemptedTxid });
+    }
+
     // The honest way: settle exactly what was signed.
     let honestSettleTxid: string | undefined;
-    try { honestSettleTxid = await o.ledger.settle(id); } catch (e) { console.error('attack honest settle', (e as Error).message); }
+    for (let i = 0; i < 3 && !honestSettleTxid; i++) {
+      try { honestSettleTxid = await o.ledger.settle(id); } catch (e) {
+        console.error('attack honest settle', (e as Error).message);
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
 
     return { at: new Date().toISOString(), network: o.network, tab: id, contract: contract.address, openTxid: open.txid, results, honestSettleTxid, ms: Date.now() - t0 };
   }

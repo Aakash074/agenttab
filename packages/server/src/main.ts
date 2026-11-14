@@ -21,7 +21,7 @@ const env = loadEnv();
 const network = resolveNetwork(env);
 const mainnet = network === 'mainnet';
 const provider = new ElectrumNetworkProvider(network);
-const price = BigInt(env.PRICE_SATS ?? (mainnet ? 100 : 1000));
+const price = BigInt(env.PRICE_SATS ?? (mainnet ? 600 : 1000));
 const maxBudget = env.MAX_TAB_BUDGET_SATS ? BigInt(env.MAX_TAB_BUDGET_SATS) : mainnet ? 100_000n : undefined;
 const providerPriv = networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network);
 const ledger = new TabLedger({
@@ -39,18 +39,21 @@ const features: Record<string, unknown> = { maxBudgetSats: maxBudget?.toString()
 
 const demoWif = env.DEMO_AGENT_WIF ?? env.AGENT_WIF;
 let demo: ReturnType<typeof createDemo> | undefined;
+// Mainnet: the demo agent is off unless DEMO_ON_MAINNET=1, and then it only spends tabs visitors fund for it.
 if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
   demo = createDemo({
     ledger, provider, network, agentPriv: networkKey(demoWif, 'DEMO_AGENT_WIF', network),
     selfUrl: () => `http://127.0.0.1:${port}`, route, price,
-    budgetSats: BigInt(env.DEMO_BUDGET_SATS ?? (mainnet ? 5_000 : 20_000)),
+    budgetSats: BigInt(env.DEMO_BUDGET_SATS ?? 20_000),
     stateFile: new URL(`.data/demo-agent-${network}.json`, repoRoot).pathname, trustProxy,
     // testnet only: sweep provider proceeds back to the demo agent so the live demo never runs dry
     recycleFromPriv: mainnet ? undefined : providerPriv,
     idleSeconds: Number(env.DEMO_IDLE_SECONDS ?? 600),
+    visitorTabsOnly: mainnet,
+    maxTotalSats: mainnet ? BigInt(env.DEMO_MAINNET_MAX_TOTAL_SATS ?? 50_000) : undefined,
   });
   extra.push(demo.handler);
-  features.demo = { agentPub: demo.agent.agentPubHex, cronSeconds: Number(env.DEMO_CRON_SECONDS ?? 60) };
+  features.demo = { agentPub: demo.agent.agentPubHex, cronSeconds: mainnet ? 0 : Number(env.DEMO_CRON_SECONDS ?? 60), visitorTabsOnly: mainnet };
 }
 if (!mainnet && env.FAUCET_WIF) {
   const faucet = createFaucet({
