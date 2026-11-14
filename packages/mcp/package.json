@@ -1,0 +1,19 @@
+{
+  "name": "@agenttab/mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "agenttab-mcp": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@agenttab/covenant": "*",
+    "@bitauth/libauth": "^3.1.0-next.8",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "cashscript": "^0.14.0",
+    "zod": "^4.6.7"
+  }
+}
