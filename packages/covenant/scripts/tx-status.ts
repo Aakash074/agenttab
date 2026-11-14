@@ -1,6 +1,7 @@
+import { electrumProvider } from '../src/index.ts';
 // Prints confirmation status of chipnet txids: node packages/covenant/scripts/tx-status.ts <txid>...
 import { ElectrumNetworkProvider } from 'cashscript';
-const net = new ElectrumNetworkProvider('chipnet');
+const net = electrumProvider('chipnet');
 console.log('tip', await net.getBlockHeight());
 for (const t of process.argv.slice(2)) {
   const r: any = await net.performRequest('blockchain.transaction.get', t, true);

@@ -1,3 +1,4 @@
+import { electrumProvider } from '@agenttab/covenant';
 // AgentTab paywall server.
 // Env (.env or process):
 //   NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1 and mainnet WIFs), PROVIDER_WIF, PORT (8402),
@@ -20,7 +21,7 @@ import { createAttacks } from './attacks.ts';
 const env = loadEnv();
 const network = resolveNetwork(env);
 const mainnet = network === 'mainnet';
-const provider = new ElectrumNetworkProvider(network);
+const provider = electrumProvider(network);
 const price = BigInt(env.PRICE_SATS ?? (mainnet ? 600 : 1000));
 const maxBudget = env.MAX_TAB_BUDGET_SATS ? BigInt(env.MAX_TAB_BUDGET_SATS) : mainnet ? 100_000n : undefined;
 const providerPriv = networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network);

@@ -1,6 +1,7 @@
 // AgentTab SDK: open a tab, sign/verify cumulative vouchers, settle, refund.
 import {
   Contract,
+  ElectrumNetworkProvider,
   SignatureTemplate,
   TransactionBuilder,
   type NetworkProvider,
@@ -210,6 +211,32 @@ export function buildRefund(opts: {
       .addOutput({ to, amount: tabUtxo.satoshis - fee })
       .setLocktime(Number(timeout)),
   );
+}
+
+/**
+ * Electrum provider that reads from one server and mirrors every broadcast to others.
+ * Why: on 2026-11-14 the default chipnet server's node (chipnet.bch.ninja) accepted our txs into its own
+ * mempool but never relayed them, so nothing confirmed for hours. Broadcasting to several independent
+ * nodes avoids depending on one node's peers.
+ */
+export class MirroredElectrumProvider extends ElectrumNetworkProvider {
+  private mirrors: ElectrumNetworkProvider[];
+  constructor(network: 'chipnet' | 'mainnet', hostname: string, mirrorHosts: string[]) {
+    super(network, { hostname });
+    this.mirrors = mirrorHosts.map((h) => new ElectrumNetworkProvider(network, { hostname: h }));
+  }
+  override async sendRawTransaction(txHex: string): Promise<string> {
+    const txid = await super.sendRawTransaction(txHex);
+    for (const m of this.mirrors) m.sendRawTransaction(txHex).catch(() => { /* best effort */ });
+    return txid;
+  }
+}
+
+/** Default provider per network (chipnet: read from imaginary.cash, mirror broadcasts to bch.ninja). */
+export function electrumProvider(network: 'chipnet' | 'mainnet'): ElectrumNetworkProvider {
+  return network === 'chipnet'
+    ? new MirroredElectrumProvider('chipnet', 'chipnet.imaginary.cash', ['chipnet.bch.ninja'])
+    : new ElectrumNetworkProvider('mainnet');
 }
 
 export { binToHex, hexToBin };

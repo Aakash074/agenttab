@@ -1,3 +1,4 @@
+import { electrumProvider } from '@agenttab/covenant';
 // Two ways for a human to fund / refund a tab:
 //  - WizardConnect (any compatible wallet, e.g. Paytaca): the dapp builds the tx, the wallet signs it.
 //  - Chipnet test wallet: a throwaway key kept in this browser, chipnet only (for quick testing).
@@ -15,7 +16,7 @@ import {
 import type { Net } from '../config';
 
 const providers: Partial<Record<Net, ElectrumNetworkProvider>> = {};
-export const chain = (net: Net) => (providers[net] ??= new ElectrumNetworkProvider(net));
+export const chain = (net: Net) => (providers[net] ??= electrumProvider(net));
 
 export interface Wallet {
   kind: 'wizard' | 'burner';

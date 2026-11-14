@@ -1,3 +1,4 @@
+import { electrumProvider } from '../src/index.ts';
 // End-to-end AgentTab run on CHIPNET (testnet) with throwaway keys from ./.env.
 //   Tab A: open -> 3 cumulative vouchers -> provider settles the highest.
 //   Tab B: open with timeout = height+1 -> early refund rejected by the network -> wait -> refund.
@@ -23,7 +24,7 @@ const wif = (w: string) => {
 const ownerPriv = wif(env.OWNER_WIF), agentPriv = wif(env.AGENT_WIF), providerPriv = wif(env.PROVIDER_WIF);
 const ownerPub = pubFromPriv(ownerPriv), agentPub = pubFromPriv(agentPriv), providerPub = pubFromPriv(providerPriv);
 const ownerAddr = p2pkhAddress(ownerPub, 'chipnet');
-const net = new ElectrumNetworkProvider('chipnet');
+const net = electrumProvider('chipnet');
 
 const log: string[] = [];
 const out = (s: string) => { console.log(s); log.push(s); };

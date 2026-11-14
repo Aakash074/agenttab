@@ -1,3 +1,4 @@
+import { electrumProvider } from '@agenttab/covenant';
 // Agent-side demo against a running paywall server on chipnet:
 // hit 402 -> open tab on chain -> register -> 3 paid calls (one voucher each) -> replay attempt -> ask server to settle.
 import { ElectrumNetworkProvider } from 'cashscript';
@@ -9,7 +10,7 @@ const env = loadEnv();
 const base = env.SERVER_URL ?? 'http://localhost:8402';
 const ownerPriv = testnetKey(env.OWNER_WIF, 'OWNER_WIF'), agentPriv = testnetKey(env.AGENT_WIF, 'AGENT_WIF');
 const ownerPub = pubFromPriv(ownerPriv), agentPub = pubFromPriv(agentPriv);
-const net = new ElectrumNetworkProvider('chipnet');
+const net = electrumProvider('chipnet');
 const link = (t: string) => `https://chipnet.imaginary.cash/tx/${t}`;
 
 const first = await fetch(`${base}/api/oracle?q=hello`);

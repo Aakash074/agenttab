@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { electrumProvider } from '@agenttab/covenant';
 // AgentTab MCP server (stdio). Lets an AI agent pay for HTTP APIs that answer 402 `bch-credit`.
 // Env: AGENT_WIF (required; testnet WIF on chipnet), NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1),
 //      MAX_BUDGET_SATS (20000), MAX_PRICE_SATS (5000), MAX_TOTAL_SATS (100000), TAB_BLOCKS (144),
@@ -28,7 +29,7 @@ if ((network === 'mainnet') !== (dec.type === 'mainnet')) throw new Error(`AGENT
 const agent = new AgentTabClient({
   agentPriv: dec.privateKey,
   network,
-  provider: new ElectrumNetworkProvider(network),
+  provider: electrumProvider(network),
   maxBudgetSats: BigInt(env.MAX_BUDGET_SATS ?? 20_000),
   maxPriceSats: BigInt(env.MAX_PRICE_SATS ?? 5_000),
   maxTotalSats: BigInt(env.MAX_TOTAL_SATS ?? 100_000),
