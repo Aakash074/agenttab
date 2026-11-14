@@ -8,9 +8,10 @@ import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
 const CheatPanel = lazy(() => import('./components/CheatPanel').then((m) => ({ default: m.CheatPanel })));
-import { DEMO_AGENT_PUB, MAINNET_ENABLED, type Net } from './config';
-import { ApiError, api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
+import { DEMO_AGENT_PUB, MAINNET_ENABLED, explorerTx, type Net } from './config';
+import { ApiError, api, selectServer, type FeedEvent, type ServerInfo, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
+import { useTheme } from './hooks/useTheme';
 import type { Wallet } from './lib/wallet';
 import { ago, hex, loadWallet, sats, short, unhex } from './lib/format';
 
@@ -18,7 +19,7 @@ function Logo() {
   return (
     <a href="#" className="tap flex items-center gap-2.5" aria-label="AgentTab home">
       <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="8" fill="#0ac18e" /><path d="M9 22V10h7.5a4 4 0 0 1 0 8H13m0-8v12" stroke="#05140f" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      <span className="text-[17px] font-bold tracking-tight">AgentTab</span>
+      <span className="hidden text-[17px] font-bold tracking-tight min-[400px]:inline">AgentTab</span>
     </a>
   );
 }
@@ -30,9 +31,9 @@ function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizar
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Connect a wallet">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-fg/40 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Connect a wallet">
       <div className="relative w-full max-w-md rounded-2xl border border-line-2 bg-panel p-6" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-fg">✕</button>
+        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-subtle hover:text-fg">✕</button>
         <h3 className="text-lg font-bold">Connect a wallet</h3>
         <p className="mt-1 text-sm text-muted">You fund the tab and get the remainder back. Your keys never leave your wallet.</p>
         <button onClick={onWizard} className="mt-5 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60">
@@ -48,37 +49,54 @@ function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizar
   );
 }
 
-function HowItWorks() {
-  const steps = [
-    ['01', 'Open a tab', 'You lock a budget in a CashScript covenant: owner = you, agent = your agent\'s key, provider = the API. One on-chain transaction.'],
-    ['02', 'The agent pays per call', 'On a 402, the agent signs a voucher for the running total, bound to this exact tab. Off-chain, instant, no fees.'],
-    ['03', 'Settle or refund', 'The provider settles once with the highest voucher, and the covenant forces the rest back to you. If the provider vanishes, you refund after the timeout.'],
+function HowItWorks({ events, net, focusTab }: { events: FeedEvent[]; net: Net; focusTab?: string }) {
+  // Show a real tab's life: the visitor's own if they ran the journey, else the most recent closed tab.
+  const closed = events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tag !== 'attack' && events.some((p) => p.type === 'pay' && p.tab === e.tab));
+  const tab = focusTab ?? closed?.tab;
+  const open = tab ? events.find((e) => e.type === 'open' && e.tab === tab) : undefined;
+  const pays = tab ? events.filter((e) => e.type === 'pay' && e.tab === tab).sort((a, b) => a.id - b.id) : [];
+  const close = tab ? events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tab === tab) : undefined;
+  const budget = open?.amount ? BigInt(open.amount) : undefined;
+  const settled = close?.type === 'settle' ? BigInt(close.amount ?? 0) : 0n;
+  const link = (txid?: string) => txid
+    ? <a className="tap font-mono text-sm text-bch-2 hover:underline" href={explorerTx(net, txid)} target="_blank" rel="noreferrer">{short(txid, 6)} ↗</a>
+    : <span className="font-mono text-sm text-dim">pending</span>;
+  const nodes = [
+    { k: 'On-chain tx 1 · open', title: budget ? `${sats(budget)} sats locked in the covenant` : 'Budget locked in the covenant', body: link(open?.txid),
+      note: 'Owner, agent and provider keys plus a refund timeout are baked into the contract address.' },
+    { k: `Off-chain · ${pays.length || 'N'} voucher${pays.length === 1 ? '' : 's'}`, title: pays.length ? pays.map((p) => sats(p.amount)).join(' → ') + ' sats' : 'Running total, signed per call',
+      body: <span className="font-mono text-sm text-muted">0 transactions · 0 fees</span>,
+      note: 'Each API call carries one signature over the running total, bound to this exact tab.' },
+    { k: `On-chain tx 2 · ${close?.type === 'cancel' ? 'waive' : 'settle'}`,
+      title: close ? (close.type === 'settle' && budget ? `provider ${sats(settled)} · owner ${sats(budget - settled)}` : 'everything back to the owner') : 'Provider settles once',
+      body: link(close?.txid),
+      note: 'The covenant pays the provider at most what was signed and forces the exact remainder back to the owner.' },
   ];
   return (
     <section id="how" className="scroll-mt-24 mx-auto max-w-6xl px-4 py-16">
-      <h2 className="text-3xl font-bold tracking-tight">A bar tab, enforced by Bitcoin Cash script</h2>
-      <p className="mt-2 max-w-2xl text-muted">x402-style HTTP payments, but the agent doesn't need a transaction per call or a custodial balance. Every rule below is checked by the covenant, not by us.</p>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {steps.map(([n, t, d]) => (
-          <div key={n} className="min-w-0 rounded-2xl border border-line bg-panel p-5">
-            <span className="font-mono text-sm text-bch">{n}</span>
-            <h3 className="mt-2 text-lg font-semibold">{t}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{d}</p>
-          </div>
+      <h2 className="text-3xl font-bold tracking-tight">{focusTab ? 'Your tab, start to finish' : 'One real tab, start to finish'}</h2>
+      <p className="mt-2 max-w-2xl text-muted">Two transactions on Bitcoin Cash, however many API calls happen in between.{tab ? <> Tab <span className="font-mono">#{tab.slice(0, 4).toUpperCase()}</span>.</> : ''}</p>
+      <ol className="relative mt-8 grid gap-6 md:grid-cols-3 md:gap-0">
+        <div aria-hidden className="absolute left-[11px] top-3 bottom-3 w-px bg-line-2 md:left-3 md:right-3 md:top-[11px] md:bottom-auto md:h-px md:w-auto" />
+        {nodes.map((n, i) => (
+          <li key={n.k} className="relative pl-9 md:pl-0 md:pr-8 md:pt-9">
+            <span className={`absolute left-0 top-0 grid h-6 w-6 place-items-center rounded-full border-2 text-[11px] font-bold ${i === 1 ? 'border-line-2 bg-panel text-dim' : 'border-bch bg-bch text-on-bch'}`}>{i === 1 ? '…' : i === 0 ? '1' : '2'}</span>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-dim">{n.k}</div>
+            <div className="mt-1 font-semibold">{n.title}</div>
+            <div className="mt-1">{n.body}</div>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">{n.note}</p>
+          </li>
         ))}
-      </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div className="min-w-0 rounded-2xl border border-line bg-panel p-5">
-          <h3 className="text-sm font-semibold text-muted">What the covenant guarantees</h3>
-          <ul className="mt-3 space-y-2 text-sm">
-            {['Provider receives at most the signed amount', 'Owner receives exactly budget − amount', 'Vouchers only work on the tab they were signed for', 'Agent key can never withdraw', 'Owner refunds everything after the timeout'].map((x) => (
-              <li key={x} className="flex gap-2"><span className="text-bch">✓</span>{x}</li>
-            ))}
-          </ul>
+      </ol>
+      <div className="mt-10 grid gap-4 md:grid-cols-[1fr_1.2fr]">
+        <div className="min-w-0">
+          <h3 className="font-semibold">Give your own agent a tab</h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted">
+            The MCP server lets Claude or any MCP agent pay a <code className="font-mono">402 bch-credit</code> API from a tab, with per-call and total spend caps.
+            Tools: <code className="font-mono">fetch_paid</code>, <code className="font-mono">tab_status</code>, <code className="font-mono">close_tab</code>, <code className="font-mono">agent_info</code>.
+          </p>
         </div>
-        <div className="min-w-0 rounded-2xl border border-line bg-panel p-5">
-          <h3 className="text-sm font-semibold text-muted">Give your agent a tab (MCP)</h3>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink p-3 font-mono text-[12px] leading-5 text-muted">{`{
+        <pre className="card min-w-0 overflow-x-auto rounded-xl border border-line bg-panel p-4 font-mono text-[12px] leading-5 text-muted">{`{
   "mcpServers": {
     "agenttab": {
       "command": "node",
@@ -87,8 +105,6 @@ function HowItWorks() {
     }
   }
 }`}</pre>
-          <p className="mt-2 text-xs text-dim">Tools: <code>fetch_paid</code>, <code>tab_status</code>, <code>close_tab</code>, <code>agent_info</code></p>
-        </div>
       </div>
     </section>
   );
@@ -109,6 +125,7 @@ export default function App() {
   const [journey, setJourney] = useState<JourneyState>({ active: false, calls: 0 });
   const pendingJourney = useRef(false);
   const wc = useWizardConnect({ dappName: 'AgentTab' });
+  const theme = useTheme();
 
   selectServer(net);
   useEffect(() => {
@@ -224,9 +241,10 @@ export default function App() {
       upd({ step: 'calls', calls: 0, note: undefined });
       for (let i = 1; i <= 3; i++) {
         let r;
+        upd({ note: `Agent is calling ${info.routes[0]?.path ?? '/api/oracle'} (call ${i} of 3)…` });
         for (let tries = 0; !r; tries++) {
-          try { r = await api.demoCall(tab); } catch (e) {
-            if (e instanceof ApiError && e.status === 429 && tries < 5) { await sleep(2500); continue; }
+          try { r = await api.demoCall(tab, info.routes[0]?.path); } catch (e) {
+            if (e instanceof ApiError && e.status === 429 && tries < 5) { upd({ note: 'API busy, retrying…' }); await sleep(2500); continue; }
             throw e;
           }
         }
@@ -289,10 +307,20 @@ export default function App() {
             <a href="#how" className="hover:text-fg">How it works</a>
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button onClick={theme.next} aria-label={`Theme: ${theme.choice}. Switch theme`} title={`Theme: ${theme.choice} (click to switch)`}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line-2 bg-panel text-muted hover:text-fg">
+              {theme.choice === 'light' ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+              ) : theme.choice === 'dark' ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+              )}
+            </button>
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
               className="w-[112px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm" title="Network (chipnet = testnet)">
               <option value="chipnet">Chipnet</option>
-              <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet — live at submission'}</option>
+              <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (at submission)'}</option>
             </select>
             {wallet ? (
               <div className="relative">
@@ -302,13 +330,13 @@ export default function App() {
                 {menu && (
                   <div className="absolute right-0 mt-2 w-64 rounded-xl border border-line-2 bg-panel p-2 text-sm shadow-xl" onMouseLeave={() => setMenu(false)}>
                     <div className="px-2 py-1.5 text-xs text-dim">{wallet.label}</div>
-                    <button className="w-full rounded-lg px-2 py-2 text-left hover:bg-white/5" onClick={() => { navigator.clipboard?.writeText(wallet.address); setMenu(false); }}>Copy address</button>
-                    <button className="w-full rounded-lg px-2 py-2 text-left text-bad hover:bg-white/5" onClick={() => { if (wallet.kind === 'wizard') wc.disconnect(); setWallet(null); setMenu(false); }}>Disconnect</button>
+                    <button className="w-full rounded-lg px-2 py-2 text-left hover:bg-subtle" onClick={() => { navigator.clipboard?.writeText(wallet.address); setMenu(false); }}>Copy address</button>
+                    <button className="w-full rounded-lg px-2 py-2 text-left text-bad hover:bg-subtle" onClick={() => { if (wallet.kind === 'wizard') wc.disconnect(); setWallet(null); setMenu(false); }}>Disconnect</button>
                   </div>
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-3 py-1.5 text-sm font-semibold text-ink hover:bg-bch-2">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-3 py-1.5 text-sm font-semibold text-on-bch hover:bg-bch-hover">Connect</button>
             )}
           </div>
         </div>
@@ -322,15 +350,15 @@ export default function App() {
 
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
-        pinTab={preferTab} run={run} onRun={() => runDemo()} onFund={fund}
+        pinTab={preferTab ?? (journey.openTxid ? `${journey.openTxid}:0` : undefined)} run={run} onRun={() => runDemo()} onFund={fund}
         journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
-        apiDown={!info} lastSeen={lastSeen} stale={stale} />
+        apiDown={!info} apiError={!!infoErr} lastSeen={lastSeen} stale={stale} />
       </ErrorBoundary>
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
         <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} /></ErrorBoundary></div></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
-          <details id="advanced" className="group rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
+          <details id="advanced" className="group card rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
             <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold group-open:hidden">
               <span>Advanced: fund a tab for your own agent <span className="font-normal text-dim">(agent key, budget, timeout, covenant)</span></span>
               <span className="text-dim">▾</span>
@@ -339,13 +367,13 @@ export default function App() {
               onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} openTabs={wallet ? openTabs : undefined} />
           </details>
           <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
-            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} /></ErrorBoundary>
+            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
         </div>
       </main>
 
       {info?.features?.attacks && <ErrorBoundary label="The attack panel"><Suspense fallback={null}><CheatPanel net={net} /></Suspense></ErrorBoundary>}
 
-      <HowItWorks />
+      <HowItWorks events={events} net={net} focusTab={journey.openTxid ? `${journey.openTxid}:0` : undefined} />
 
       {toast && (
         <div role="status" className="slide-in fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-bch/40 bg-panel px-4 py-2.5 text-sm shadow-xl">{toast}</div>
@@ -366,7 +394,9 @@ export default function App() {
       {showQr && wc.uri && wc.qrUri && wc.state !== 'connected' && (
         <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); if (pendingJourney.current) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
           title="Connect with WizardConnect" subtitle="Scan with Paytaca to fund your agent's tab"
-          theme={{ dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35' }} />
+          theme={theme.resolved === 'dark'
+            ? { dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35', titleColor: '#e8f3ef', subtitleColor: '#a3b8b1', uriRowBackground: '#131c19', uriTextColor: '#a3b8b1' }
+            : { backdropColor: 'rgba(17,26,23,0.45)', dialogBackground: '#ffffff', headerBackground: '#ffffff', borderColor: '#e3ded2', titleColor: '#111a17', subtitleColor: '#44514c', uriRowBackground: '#f1eee6', uriTextColor: '#44514c', closeButtonColor: '#44514c', copyButtonColor: '#44514c', qrForeground: '#111a17' }} />
       )}
     </div>
   );

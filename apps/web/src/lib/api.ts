@@ -13,6 +13,7 @@ export interface FeedEvent {
   contract?: string;
   agent?: string;
   demo?: boolean;
+  tag?: string;
 }
 
 export interface Stats {
@@ -82,7 +83,7 @@ export const api = {
     j<TabRecord>('/tabs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }),
   streamUrl: () => `${SERVER}/feed/stream`,
   contractUrl: () => `${SERVER}/contract`,
-  demoCall: (tab?: string) => j<DemoCall>('/demo/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tab ? { tab } : {}) }),
+  demoCall: (tab?: string, route?: string) => j<DemoCall>('/demo/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...(tab ? { tab } : {}), ...(route ? { route } : {}) }) }),
   demoInfo: () => j<DemoInfo>('/demo'),
   attacks: () => j<{ last: AttackRun | null; running: boolean }>('/attacks'),
   runAttacks: () => j<{ last: AttackRun | null; running?: boolean; cached?: boolean; retryInMs?: number }>('/attacks/run', { method: 'POST' }),

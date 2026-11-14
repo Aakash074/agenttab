@@ -1,41 +1,112 @@
 @import "tailwindcss";
 
+/* Design tokens. Light ("paper") is the default theme; dark is opt-in via the header toggle
+   (data-theme="dark") or follows the OS when data-theme="system". Utilities reference these
+   variables, so both themes share one set of class names. */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --color-ink: #070b0a;
-  --color-panel: #0e1513;
-  --color-panel-2: #131c19;
-  --color-line: #1e2b27;
-  --color-line-2: #2a3a35;
-  --color-fg: #e8f3ef;
-  --color-muted: #9fb6ae;
-  --color-dim: #8aa098;
-  --color-bch: #0ac18e;
-  --color-bch-2: #3ee0ae;
-  --color-warn: #f5b84b;
-  --color-bad: #f2716b;
+
+  /* surfaces */
+  --color-ink: #f6f4ee;        /* page background (warm paper) */
+  --color-panel: #ffffff;      /* cards */
+  --color-panel-2: #f1eee6;
+  --color-subtle: rgb(17 26 23 / 0.05);   /* hover fills, tracks */
+  --color-line: #e3ded2;       /* borders */
+  --color-line-2: #cdc6b6;
+  /* text */
+  --color-fg: #111a17;
+  --color-muted: #44514c;
+  --color-dim: #5c6964;
+  /* brand */
+  --color-bch: #0ac18e;        /* BCH green: fills, bars, primary buttons */
+  --color-bch-hover: #08ad7f;
+  --color-on-bch: #052119;     /* text on BCH green */
+  --color-bch-2: #04744f;      /* green used as TEXT (links, accents): AA on paper */
+  /* status */
+  --color-warn: #8a5300;
+  --color-bad: #b42318;
+  --color-info: #1b5aa0;
+  --color-gold: #7a5200;
+  --shadow-card: 0 1px 2px rgb(17 26 23 / 0.06), 0 1px 1px rgb(17 26 23 / 0.04);
 }
 
-html { background: var(--color-ink); color-scheme: dark; }
+@layer base {
+  :root[data-theme="dark"] {
+    --color-ink: #070b0a;
+    --color-panel: #0e1513;
+    --color-panel-2: #131c19;
+    --color-subtle: rgb(255 255 255 / 0.05);
+    --color-line: #1e2b27;
+    --color-line-2: #2a3a35;
+    --color-fg: #e8f3ef;
+    --color-muted: #a3b8b1;
+    --color-dim: #8aa098;
+    --color-bch: #0ac18e;
+    --color-bch-hover: #3ee0ae;
+    --color-on-bch: #05140f;
+    --color-bch-2: #3ee0ae;
+    --color-warn: #f5b84b;
+    --color-bad: #f2716b;
+    --color-info: #7cc8f5;
+    --color-gold: #f3cf6a;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] {
+      --color-ink: #070b0a;
+      --color-panel: #0e1513;
+      --color-panel-2: #131c19;
+      --color-subtle: rgb(255 255 255 / 0.05);
+      --color-line: #1e2b27;
+      --color-line-2: #2a3a35;
+      --color-fg: #e8f3ef;
+      --color-muted: #a3b8b1;
+      --color-dim: #8aa098;
+      --color-bch-hover: #3ee0ae;
+      --color-on-bch: #05140f;
+      --color-bch-2: #3ee0ae;
+      --color-warn: #f5b84b;
+      --color-bad: #f2716b;
+      --color-info: #7cc8f5;
+      --color-gold: #f3cf6a;
+      --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+    }
+  }
+}
+
+html { background: var(--color-ink); color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark; } }
 body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); background: var(--color-ink); -webkit-font-smoothing: antialiased; }
 
-.grid-bg {
-  background-image:
-    linear-gradient(to right, rgba(62, 224, 174, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(62, 224, 174, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
+.card { box-shadow: var(--shadow-card); }
+
+/* The receipt is a paper slip: perforated tear lines with punched notches at both ends. */
+.slip { position: relative; background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 10px; box-shadow: var(--shadow-card); }
+.slip-tear { position: relative; height: 0; border-top: 2px dashed var(--color-line-2); margin-inline: 14px; }
+.slip-tear::before, .slip-tear::after {
+  content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 9999px;
+  background: var(--color-ink); border: 1px solid var(--color-line);
 }
+.slip-tear::before { left: -23px; clip-path: inset(0 0 0 50%); }
+.slip-tear::after { right: -23px; clip-path: inset(0 50% 0 0); }
 
 @keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .slide-in { animation: slide-in 0.35s ease-out; }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .slide-in, .pulse-dot { animation: none; } }
 
 input, select, button { font: inherit; }
-input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--color-bch) 60%, transparent); outline-offset: 1px; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--color-bch-2); outline-offset: 2px;
+}
 
 /* >=44px touch targets on small screens for inline links */
 .tap { display: inline-flex; align-items: center; min-height: 44px; }
 @media (min-width: 640px) { .tap { min-height: 0; } }
+
+@keyframes stamp-in { 0% { opacity: 0; transform: scale(1.6) rotate(-8deg); } 60% { opacity: 1; transform: scale(0.95) rotate(-8deg); } 100% { transform: scale(1) rotate(-8deg); } }
+.stamp { animation: stamp-in 0.45s ease-out both; background: color-mix(in oklab, var(--color-panel) 85%, transparent); }
+@media (prefers-reduced-motion: reduce) { .stamp { animation: none; } }

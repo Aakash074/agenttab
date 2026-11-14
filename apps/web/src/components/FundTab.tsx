@@ -45,6 +45,8 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
   // "Use my balance": everything the wallet can put in, if that's a valid tab (provider minimum ~2.2k sats).
   const maxAffordable = balance !== null ? ((balance - FEE_ROOM) / 100n) * 100n : 0n;
   const showUseBalance = balance !== null && !funded && maxAffordable >= 2_200n && !budgets.includes(maxAffordable);
+  // Below the selected preset but enough for a smaller tab: default to "Use my balance".
+  useEffect(() => { if (showUseBalance && budget > maxAffordable && step.state !== 'done') setBudget(maxAffordable); }, [showUseBalance, maxAffordable]); // eslint-disable-line react-hooks/exhaustive-deps
   const dripLocked = !!drip.until && Date.now() < drip.until;
   const blocker = !info ? (infoErr ? 'Provider API unreachable' : 'Waiting for the provider API…')
     : !keyOk ? 'Enter a 33-byte agent public key'
@@ -85,10 +87,10 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
     }
   }
 
-  const choice = (on: boolean) => `rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-white/[0.03]'}`;
+  const choice = (on: boolean) => `rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-subtle'}`;
 
   return (
-    <section id="fund" className="scroll-mt-24 rounded-2xl border border-line bg-panel p-5 sm:p-6">
+    <section id="fund" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Fund your agent's tab</h2>
@@ -125,7 +127,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           {(showUseBalance || (!budgets.includes(budget) && budget > 0n)) && (
             <button onClick={() => setBudget(maxAffordable)} className={`${choice(budget === maxAffordable)} flex items-center justify-between`}>
               <span><span className="font-mono text-sm font-semibold">Use my balance · {sats(maxAffordable)} sats</span>
-                <span className="block text-[11px] text-dim">≈ {String((maxAffordable - 546n) / price)} calls, keeps ~600 sats for the fee</span></span>
+                <span className="block text-[11px] text-dim">{sats(maxAffordable)} usable (600 kept for the fee) · ≈ {String((maxAffordable - 546n) / price)} calls</span></span>
             </button>
           )}
         </div>
@@ -158,8 +160,8 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           </div>
         </dl>
 
-        {!wallet ? (
-          <button onClick={onConnect} className="rounded-xl bg-bch px-5 py-3 font-semibold text-ink hover:bg-bch-2">Connect a wallet to fund</button>
+        {step.state === 'done' ? null : !wallet ? (
+          <button onClick={onConnect} className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch hover:bg-bch-hover">Connect a wallet to fund</button>
         ) : (
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-dim">
@@ -171,7 +173,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
                 <p className="text-muted">{balance === 0n ? 'This test wallet is empty.' : `This test wallet has ${sats(balance!)} sats, not enough for a tab.`} Free chipnet coins, no signup:</p>
                 {info?.features?.faucet ? (
                   <button onClick={getTestCoins} disabled={drip.busy || drip.ok || dripLocked}
-                    className="mt-2 min-h-[44px] w-full rounded-lg bg-bch/90 px-4 py-2.5 font-semibold text-ink hover:bg-bch-2 disabled:opacity-60">
+                    className="mt-2 min-h-[44px] w-full rounded-lg bg-bch/90 px-4 py-2.5 font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-60">
                     {drip.busy ? 'Sending test coins…' : drip.ok ? 'Test coins on the way' : dripLocked ? `Try again in ${Math.ceil((drip.until! - Date.now()) / 60_000)} min` : `Get ${sats(info.features.faucet.dripSats)} free test sats`}
                   </button>
                 ) : (
@@ -183,18 +185,21 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               </div>
             )}
             <button disabled={!!blocker || step.state === 'busy'} onClick={open}
-              className="rounded-xl bg-bch px-5 py-3 font-semibold text-ink transition hover:bg-bch-2 disabled:cursor-not-allowed disabled:opacity-40">
+              className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-not-allowed disabled:opacity-40">
               {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats${net === 'mainnet' && bchUsd ? ` (${usd(budget, bchUsd)})` : ''}`}
             </button>
             {blocker && step.state !== 'busy' && <p className="text-center text-xs text-dim">{blocker}</p>}
           </div>
+        )}
+        {step.state === 'done' && (
+          <button onClick={() => setStep({ state: 'idle' })} className="min-h-[44px] justify-self-start text-sm font-medium text-muted hover:text-fg">Fund another tab</button>
         )}
         {step.state === 'done' && (!openTabs || openTabs.has(`${step.txid}:0`)) && (
           <p className="slide-in rounded-lg border border-bch/30 bg-bch/10 px-3 py-2.5 text-sm">
             Tab open with {sats(step.budget)} sats. {isDemo ? 'The demo agent can now pay from it.' : 'Your agent can start paying now.'}{' '}
             <a className="tap font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>
             {isDemo && onRunOnTab && (
-              <button onClick={() => onRunOnTab(`${step.txid}:0`)} className="mt-2 block min-h-[44px] w-full rounded-lg bg-bch px-4 py-2 font-semibold text-ink hover:bg-bch-2">▶ Run agent on this tab</button>
+              <button onClick={() => onRunOnTab(`${step.txid}:0`)} className="mt-2 block min-h-[44px] w-full rounded-lg bg-bch px-4 py-2 font-semibold text-on-bch hover:bg-bch-hover">Run agent on this tab</button>
             )}
           </p>
         )}

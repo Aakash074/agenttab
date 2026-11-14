@@ -5,7 +5,7 @@ import { blocksToText, hex, sats, short, unhex } from '../lib/format';
 import type { Wallet } from '../lib/wallet';
 
 const STATUS: Record<TabRecord['status'], string> = {
-  open: 'text-bch-2 bg-bch/10', settled: 'text-amber-200 bg-amber-300/10', cancelled: 'text-sky-200 bg-sky-300/10', expired: 'text-muted bg-white/5', closed: 'text-muted bg-white/5',
+  open: 'text-bch-2 bg-bch/10', settled: 'text-gold bg-gold/10', cancelled: 'text-info bg-info/10', expired: 'text-muted bg-subtle', closed: 'text-muted bg-subtle',
 };
 
 function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab, running }: {
@@ -57,12 +57,12 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
       <div className="mt-1 font-mono text-[11px] text-dim">
         covenant <a className="tap hover:text-bch-2" href={explorerAddr(net, t.contractAddress)} target="_blank" rel="noreferrer">{short(t.contractAddress.split(':')[1] ?? t.contractAddress, 8)} ↗</a>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
-        <div className="h-full rounded-full bg-gradient-to-r from-bch to-bch-2 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-subtle">
+        <div className="h-full rounded-full bg-bch transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-sm sm:grid-cols-4">
         <div><dt className="text-[11px] text-dim">Budget</dt><dd className="font-mono">{sats(budget)}</dd></div>
-        <div><dt className="text-[11px] text-dim">Spent ({t.requests} calls)</dt><dd className="font-mono">{sats(spent)}</dd></div>
+        <div><dt className="text-[11px] text-dim">Spent ({t.requests} call{t.requests === 1 ? '' : 's'})</dt><dd className="font-mono">{sats(spent)}</dd></div>
         <div><dt className="text-[11px] text-dim">{t.status === 'settled' || t.status === 'cancelled' ? 'Returned to you' : 'Remaining'}</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
         <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="whitespace-nowrap font-mono">{t.status !== 'open' && t.status !== 'expired' ? 'closed' : left > 0 ? `in ${blocksToText(left)}` : 'unlocked'}</dd></div>
       </dl>
@@ -70,7 +70,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
         {t.settledTxid && (
           <a className="text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.settledTxid)} target="_blank" rel="noreferrer">
             {t.status === 'cancelled'
-              ? <>Status: waived. The whole budget (minus the miner fee) went back to you · </>
+              ? <>{t.requests} call{t.requests === 1 ? '' : 's'}, waived (too small to settle). The whole budget minus the miner fee went back to you · </>
               : <>Status: settled. Provider took {sats(t.settledAmount)} sats, {sats(budget - spent)} returned to you · </>}
             <span className="font-mono">{short(t.settledTxid, 6)} ↗</span>
           </a>
@@ -79,8 +79,8 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
           <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             {isDemo && onRunOnTab && (
               <button onClick={() => onRunOnTab(t.id)} disabled={running || busy}
-                className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-ink hover:bg-bch-2 disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5">
-                {running ? 'Paying…' : '▶ Run agent on this tab'}
+                className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5">
+                {running ? 'Busy…' : 'Run agent on this tab'}
               </button>
             )}
             <button onClick={closeNow} disabled={!canClose || busy}
@@ -120,7 +120,7 @@ export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, on
   useEffect(() => { setTabs([]); load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load, refreshKey]);
 
   return (
-    <section id="tabs" className="scroll-mt-24 rounded-2xl border border-line bg-panel p-6">
+    <section id="tabs" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-6">
       <h2 className="text-xl font-bold">Your tabs</h2>
       {!wallet ? (
         <p className="mt-2 text-sm text-muted">Connect a wallet to see the tabs you funded.</p>

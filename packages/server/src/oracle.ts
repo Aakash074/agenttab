@@ -12,6 +12,12 @@ async function fetchJson(url: string) {
   return r.json();
 }
 
+/** Non-blocking: returns the cached price at once and refreshes it in the background. */
+export function bchPriceCached(): number | undefined {
+  if (!cache || Date.now() - cache.at > 60_000) void bchPrice().catch(() => {});
+  return cache?.price.usd;
+}
+
 export async function bchPrice(): Promise<Price | undefined> {
   if (cache && Date.now() - cache.at < 60_000) return cache.price;
   let price: Price | undefined;
@@ -41,5 +47,34 @@ export function oracleHandler(provider: NetworkProvider, network: string) {
         `1000 sats ≈ $${(usd * 1e-5).toFixed(4)}. ${network} tip: block ${tip ?? '?'}.`
       : `Price sources unreachable right now. ${network} tip: block ${tip ?? '?'}.`;
     return { q, answer, data: { bchUsd: usd, change24h: price?.change24h, priceSource: price?.source, priceAt: price?.fetchedAt, network, tip } };
+  };
+}
+
+
+/** Cheaper route: just the chain tip and the latest block's timestamp. */
+export function tipHandler(provider: NetworkProvider, network: string) {
+  return async () => {
+    const tip = await provider.getBlockHeight().catch(() => undefined);
+    let time: number | undefined;
+    try {
+      const hex = await (provider as { performRequest?: (m: string, ...p: number[]) => Promise<unknown> }).performRequest?.('blockchain.block.header', tip!);
+      if (typeof hex === 'string') time = Buffer.from(hex.slice(136, 144), 'hex').readUInt32LE(0);
+    } catch { /* header unavailable */ }
+    return { answer: `${network} tip is block ${tip ?? '?'}${time ? `, mined ${new Date(time * 1000).toISOString()}` : ''}.`, data: { network, tip, time } };
+  };
+}
+
+let fxCache: { at: number; v: Record<string, number> } | undefined;
+/** Mid-price route: BCH in USD/EUR/INR/JPY from CoinGecko (no key), cached 60 s. */
+export function fxHandler() {
+  return async () => {
+    if (!fxCache || Date.now() - fxCache.at > 60_000) {
+      try {
+        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin-cash&vs_currencies=usd,eur,inr,jpy', { signal: AbortSignal.timeout(5000) });
+        if (r.ok) fxCache = { at: Date.now(), v: (await r.json())['bitcoin-cash'] };
+      } catch { /* keep stale cache */ }
+    }
+    const v = fxCache?.v;
+    return { answer: v ? `1 BCH = $${v.usd} · €${v.eur} · ₹${v.inr} · ¥${v.jpy} (coingecko)` : 'FX source unreachable right now.', data: v ?? null };
   };
 }

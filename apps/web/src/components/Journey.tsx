@@ -35,7 +35,7 @@ export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disab
   if (!j.active && !j.done && !j.error) {
     return (
       <button onClick={onStart} disabled={!!disabledReason} title={disabledReason}
-        className="group w-full rounded-2xl bg-bch px-5 py-4 text-left text-ink shadow-lg shadow-bch/20 transition hover:bg-bch-2 disabled:cursor-wait disabled:opacity-60 sm:max-w-xl">
+        className="group w-full rounded-2xl bg-bch px-5 py-4 text-left text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-60 sm:max-w-xl">
         <span className="block text-lg font-bold leading-snug">Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back.</span>
         <span className="mt-1 block text-sm font-medium opacity-80">
           {disabledReason ?? `One click, about 30 seconds, on ${net === 'chipnet' ? 'chipnet with free test coins' : 'mainnet with your wallet'} →`}
@@ -51,7 +51,7 @@ export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disab
           return (
             <li key={s.id} className="flex items-start gap-3 text-sm">
               <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
-                state === 'done' ? 'bg-bch text-ink' : state === 'now' ? 'border-2 border-bch text-bch-2 pulse-dot' : state === 'error' ? 'bg-bad text-ink' : 'border border-line-2 text-dim'}`}>
+                state === 'done' ? 'bg-bch text-on-bch' : state === 'now' ? 'border-2 border-bch text-bch-2 pulse-dot' : state === 'error' ? 'bg-bad text-white' : 'border border-line-2 text-dim'}`}>
                 {state === 'done' ? '✓' : state === 'error' ? '!' : i + 1}
               </span>
               <div className="min-w-0">
@@ -80,7 +80,7 @@ export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disab
         </p>
       )}
       {(j.done || j.error) && (
-        <button onClick={onReset} className="mt-3 min-h-[44px] text-sm font-medium text-muted hover:text-fg">{j.error ? 'Try again' : 'Do it again'}</button>
+        <button onClick={onReset} className="mt-3 min-h-[44px] rounded-lg border border-line-2 px-4 text-sm font-medium text-fg hover:bg-subtle">{j.error ? 'Try again' : 'Do it again'}</button>
       )}
     </div>
   );

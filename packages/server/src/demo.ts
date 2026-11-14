@@ -28,6 +28,8 @@ export interface DemoOptions {
   idleSeconds?: number;
   /** Mainnet mode: only spend tabs visitors funded for the demo agent; never open its own; no cron. */
   visitorTabsOnly?: boolean;
+  /** Other paid routes the house agent sometimes calls, so the feed shows a realistic mix. */
+  extraRoutes?: { path: string; price: bigint }[];
   /** Hard cap on what the demo agent may sign in total (state file), e.g. on mainnet. */
   maxTotalSats?: bigint;
 }
@@ -76,11 +78,13 @@ export function createDemo(o: DemoOptions) {
     }
   }
 
-  async function call(preferTab?: string) {
+  async function call(preferTab?: string, routePath?: string) {
     if (o.visitorTabsOnly && !preferTab) throw new PaymentError('needs_tab', 'On mainnet the demo agent only spends a tab you funded for it. Fund one first.', 400);
     const q = questions[Math.floor(Math.random() * questions.length)];
     try {
-      const r = await agent.fetchPaid(`${o.selfUrl()}${o.route}?q=${encodeURIComponent(q)}`, {}, o.price, { preferTab });
+      const pool = [{ path: o.route, price: o.price }, ...(o.extraRoutes ?? [])];
+      const pick = routePath ? (pool.find((p) => p.path === routePath) ?? pool[0]) : (Math.random() < 0.6 ? pool[0] : pool[1 + Math.floor(Math.random() * (pool.length - 1))] ?? pool[0]);
+      const r = await agent.fetchPaid(`${o.selfUrl()}${pick.path}?q=${encodeURIComponent(q)}`, {}, o.price, { preferTab });
       lastCall = new Date().toISOString();
       lastError = undefined;
       await rollOver();
@@ -108,7 +112,7 @@ export function createDemo(o: DemoOptions) {
     const body = await readBody(req).catch(() => ({}));
     const prefer = typeof body.tab === 'string' && /^[0-9a-f]{64}:\d+$/.test(body.tab) ? body.tab : undefined;
     try {
-      const r = await call(prefer);
+      const r = await call(prefer, typeof body.route === 'string' ? body.route : undefined);
       const parsed = r.paid ? JSON.parse(r.body) : undefined;
       json(res, 200, r.paid
         ? { tab: r.tab, priceSats: r.priceSats, cumulativeSats: r.cumulativeSats, remainingSats: r.remainingSats, answer: parsed?.answer }

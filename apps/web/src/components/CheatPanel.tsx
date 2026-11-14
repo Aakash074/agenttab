@@ -42,17 +42,17 @@ export function CheatPanel({ net }: { net: Net }) {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Try to cheat the tab</h2>
           <p className="mt-2 max-w-2xl text-muted">
-            Each button press opens a fresh tab on chipnet and fires real cheating transactions at it. The rejections below are the chipnet full node's own words, not ours.
+            Each run opens a fresh tab on chipnet and sends real cheating transactions at it. Each rejection below is the raw error string the chipnet node returned.
           </p>
         </div>
         <button onClick={go} disabled={busy}
           className="w-full rounded-xl border border-bch/60 bg-bch/10 px-5 py-3 font-semibold text-bch-2 transition hover:bg-bch/20 disabled:opacity-60 sm:w-auto">
-          {busy ? 'Attacking chipnet… (~30 s)' : '⚔ Run 7 attacks on chipnet'}
+          {busy ? 'Attacking chipnet… (~30 s)' : 'Run 7 attacks on chipnet'}
         </button>
       </div>
       {note && <p className="mt-3 text-sm text-dim">{note}</p>}
       {busy && (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel" aria-busy="true">
+        <div className="mt-6 overflow-hidden card rounded-2xl border border-line bg-panel" aria-busy="true">
           <div className="border-b border-line px-5 py-3 text-xs text-dim">Opening a fresh tab on chipnet and paying 2 calls, then attacking…</div>
           <ol className="divide-y divide-line">
             {PLANNED.map((t, i) => (
@@ -65,7 +65,7 @@ export function CheatPanel({ net }: { net: Net }) {
         </div>
       )}
       {!busy && run ? (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel">
+        <div className="mt-6 overflow-hidden card rounded-2xl border border-line bg-panel">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3 text-xs text-dim">
             <span><b className={`text-bch-2 transition-all ${flash ? 'rounded bg-bch/20 px-2 py-1 text-base' : ''}`}>{rejected}/{run.results.length} rejected</b> · run {ago(run.at)} · {Math.round(run.ms / 1000)} s</span>
             <span className="font-mono">
@@ -116,7 +116,7 @@ export function CheatPanel({ net }: { net: Net }) {
           </ol>
         </div>
       ) : !busy && (
-        <p className="mt-6 rounded-2xl border border-line bg-panel px-5 py-8 text-center text-sm text-muted">No attack run yet. Press the button to try.</p>
+        <p className="mt-6 card rounded-2xl border border-line bg-panel px-5 py-8 text-center text-sm text-muted">No attack run yet. Press the button to try.</p>
       )}
     </section>
   );

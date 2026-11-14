@@ -4,12 +4,12 @@ import { ago, sats, short } from '../lib/format';
 import { explorerAddr, explorerTx, type Net } from '../config';
 
 const KIND: Record<FeedEvent['type'], { label: string; tone: string }> = {
-  open: { label: 'TAB OPENED', tone: 'text-sky-300 bg-sky-400/10 ring-sky-400/20' },
+  open: { label: 'TAB OPENED', tone: 'text-info bg-info/10 ring-info/25' },
   pay: { label: 'PAID CALL', tone: 'text-bch-2 bg-bch/10 ring-bch/25' },
-  settle: { label: 'SETTLED', tone: 'text-amber-200 bg-amber-300/10 ring-amber-300/25' },
-  cancel: { label: 'WAIVED', tone: 'text-sky-200 bg-sky-300/10 ring-sky-300/20' },
-  expired: { label: 'EXPIRED', tone: 'text-muted bg-white/5 ring-white/10' },
-  closed: { label: 'REFUNDED', tone: 'text-muted bg-white/5 ring-white/10' },
+  settle: { label: 'SETTLED', tone: 'text-gold bg-gold/10 ring-gold/25' },
+  cancel: { label: 'WAIVED', tone: 'text-info bg-info/10 ring-info/25' },
+  expired: { label: 'EXPIRED', tone: 'text-muted bg-subtle ring-line' },
+  closed: { label: 'REFUNDED', tone: 'text-muted bg-subtle ring-line' },
 };
 
 export function useNow(ms = 5000) {
@@ -19,7 +19,7 @@ export function useNow(ms = 5000) {
 }
 
 export function describe(e: FeedEvent) {
-  const who = e.demo ? 'Demo agent' : 'Agent';
+  const who = e.demo ? 'House demo agent' : 'Agent';
   switch (e.type) {
     case 'open': return <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'an agent'}</>;
     case 'pay': return <>{who} paid <b className="text-fg">{sats(e.price)} sats</b> for <code className="font-mono text-fg">{e.route}</code> · voucher total {sats(e.amount)}</>;
@@ -37,12 +37,12 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
   const [all, setAll] = useState(false);
   const shown = all ? events : events.slice(0, VISIBLE);
   return (
-    <section id="feed" className="scroll-mt-24 self-start rounded-2xl border border-line bg-panel">
+    <section id="feed" className="scroll-mt-24 self-start card rounded-2xl border border-line bg-panel">
       <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full ${live ? 'bg-bch pulse-dot' : 'bg-dim'}`} />
           <h2 className="text-sm font-semibold tracking-wide">Live payment feed</h2>
-          <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[11px] text-muted">{net}</span>
+          <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[11px] text-muted">{net}</span>
         </div>
         <span className="text-xs text-dim">{live ? 'streaming' : 'polling'}</span>
       </header>

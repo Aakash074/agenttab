@@ -1,7 +1,5 @@
 # AgentTab: Widget Factory deck content (slide by slide)
 
-This is the text to paste into the user's copy of the BLAZE Widget Factory template. Keep the template's layout. Slides marked **HUMAN** must be written by the author.
-
 ---
 
 ## 1. Title / one-liner
@@ -17,7 +15,7 @@ AI agents are starting to pay for APIs per call (x402).
 
 - **Paying on-chain per call** costs a transaction and a fee every time. It adds latency to every request, and the agent holds a hot wallet that can spend everything.
 - **Prepaid credit at the provider** is custodial. You trust the provider with your balance and your refund.
-- There is no way to give an agent a **bounded, refundable** budget that it can't run off with and the provider can't overcharge.
+- I couldn't find a non-custodial way on BCH to give an agent a **bounded, refundable** budget that it can't run off with and the provider can't overcharge.
 
 ## 3. The number: 2 vs N
 Put the live counter from the site here as a screenshot: "N API calls paid · 2 on-chain txs per tab · total fees $X".
@@ -53,25 +51,23 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 ## 6. Relationship to x402-bch
 - AgentTab speaks the same HTTP flow as **x402-bch** (v2.2): `402` + `accepts[]`, an `X-PAYMENT` retry, and `X-PAYMENT-RESPONSE`.
 - It adds one scheme, **`bch-credit`**: a non-custodial, covenant-backed tab instead of a per-request transaction or custodial batch debit.
-- Credit: **Permissionless Software Foundation** (`x402-bch`, `x402-bch-express`) and **OPTN Labs** (`x402-bch`, AI allowance covenants). `bch-credit` is designed to sit next to their schemes in the same `accepts[]`.
+- Credit: **Permissionless Software Foundation** (`x402-bch`, `x402-bch-express`) and **OPTN Labs** (`x402-bch`). `bch-credit` is designed to sit next to their schemes in the same `accepts[]`.
 - An **MCP server** lets Claude or any MCP agent pay on its own: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps.
 
 ## 7. Business model
-- **Who pays:** API providers want to sell per call to agents without card rails or custody, and the end users who fund their agents.
-- **Hosted paywall (SaaS):** "AgentTab for your API". We run the 402 / voucher verification, auto-settle and dashboard.
-  - A take-rate of 1–2% on settled volume, or a flat monthly fee for high volume.
-  - Settlement stays non-custodial: funds move covenant → provider.
-- **Open-source middleware:** free (Express/Hono/Node), which drives adoption of the scheme.
-- **Agent side:** the MCP server and SDK are free. A possible premium tier adds managed agent wallets with spend policies.
-- **Why BCH:** sub-cent fees and fast 0-conf make a 2-transaction channel cheap to open and close, and covenants enforce the refund.
+- No paying provider yet.
+- First guess: a hosted paywall for API providers, charging 1% of settled volume [Author to confirm].
+- Settlement stays non-custodial: funds go from the covenant straight to the provider.
+- The middleware, MCP server and SDK stay open source.
+- Who pays is open: the API provider (take-rate) or the agent owner (nothing extra today) [Author to confirm].
 
 ## 8. Roadmap
-- **Now:** mainnet launch with Paytaca over WizardConnect; hosted demo; MCP server.
-- **Next:** PUSD-denominated tabs (CashTokens) for dollar-priced APIs; tab top-ups; multi-provider tabs; an Express/Hono middleware package.
-- **Later:** a standard proposal for `bch-credit` alongside x402-bch; a provider dashboard and analytics; agent marketplace integrations.
+- **Next concrete step:** propose `bch-credit` to the x402-bch maintainers (issue not opened yet).
+- Mainnet launch with a real Paytaca wallet over WizardConnect (pending hosting).
+- Possible later: PUSD-denominated tabs, tab top-ups, multi-provider tabs [Author to confirm].
 
-## 9. Why I built this — **HUMAN**
-<!-- HUMAN: write in your own words: what got you interested, what you learned about BCH covenants, why this matters to you. -->
+## 9. Why I built this
+[Author to write]
 
 ## 10. Try it in 60 seconds
 1. Open <hosted URL>.

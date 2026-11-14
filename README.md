@@ -9,7 +9,7 @@ You lock a budget in a covenant with **one transaction**. Your agent then pays f
 - If the provider disappears, you reclaim everything after the timeout.
 - The agent's key can sign vouchers but can never withdraw.
 
-Other BCH "agent budget" designs pay one on-chain transaction per call. AgentTab is a payment channel: two transactions in total, however many calls.
+Paying for each call on-chain costs one transaction per call. AgentTab is a payment channel instead: two transactions in total, however many calls. On chipnet the two cost 776 sats in fees together (open 229 bytes + settle 547 bytes at 1 sat/byte).
 
 ## Verify it in 5 minutes (chipnet)
 
@@ -34,7 +34,7 @@ AgentTab adds one new scheme, **`bch-credit`**. It isn't a per-request on-chain 
 
 Prior art and credit:
 - **PSF `x402-bch` / `x402-bch-express`**: the BCH x402 implementation; its "batch debit" mode is custodial.
-- **OPTN Labs** (`x402-bch`, `ai-covenant` allowance vaults).
+- **OPTN Labs** (`x402-bch`).
 
 `bch-credit` is meant to sit alongside their `exact`-style scheme in the same `accepts[]`, so one server can offer both.
 
@@ -44,7 +44,8 @@ Prior art and credit:
 - **2026-11-14 (kickoff day, after 14:00 UTC):** this repo started from scratch.
   - Covenant, SDK, paywall server, MCP server and web app.
   - First chipnet settle, refund and attack runs ([proof](docs/chipnet-proof.md)).
-  - Two rounds of UX review.
+  - Four UX review passes, one judge review and one copy audit, each followed by fixes.
+  - Covenant versions: v1 (one key for owner and agent), v2 (owner/agent split), v3 (adds `cancel`, current). The chipnet proof labels each run with its version.
 - **2026-11-15 → 11-21:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
 
 ## What changed vs the pre-hackathon prototype
@@ -61,17 +62,14 @@ Prior art and credit:
 | UI | Empty Vite scaffold. | One-button journey, live receipt, WizardConnect and chipnet test-wallet signers, "Try to cheat the tab" panel. |
 | Tests | 5 mock tests. | Unit, property and HTTP tests, plus live chipnet attack runs. |
 
+## How I built this
+
+Built with Claude Code as a pair programmer, which is why the history is dense and commits are co-authored. The prototype repo (linked above) is where the covenant idea was worked out before kickoff. My decisions: [Author to write].
+
 ## Design decisions
 
-<!-- HUMAN: write in your own words (judges reward the builder's reasoning, not generated prose). Suggested prompts: -->
-<!-- HUMAN: Why a payment channel (vouchers) instead of one on-chain tx per call? -->
-<!-- HUMAN: Why split owner and agent keys? What happens if the agent's key leaks? -->
-<!-- HUMAN: Why bind vouchers to the funding outpoint rather than the contract bytecode? -->
-<!-- HUMAN: Why does the provider pay the fee, and why is there a cancel path? -->
-<!-- HUMAN: Why x402-shaped HTTP + an MCP server instead of a custom SDK only? -->
-<!-- HUMAN: What would you change for production (PUSD tabs, top-ups, multi-provider)? -->
 
-_To be written by the author._
+[Author to write]
 
 > **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). This repository was started from scratch after kickoff.
 

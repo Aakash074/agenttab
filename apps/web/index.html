@@ -9,6 +9,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <title>AgentTab · a tab for your AI agent, on Bitcoin Cash</title>
+    <meta name="theme-color" content="#f6f4ee" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AgentTab: a refundable tab for your AI agent, on Bitcoin Cash" />
+    <meta property="og:description" content="One transaction to open, any number of paid API calls, one transaction to settle. Your change comes back." />
+    <meta property="og:image" content="/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Theme before first paint: saved choice (light | dark | system), default light.
+      try { document.documentElement.dataset.theme = localStorage.getItem('agenttab.theme') || 'light'; }
+      catch { document.documentElement.dataset.theme = 'light'; }
+    </script>
   </head>
   <body>
     <div id="root"></div>

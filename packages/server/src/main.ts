@@ -12,7 +12,7 @@ import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp, type ExtraHandler } from './app.ts';
 import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
-import { bchPrice, oracleHandler } from './oracle.ts';
+import { bchPriceCached, fxHandler, oracleHandler, tipHandler } from './oracle.ts';
 import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
 import { createAttacks } from './attacks.ts';
@@ -44,6 +44,7 @@ if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
   demo = createDemo({
     ledger, provider, network, agentPriv: networkKey(demoWif, 'DEMO_AGENT_WIF', network),
     selfUrl: () => `http://127.0.0.1:${port}`, route, price,
+    extraRoutes: [{ path: '/api/fx', price: (price * 6n) / 10n }, { path: '/api/chain/tip', price: (price * 3n) / 10n }],
     budgetSats: BigInt(env.DEMO_BUDGET_SATS ?? 20_000),
     stateFile: new URL(`.data/demo-agent-${network}.json`, repoRoot).pathname, trustProxy,
     // testnet only: sweep provider proceeds back to the demo agent so the live demo never runs dry
@@ -77,8 +78,12 @@ if (!mainnet && attackOwner) {
 }
 
 const app = createApp({
-  ledger, network, adminToken: env.ADMIN_TOKEN, extra, features, bchUsd: async () => (await bchPrice())?.usd,
-  routes: [{ path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracleHandler(provider, network) }],
+  ledger, network, adminToken: env.ADMIN_TOKEN, extra, features, bchUsd: async () => bchPriceCached(),
+  routes: [
+    { path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracleHandler(provider, network) },
+    { path: '/api/fx', price: (price * 6n) / 10n, description: 'BCH in USD/EUR/INR/JPY', handler: fxHandler() },
+    { path: '/api/chain/tip', price: (price * 3n) / 10n, description: 'Chain tip + block time', handler: tipHandler(provider, network) },
+  ],
 });
 await ledger.refreshTip();
 const tick = async () => {

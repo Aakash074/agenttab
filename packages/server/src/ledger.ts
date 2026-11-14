@@ -44,6 +44,7 @@ export interface FeedEvent {
   contract?: string;
   agent?: string;
   demo?: boolean;
+  tag?: string;
 }
 
 export class PaymentError extends Error {
@@ -109,7 +110,7 @@ export class TabLedger extends EventEmitter {
     const rec = this.tabs.get(e.tab);
     const ev: FeedEvent = {
       id: this.nextEventId++, at: new Date().toISOString(), contract: rec?.contractAddress, agent: rec?.agentPub,
-      demo: this.demoAgentPub !== undefined && rec?.agentPub === this.demoAgentPub, ...e,
+      demo: this.demoAgentPub !== undefined && rec?.agentPub === this.demoAgentPub, ...(rec?.tag ? { tag: rec.tag } : {}), ...e,
     };
     this.events.push(ev);
     const max = this.o.maxEvents ?? 500;
