@@ -24,6 +24,11 @@ export interface TabRecord {
   status: 'open' | 'settled' | 'expired' | 'closed';
   settledTxid?: string;
   settledAmount?: string;
+  /** Sizes of the tab's on-chain transactions (fees ≈ bytes at 1 sat/byte). */
+  openTxBytes?: number;
+  settleTxBytes?: number;
+  /** e.g. 'attack' for tabs opened by the cheat panel (excluded from the headline counter). */
+  tag?: string;
 }
 
 export interface FeedEvent {
@@ -126,7 +131,7 @@ export class TabLedger extends EventEmitter {
   }
 
   /** Register an opened tab. The utxo must exist at the contract address derived from (owner, agent, us, timeout). */
-  async register(input: { txid: string; vout: number; ownerPub: string; agentPub?: string; timeout: string | number }): Promise<TabRecord> {
+  async register(input: { txid: string; vout: number; ownerPub: string; agentPub?: string; timeout: string | number }, tag?: string): Promise<TabRecord> {
     if (typeof input?.txid !== 'string' || !/^[0-9a-f]{64}$/i.test(input.txid)) throw new PaymentError('bad_txid', 'txid must be 32-byte hex', 400);
     const outpoint = { txid: input.txid.toLowerCase(), vout: Number(input.vout ?? 0) };
     const id = tabId(outpoint);
@@ -147,8 +152,9 @@ export class TabLedger extends EventEmitter {
     if (this.tip + this.safetyBlocks >= timeout) throw new PaymentError('tab_expiring', `timeout ${timeout} too close to tip ${this.tip}`, 400);
     const rec: TabRecord = {
       id, outpoint, ...base, budget: utxo.satoshis.toString(), contractAddress: contract.address,
-      requests: 0, openedAt: new Date().toISOString(), status: 'open',
+      requests: 0, openedAt: new Date().toISOString(), status: 'open', ...(tag ? { tag } : {}),
     };
+    try { rec.openTxBytes = (await this.o.provider.getRawTransaction(outpoint.txid)).length / 2; } catch { /* size unknown */ }
     this.tabs.set(id, rec);
     this.emitEvent({ type: 'open', tab: id, txid: outpoint.txid, amount: rec.budget });
     this.persist();
@@ -209,6 +215,7 @@ export class TabLedger extends EventEmitter {
       }).send();
       rec.settledTxid = tx.txid;
       rec.settledAmount = rec.highest.amount;
+      rec.settleTxBytes = (tx as { hex?: string }).hex ? (tx as { hex: string }).hex.length / 2 : undefined;
       rec.status = 'settled';
       this.emitEvent({ type: 'settle', tab: id, txid: tx.txid, amount: rec.highest.amount, auto });
       this.persist();
@@ -237,13 +244,18 @@ export class TabLedger extends EventEmitter {
   }
 
   stats() {
-    let paidCalls = 0, earned = 0n, open = 0;
+    let paidCalls = 0, earned = 0n, open = 0, onchainTxs = 0, feeSats = 0;
     for (const t of this.tabs.values()) {
+      if (t.tag === 'attack') continue;
       paidCalls += t.requests;
       earned += BigInt(t.highest?.amount ?? '0');
       if (t.status === 'open') open++;
+      onchainTxs += 1 + (t.settledTxid ? 1 : 0);
+      feeSats += (t.openTxBytes ?? 300) + (t.settledTxid ? (t.settleTxBytes ?? 470) : 0);
     }
-    return { tabs: this.tabs.size, openTabs: open, paidCalls, vouchedSats: earned.toString(), tip: this.tip };
+    // Baseline: paying per call on-chain = one ~226-byte P2PKH payment per call.
+    const perCallFeeSats = paidCalls * 226;
+    return { tabs: this.tabs.size, openTabs: open, paidCalls, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
   }
 
   providerPubHex() { return binToHex(this.providerPub); }

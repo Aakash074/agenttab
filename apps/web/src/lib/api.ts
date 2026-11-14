@@ -15,7 +15,13 @@ export interface FeedEvent {
   demo?: boolean;
 }
 
-export interface Stats { tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number }
+export interface Stats {
+  tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number;
+  onchainTxs?: number; feeSats?: number; perCallTxs?: number; perCallFeeSats?: number;
+}
+
+export interface AttackResult { id: string; title: string; attempt: string; layer: string; outcome: 'rejected' | 'ACCEPTED'; message: string; attemptedTxid?: string }
+export interface AttackRun { at: string; network: string; tab: string; contract: string; openTxid: string; results: AttackResult[]; honestSettleTxid?: string; ms: number }
 
 export interface TabRecord {
   id: string;
@@ -44,6 +50,7 @@ export interface ServerInfo {
     maxBudgetSats?: string | null;
     demo?: { agentPub: string; cronSeconds: number };
     faucet?: { dripSats: string; address: string };
+    attacks?: boolean;
   };
 }
 
@@ -77,6 +84,8 @@ export const api = {
   contractUrl: () => `${SERVER}/contract`,
   demoCall: (tab?: string) => j<DemoCall>('/demo/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tab ? { tab } : {}) }),
   demoInfo: () => j<DemoInfo>('/demo'),
+  attacks: () => j<{ last: AttackRun | null; running: boolean }>('/attacks'),
+  runAttacks: () => j<{ last: AttackRun | null; running?: boolean; cached?: boolean; retryInMs?: number }>('/attacks/run', { method: 'POST' }),
   closeTab: (id: string) => j<{ txid: string; settledSats: string; returnedSats: string }>(`/tabs/${id}/close`, { method: 'POST' }),
   drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };

@@ -1,0 +1,90 @@
+import { useEffect, useState } from 'react';
+import { api, type AttackRun } from '../lib/api';
+import { ago, short } from '../lib/format';
+import { explorerAddr, explorerTx, type Net } from '../config';
+
+/** "Try to cheat the tab": real attacks on chipnet, with the node's verbatim rejection. */
+export function CheatPanel({ net }: { net: Net }) {
+  const [run, setRun] = useState<AttackRun | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => { api.attacks().then((r) => setRun(r.last)).catch(() => {}); }, [net]);
+
+  async function go() {
+    setBusy(true); setNote(null);
+    try {
+      const r = await api.runAttacks();
+      if (r.last) setRun(r.last);
+      if (r.cached) setNote(`Showing the run from ${ago(r.last!.at)}. A fresh run is available in ${Math.ceil((r.retryInMs ?? 0) / 1000)} s.`);
+      if (r.running) setNote('Another visitor is running the attacks right now; results will appear here.');
+    } catch (e) { setNote((e as Error).message); }
+    setBusy(false);
+  }
+
+  const rejected = run?.results.filter((r) => r.outcome === 'rejected').length ?? 0;
+  return (
+    <section id="cheat" className="mx-auto max-w-6xl px-4 pt-16">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Try to cheat the tab</h2>
+          <p className="mt-2 max-w-2xl text-muted">
+            Each button press opens a fresh tab on chipnet and fires real cheating transactions at it. The rejections below are the chipnet full node's own words, not ours.
+          </p>
+        </div>
+        <button onClick={go} disabled={busy}
+          className="w-full rounded-xl border border-bch/60 bg-bch/10 px-5 py-3 font-semibold text-bch-2 transition hover:bg-bch/20 disabled:opacity-60 sm:w-auto">
+          {busy ? 'Attacking chipnet… (~30 s)' : '⚔ Run 6 attacks on chipnet'}
+        </button>
+      </div>
+      {note && <p className="mt-3 text-sm text-dim">{note}</p>}
+      {run ? (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3 text-xs text-dim">
+            <span><b className="text-bch-2">{rejected}/{run.results.length} rejected</b> · run {ago(run.at)} · {Math.round(run.ms / 1000)} s</span>
+            <span className="font-mono">
+              tab <a className="tap text-bch-2 hover:underline" href={explorerTx(net, run.openTxid)} target="_blank" rel="noreferrer">{short(run.openTxid, 6)} ↗</a>
+              {' · '}covenant <a className="tap hover:text-bch-2" href={explorerAddr(net, run.contract)} target="_blank" rel="noreferrer">{short(run.contract.split(':')[1] ?? run.contract, 6)} ↗</a>
+            </span>
+          </div>
+          <ol className="divide-y divide-line">
+            {run.results.map((r, i) => (
+              <li key={r.id} className="grid gap-2 px-5 py-4 sm:grid-cols-[1.1fr_1.4fr] sm:gap-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-dim">0{i + 1}</span>
+                    <h3 className="font-semibold">{r.title}</h3>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{r.attempt}</p>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider ${r.outcome === 'rejected' ? 'bg-bad/15 text-bad' : 'bg-warn/20 text-warn'}`}>
+                      {r.outcome === 'rejected' ? 'REJECTED' : 'ACCEPTED'}
+                    </span>
+                    <span className="text-[11px] uppercase tracking-wider text-dim">by the {r.layer}</span>
+                  </div>
+                  <code className="mt-1.5 block break-words rounded-lg bg-ink px-3 py-2 font-mono text-[12px] leading-5 text-muted">{r.message}</code>
+                  {r.attemptedTxid && <p className="mt-1 font-mono text-[11px] text-dim">attempted tx {short(r.attemptedTxid, 8)} · never entered the mempool</p>}
+                </div>
+              </li>
+            ))}
+            <li className="grid gap-2 bg-bch/[0.05] px-5 py-4 sm:grid-cols-[1.1fr_1.4fr] sm:gap-6">
+              <div>
+                <h3 className="font-semibold text-bch-2">The honest settle</h3>
+                <p className="mt-1 text-sm text-muted">Provider claims exactly the highest signed voucher; the covenant sends the rest back to the owner.</p>
+              </div>
+              <div className="flex items-center">
+                {run.honestSettleTxid
+                  ? <a className="tap font-mono text-sm text-bch-2 hover:underline" href={explorerTx(net, run.honestSettleTxid)} target="_blank" rel="noreferrer">accepted · {short(run.honestSettleTxid, 10)} ↗</a>
+                  : <span className="text-sm text-dim">pending</span>}
+              </div>
+            </li>
+          </ol>
+        </div>
+      ) : (
+        <p className="mt-6 rounded-2xl border border-line bg-panel px-5 py-8 text-center text-sm text-muted">No attack run yet. Press the button to try.</p>
+      )}
+    </section>
+  );
+}

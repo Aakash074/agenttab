@@ -81,6 +81,23 @@ Server keys were funded from OWNER:
 - demo agent: `37f85f959414c9e114544fc053644bd0ce706cca62bcf504aa0fdef6ce0a285a`
 - MCP agent top-up: `be0d237d6d56660cb08f8bc8ddf0a471252cbc75658674e953074e3e7d1490ce`
 
+## 6. "Try to cheat the tab" (live attack run, 2026-11-14T15:16:19.590Z)
+
+The server opened a fresh 6,000-sat tab in tx `ff4bbc96effdba2069932d556fc8e7fb4ea4a89cb2f9b8f119eefddf7f8b6324` at `bchtest:pvaq862xry9kggau8g669ka4lteyxxusre83weyrv8zpyk6pcks9uclwj7qpj`. It made 2 paid calls, then fired these attacks. Each covenant-level cheat was built without local checks and broadcast raw, so the message is the chipnet node's own.
+
+| Attack | Rejected by | Verbatim reason | Attempted tx |
+|---|---|---|---|
+| Replay an old voucher | paywall server | `HTTP 402 replayed_voucher: voucher 2000 <= highest seen 2000` | — |
+| Provider overclaims | chipnet node | `the transaction was rejected by network rules. mandatory-script-verify-flag-failed (Script failed an OP_VERIFY operation) (code 16)` | `c46a3b698869ce6e3c60b6b035680cf9ad5247fb32f83dff01b8f93305e8e1da` (never mined) |
+| Provider rewrites the voucher amount | chipnet node | `the transaction was rejected by network rules. mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation) (code 16)` | `0341779e9965b36a5eb9c0cf2945d86b4a35fdb58b0a3d31e6ef32bcc29b106b` (never mined) |
+| Send the remainder elsewhere | chipnet node | `the transaction was rejected by network rules. mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation) (code 16)` | `8fa0ed01bc09f9a0a19827105704e27b96fa0a581dbfa223c340f41127c550d6` (never mined) |
+| Owner pulls the money early | chipnet node | `the transaction was rejected by network rules. bad-txns-nonfinal, non-final transaction (code 64)` | `6dd3e3feda3512ccd6caef668a0091e15b126d4d6cb8f121b9e282e3cf644fa8` (never mined) |
+| Agent tries to withdraw | chipnet node | `the transaction was rejected by network rules. mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation) (code 16)` | `fe5ae98bfd7d3c51620c15ea57bfd56fddd13a3788dc90f8c6151a6354bd64d1` (never mined) |
+
+The honest settle (2,000 sats to the provider, the exact remainder to the owner) was accepted in tx `86ab45b5f78f909f99a851a45ae6a72755fc149d5bbe3e126e7d61477817477e`.
+
+UX r2 flow: closing the visitor's tab "now" settled 4,000 sats and returned 16,000 in tx `9111c176f58b29956480687bb7a9b58b1d842c26f4a0d6f4da06ba22147e2a0a`. The faucet key was topped up from the public chipnet PoW faucet in tx `e21fe6e397d5076584cf1ec316d3490e1035c1198f421af62fdd3cc3319cf18b`.
+
 ## Confirmation status
 
 All of these transactions were accepted to the chipnet mempool. That means they passed full node script validation, including the covenant. Run `node packages/covenant/scripts/tx-status.ts <txid>...` to check confirmations.

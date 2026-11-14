@@ -15,6 +15,7 @@ import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
 import { bchPrice, oracleHandler } from './oracle.ts';
 import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
+import { createAttacks } from './attacks.ts';
 
 const env = loadEnv();
 const network = resolveNetwork(env);
@@ -60,6 +61,16 @@ if (!mainnet && env.FAUCET_WIF) {
   faucet.maybeTopUp().catch(() => {});
   setInterval(() => faucet.maybeTopUp().catch(() => {}), 30 * 60_000);
   features.faucet = { dripSats: env.DRIP_SATS ?? '25000', address: faucet.address };
+}
+
+const attackOwner = env.ATTACK_OWNER_WIF ?? env.OWNER_WIF;
+if (!mainnet && attackOwner) {
+  const attacks = createAttacks({
+    ledger, provider, network: 'chipnet', ownerPriv: networkKey(attackOwner, 'ATTACK_OWNER_WIF', network), providerPriv,
+    selfUrl: () => `http://127.0.0.1:${port}`, price, file: new URL(`.data/attacks-${network}.json`, repoRoot).pathname,
+  });
+  extra.push(attacks.handler);
+  features.attacks = true;
 }
 
 const app = createApp({

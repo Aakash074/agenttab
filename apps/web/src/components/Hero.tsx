@@ -82,7 +82,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
       <div className="relative mx-auto grid max-w-6xl gap-x-10 gap-y-6 px-4 pb-14 pt-8 md:grid-cols-[1.05fr_1fr] md:grid-rows-[auto_1fr] md:pt-16">
         <div className="min-w-0 md:col-start-1 md:row-start-1">
           <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-line-2 bg-panel px-3 py-1 text-xs text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" /> Live on {net} · covenant-enforced
+            <span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" /> A refundable tab: one tx to open, any number of calls, one tx to settle · live on {net}
           </p>
           <h1 className="break-words text-[34px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px] md:text-[54px]">
             Your AI agent just paid for its own API call.<span className="text-bch"> In Bitcoin Cash.</span>
@@ -93,8 +93,8 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
         </div>
         <div className="min-w-0 md:col-start-1 md:row-start-2">
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
-            Open a <b className="text-fg">tab</b> for your agent: lock a budget in a BCH covenant once, and the agent pays per call
-            with signed vouchers. No transaction per call and no custodian. The provider can only take what was signed. Whatever's left goes back to you.
+            Open a <b className="text-fg">refundable tab</b>: lock a budget in a BCH covenant with <b className="text-fg">one transaction</b>, then your agent pays for
+            each API call with a signed voucher, which is instant, free, and off-chain. The provider settles once and can only take what was signed. The rest returns to you.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             {demoEnabled && (
@@ -103,7 +103,6 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
               </button>
             )}
             <button onClick={onFund} className={`w-full rounded-xl px-5 py-3 font-semibold transition sm:w-auto ${demoEnabled ? 'border border-line-2 text-fg hover:border-bch/60' : 'bg-bch text-ink hover:bg-bch-2'}`}>Fund your agent's tab</button>
-            <a href="#how" className="tap whitespace-nowrap rounded-xl px-2 font-semibold text-muted hover:text-fg">How it works →</a>
           </div>
           <div className="mt-3 min-h-[44px] text-sm" aria-live="polite">
             {res?.ok === true && (
@@ -116,19 +115,29 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
             {!res && demoEnabled && !demoIssue && <p className="text-dim">The demo agent runs on our server. It pays from its own tab{pinTab ? ', or from the tab you funded for it' : ''}. Watch the receipt and the feed.</p>}
             {!res && demoIssue && <p className="text-warn">The demo agent hit a snag ({demoIssue.slice(0, 120)}). The feed below still shows real payments.</p>}
           </div>
-          <dl className="mt-5 grid max-w-md grid-cols-3 gap-3">
-            {[
-              ['paid calls', stats ? stats.paidCalls.toLocaleString() : '—', ''],
-              ['sats paid', stats ? sats(stats.vouchedSats) : '—', stats && bchUsd ? usd(BigInt(stats.vouchedSats), bchUsd) : ''],
-              ['open tabs', stats ? String(stats.openTabs) : '—', ''],
-            ].map(([k, v, sub]) => (
-              <div key={k} className="min-w-0 rounded-xl border border-line bg-panel px-3 py-2.5">
-                <dt className="whitespace-nowrap text-[10px] uppercase tracking-wider text-dim sm:text-[11px]">{k}</dt>
-                <dd className="mt-0.5 truncate font-mono text-lg font-semibold">{v}</dd>
-                {sub && <dd className="text-[11px] text-dim">{sub}</dd>}
+          {stats && (
+            <div className="mt-5 max-w-xl overflow-hidden rounded-xl border border-line bg-panel">
+              <div className="grid grid-cols-3 divide-x divide-line">
+                {[
+                  ['API calls paid', stats.paidCalls.toLocaleString()],
+                  ['on-chain txs', String(stats.onchainTxs ?? '—')],
+                  ['total fees', stats.feeSats !== undefined ? (bchUsd ? usd(BigInt(stats.feeSats), bchUsd) : `${sats(stats.feeSats)} sats`) : '—'],
+                ].map(([k, v]) => (
+                  <div key={k} className="min-w-0 px-3 py-2.5">
+                    <div className="truncate font-mono text-lg font-semibold">{v}</div>
+                    <div className="whitespace-nowrap text-[10px] uppercase tracking-wider text-dim sm:text-[11px]">{k}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </dl>
+              {stats.perCallTxs !== undefined && stats.paidCalls > 0 && (
+                <div className="border-t border-line bg-ink/40 px-3 py-2 text-xs text-dim">
+                  vs paying on-chain per call: <span className="font-mono text-muted">{stats.perCallTxs.toLocaleString()} txs</span>
+                  {' · '}<span className="font-mono text-muted">{bchUsd ? usd(BigInt(stats.perCallFeeSats ?? 0), bchUsd) : `${sats(stats.perCallFeeSats ?? 0)} sats`}</span> in fees,
+                  {' '}<b className="text-bch-2">{Math.max(1, Math.round((stats.perCallTxs ?? 0) / Math.max(1, stats.onchainTxs ?? 1)))}× fewer transactions</b> with AgentTab
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>

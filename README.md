@@ -1,21 +1,54 @@
 # AgentTab
 
-**Open a refundable tab for your AI agent on Bitcoin Cash.**
+**A refundable tab for your AI agent on Bitcoin Cash: one transaction for N API calls.**
 
-You lock a small budget in a covenant once. Your agent then pays per API call with off-chain vouchers, each one for the **cumulative** amount owed: no transaction per call, and no custodial balance.
+You lock a budget in a covenant with **one transaction**. Your agent then pays for each API call with an off-chain voucher, signed for the **cumulative** amount owed. Vouchers are instant, free and need no on-chain transaction.
 
-- The provider settles once and receives exactly what was signed.
+- The provider settles **once** and can take only what was signed.
 - The covenant forces the remainder back to you.
-- If the provider vanishes, you reclaim everything after the timeout.
+- If the provider disappears, you reclaim everything after the timeout.
 - The agent's key can sign vouchers but can never withdraw.
 
-The HTTP flow is x402-shaped:
-1. The API answers `402 Payment Required` with a `bch-credit` scheme.
-2. The agent attaches `X-PAYMENT: base64({scheme:"bch-credit", payload:{tab, amount, sig}})`.
+Other BCH "agent budget" designs pay one on-chain transaction per call. AgentTab is a payment channel: two transactions in total, however many calls.
 
-> **Disclosure:** a small pre-hackathon prototype, written before the BCH BLAZE 2026 build window opened on 2026-11-14 14:00 UTC, exists in a separate folder/repo (link: _TBD_). This repository was started from scratch after kickoff. No files or commits were copied from the prototype.
+## Verify it in 5 minutes (chipnet)
 
-> **Prior art:** PSF `x402-bch` / `x402-bch-express` (per-request payments, plus custodial "batch debit"). AgentTab proposes a non-custodial, covenant-backed `bch-credit` scheme alongside it.
+| # | Do this | You should see |
+|---|---|---|
+| 1 | Open the app and press **▶ Run the demo agent** | The receipt animates: `402 Payment Required` → voucher #N → `200 OK`. The feed gets a *PAID CALL* row and the counter shows "N API calls · K on-chain txs". |
+| 2 | **Connect → Chipnet test wallet → Get 25,000 free test sats** | The balance appears in about 5 s. No signup and no faucet captcha. |
+| 3 | **Open tab with 20,000 sats** for the prefilled *demo agent*, then **▶ Run agent on this tab** a few times | An *open* tx link (explorer). The receipt is pinned to *your tab* and the voucher count goes up. *Spent* rises on your tab card. No new transactions appear. |
+| 4 | **Close tab now** | "Returned to you: N sats". Open the settle tx in the explorer: it has exactly two outputs, the provider's share and your exact remainder. |
+| 5 | Scroll to **Try to cheat the tab → Run 6 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund and agent-withdraw are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
+
+For agents, an MCP server (`packages/mcp`) gives Claude or any MCP client `fetch_paid`, `tab_status`, `close_tab` and `agent_info`. On-chain evidence (txids) is in [`docs/chipnet-proof.md`](docs/chipnet-proof.md). The threat model is in [`docs/security.md`](docs/security.md).
+
+## `bch-credit`: an x402-bch-shaped scheme
+
+AgentTab uses the same HTTP flow as **x402-bch** (v2.2):
+1. The server answers `402 Payment Required` with an `accepts[]` list.
+2. The client retries with an `X-PAYMENT` header.
+3. The server replies `200` with `X-PAYMENT-RESPONSE`.
+
+AgentTab adds one new scheme, **`bch-credit`**. It isn't a per-request on-chain payment. The payload is `{tab, amount, sig}`, a voucher against a covenant-locked tab. The `extra` field of the 402 offer describes how to open a tab (`POST /tabs`) and the voucher format.
+
+Prior art and credit:
+- **PSF `x402-bch` / `x402-bch-express`**: the BCH x402 implementation; its "batch debit" mode is custodial.
+- **OPTN Labs** (`x402-bch`, `ai-covenant` allowance vaults).
+
+`bch-credit` is meant to sit alongside their `exact`-style scheme in the same `accepts[]`, so one server can offer both.
+
+## Honest build timeline
+
+All times are UTC. The BLAZE build window opened 2026-11-14 14:00.
+
+- **Before kickoff:** an idea gate and a small throwaway prototype (a covenant sketch plus a Vite scaffold), kept in a **separate folder/repo** (link: _TBD_). No files or commits from it are in this repo.
+- **Nov 14, 14:04–14:20:** fresh repo; covenant, SDK and 15 tests; paywall server. First chipnet open → 3 vouchers → settle, an early refund rejected by the node, and a refund after timeout ([proof §1–3](docs/chipnet-proof.md)).
+- **Nov 14, 14:29–14:44:** covenant v2 (owner/agent split); live feed and auto-settle; web app; MCP server, which paid on chipnet both from a tab funded in the web app and from a tab it opened itself.
+- **Nov 14, 14:53–15:15:** UX reviews 1 and 2: hosted demo agent, chipnet drip faucet, mainnet code path (mock-tested, not broadcast), close-tab-now, "Try to cheat the tab" panel, property tests.
+- **Next:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
+
+> **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo (link: _TBD_). This repository was started from scratch after kickoff.
 
 ## Layout
 
@@ -33,7 +66,7 @@ Requires Node 23.6+ (runs TypeScript natively).
 
 ```sh
 npm install
-npm test                                       # covenant 17 + server 22 + mcp 5 tests
+npm test                                       # 53 tests: covenant 22 (incl. property tests), server 26, mcp 5
 npm run typecheck
 
 node packages/covenant/scripts/keygen.ts       # throwaway chipnet keys -> .env (OWNER / AGENT / PROVIDER)

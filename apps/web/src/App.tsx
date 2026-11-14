@@ -5,6 +5,7 @@ import { Hero, type DemoRun } from './components/Hero';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
+import { CheatPanel } from './components/CheatPanel';
 import { DEMO_AGENT_PUB, MAINNET_ENABLED, type Net } from './config';
 import { api, selectServer, type ServerInfo, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
@@ -160,11 +161,12 @@ export default function App() {
           <nav className="ml-6 hidden gap-5 text-sm text-muted md:flex">
             <a href="#feed" className="hover:text-fg">Live feed</a>
             <a href="#fund" className="hover:text-fg">Fund a tab</a>
+            <a href="#cheat" className="hover:text-fg">Try to cheat it</a>
             <a href="#how" className="hover:text-fg">How it works</a>
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="w-[104px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm sm:w-auto" title="Network (chipnet = testnet)">
+              className="w-[112px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm" title="Network (chipnet = testnet)">
               <option value="chipnet">Chipnet</option>
               <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet — live at submission'}</option>
             </select>
@@ -206,6 +208,8 @@ export default function App() {
             onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy} />
         </div>
       </main>
+
+      {info?.features?.attacks && <CheatPanel net={net} />}
 
       <HowItWorks />
 
