@@ -4,6 +4,7 @@ import {
   SignatureTemplate,
   TransactionBuilder,
   type NetworkProvider,
+  type Unlocker,
   type SpendableUtxo as Utxo,
 } from 'cashscript';
 import {
@@ -16,10 +17,9 @@ import {
   secp256k1,
   sha256,
 } from '@bitauth/libauth';
-import { createRequire } from 'node:module';
+import artifactJson from '../contracts/AgentTab.json' with { type: 'json' };
 
-const require = createRequire(import.meta.url);
-export const artifact = require('../contracts/AgentTab.json');
+export const artifact = artifactJson;
 
 /** Network dust limit for P2PKH outputs. */
 export const DUST = 546n;
@@ -36,7 +36,10 @@ export interface Outpoint {
 }
 
 export interface TabParams {
+  /** Funds the tab, receives the remainder, can refund after timeout (human wallet or the agent). */
   ownerPub: Uint8Array;
+  /** Signs spending vouchers only; can never withdraw. */
+  agentPub: Uint8Array;
   providerPub: Uint8Array;
   /** Absolute nLockTime: block height (< 500M) or unix seconds (>= 500M), compared against MTP. */
   timeout: bigint;
@@ -45,7 +48,7 @@ export interface TabParams {
 export interface Voucher {
   outpoint: Outpoint;
   amount: bigint; // cumulative satoshis owed
-  sig: string; // hex schnorr datasig by owner
+  sig: string; // hex schnorr datasig by agent
 }
 
 export const toBin = (x: Uint8Array | string) => (typeof x === 'string' ? hexToBin(x) : x);
@@ -62,7 +65,7 @@ export function p2pkhAddress(pub: Uint8Array, network: Network = 'chipnet'): str
 }
 
 export function tabContract(p: TabParams, provider: NetworkProvider): Contract {
-  return new Contract(artifact, [p.ownerPub, p.providerPub, p.timeout], { provider, contractType: 'p2sh32' });
+  return new Contract(artifact, [p.ownerPub, p.agentPub, p.providerPub, p.timeout], { provider, contractType: 'p2sh32' });
 }
 
 /** Exactly the bytes the covenant feeds to OP_CHECKDATASIG. */
@@ -78,17 +81,17 @@ export function voucherMessage(outpoint: Outpoint, amount: bigint): Uint8Array {
   ]);
 }
 
-export function signVoucher(ownerPriv: Uint8Array, outpoint: Outpoint, amount: bigint): Voucher {
-  const sig = secp256k1.signMessageHashSchnorr(ownerPriv, sha256.hash(voucherMessage(outpoint, amount)));
+export function signVoucher(agentPriv: Uint8Array, outpoint: Outpoint, amount: bigint): Voucher {
+  const sig = secp256k1.signMessageHashSchnorr(agentPriv, sha256.hash(voucherMessage(outpoint, amount)));
   if (typeof sig === 'string') throw new Error(sig);
   return { outpoint, amount, sig: binToHex(sig) };
 }
 
-export function verifyVoucher(ownerPub: Uint8Array, v: Voucher): boolean {
+export function verifyVoucher(agentPub: Uint8Array, v: Voucher): boolean {
   try {
     return secp256k1.verifySignatureSchnorr(
       hexToBin(v.sig),
-      ownerPub,
+      agentPub,
       sha256.hash(voucherMessage(v.outpoint, v.amount)),
     );
   } catch {
@@ -99,38 +102,41 @@ export function verifyVoucher(ownerPub: Uint8Array, v: Voucher): boolean {
 /** Largest voucher the covenant can ever settle for a given budget. */
 export const maxSpendable = (budget: bigint) => budget - DUST;
 
-/** Builds a tx twice: once with a placeholder fee to measure size, then with the real fee. */
+/** Builds a tx twice: once with a placeholder fee to measure size, then with the real fee.
+ *  Works with wallet placeholder unlockers too (size counted as if signed). */
 function withFee(build: (fee: bigint) => TransactionBuilder, rate = FEE_RATE): TransactionBuilder {
-  const probe = build(1000n).build();
-  const fee = (BigInt(probe.length / 2) + 2n) * rate;
-  return build(fee);
+  const size = build(1000n).getTransactionSize();
+  return build((size + 2n) * rate);
 }
 
-/** Owner funds a new tab from plain P2PKH utxos. Returns the builder (call .send()). */
+/** Funds a new tab from plain P2PKH utxos. Pass `payerPriv` to sign locally, or `unlocker`
+ *  (e.g. cashscript's placeholderP2PKHUnlocker(address)) to have a wallet sign it via
+ *  WizardConnect/WalletConnect (`builder.generateWcTransactionObject()`). */
 export function buildOpen(opts: {
   provider: NetworkProvider;
   contract: Contract;
-  ownerPriv: Uint8Array;
+  payerPriv?: Uint8Array;
+  unlocker?: Unlocker;
   fundingUtxos: Utxo[];
   budget: bigint;
   changeAddress: string;
 }): TransactionBuilder {
-  const { provider, contract, ownerPriv, fundingUtxos, budget, changeAddress } = opts;
+  const { provider, contract, fundingUtxos, budget, changeAddress } = opts;
   if (budget < 2n * DUST) throw new Error(`budget must be >= ${2n * DUST} sats`);
-  const total = fundingUtxos.reduce((s, u) => s + u.satoshis, 0n);
-  const signer = new SignatureTemplate(ownerPriv);
+  const total = fundingUtxos.filter((u) => !u.token).reduce((s, u) => s + u.satoshis, 0n);
+  const unlocker = opts.unlocker ?? new SignatureTemplate(opts.payerPriv!).unlockP2PKH();
   return withFee((fee) => {
     const change = total - budget - fee;
     if (change < 0n) throw new Error(`insufficient funds: have ${total}, need ${budget + fee}`);
     const b = new TransactionBuilder({ provider })
-      .addInputs(fundingUtxos, signer.unlockP2PKH())
+      .addInputs(fundingUtxos.filter((u) => !u.token), unlocker)
       .addOutput({ to: contract.address, amount: budget });
     if (change >= DUST) b.addOutput({ to: changeAddress, amount: change });
     return b;
   });
 }
 
-/** Provider settles the tab with the owner's highest voucher. Fee is paid from the provider's share. */
+/** Provider settles the tab with the agent's highest voucher. Fee is paid from the provider's share. */
 export function buildSettle(opts: {
   provider: NetworkProvider;
   contract: Contract;
@@ -161,21 +167,24 @@ export function buildSettle(opts: {
   );
 }
 
-/** Owner reclaims the whole tab after the timeout. */
+/** Owner reclaims the whole tab after the timeout. Pass `ownerPriv`, or `ownerSig` =
+ *  placeholderSignature() + `to` for wallet signing. */
 export function buildRefund(opts: {
   provider: NetworkProvider;
   contract: Contract;
   tabUtxo: Utxo;
-  ownerPriv: Uint8Array;
+  ownerPriv?: Uint8Array;
+  ownerSig?: Uint8Array;
   timeout: bigint;
   to?: string;
   network?: Network;
 }): TransactionBuilder {
   const { provider, contract, tabUtxo, ownerPriv, timeout, network = 'chipnet' } = opts;
-  const to = opts.to ?? p2pkhAddress(pubFromPriv(ownerPriv), network);
+  const to = opts.to ?? p2pkhAddress(pubFromPriv(ownerPriv!), network);
+  const sig = opts.ownerSig ?? new SignatureTemplate(ownerPriv!);
   return withFee((fee) =>
     new TransactionBuilder({ provider })
-      .addInput(tabUtxo, contract.unlock.refund(new SignatureTemplate(ownerPriv)))
+      .addInput(tabUtxo, contract.unlock.refund(sig))
       .addOutput({ to, amount: tabUtxo.satoshis - fee })
       .setLocktime(Number(timeout)),
   );

@@ -2,9 +2,10 @@ pragma cashscript ^0.14.0;
 
 // AgentTab: a refundable, unidirectional payment channel ("tab") for an AI agent.
 //
-//  - The agent ("owner") locks a budget in ONE utxo at this contract.
-//  - For every paid API call it signs an off-chain voucher for the CUMULATIVE amount owed:
-//        voucher = datasig(owner, "AGENTTAB" ++ outpointTxHash ++ outpointIndex(4) ++ amount(8))
+//  - The "owner" (a human wallet, or the agent itself) locks a budget in ONE utxo at this contract.
+//  - The "agent" key can only sign spending vouchers; it can never withdraw. For every paid API
+//    call it signs an off-chain voucher for the CUMULATIVE amount owed:
+//        voucher = datasig(agent, "AGENTTAB" ++ outpointTxHash ++ outpointIndex(4) ++ amount(8))
 //    The voucher is bound to the exact funding outpoint, so it can never be replayed against
 //    another tab (or a second utxo accidentally sent to the same address).
 //  - The provider can settle at any time with the highest voucher it holds:
@@ -12,7 +13,7 @@ pragma cashscript ^0.14.0;
 //        output 1 -> owner, EXACTLY budget - amount (the remainder is forced back)
 //  - After `timeout` (absolute nLockTime: block height < 500M, or unix time >= 500M) the owner
 //    can reclaim everything. The provider must settle before the timeout.
-contract AgentTab(pubkey owner, pubkey provider, int timeout) {
+contract AgentTab(pubkey owner, pubkey agent, pubkey provider, int timeout) {
     function settle(sig providerSig, datasig voucher, bytes8 amountBytes) {
         // Exactly one input (the tab utxo) and exactly two outputs: no bundling of several
         // tab utxos into one tx, no extra outputs siphoning value.
@@ -21,9 +22,9 @@ contract AgentTab(pubkey owner, pubkey provider, int timeout) {
 
         require(checkSig(providerSig, provider));
 
-        // Voucher must be signed by the owner over this exact funding outpoint and amount.
+        // Voucher must be signed by the agent over this exact funding outpoint and amount.
         bytes outpoint = tx.inputs[0].outpointTransactionHash + toPaddedBytes(tx.inputs[0].outpointIndex, 4);
-        require(checkDataSig(voucher, 0x4147454e54544142 + outpoint + amountBytes, owner));
+        require(checkDataSig(voucher, 0x4147454e54544142 + outpoint + amountBytes, agent));
 
         int amount = int(amountBytes);
         int budget = tx.inputs[0].value;

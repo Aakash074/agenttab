@@ -25,20 +25,21 @@ const BUDGET = 100_000n;
 async function setup() {
   const provider = new MockNetworkProvider();
   const owner = key();
+  const agent = key();
   const svc = key();
-  const params = { ownerPub: owner.pub, providerPub: svc.pub, timeout: TIMEOUT };
+  const params = { ownerPub: owner.pub, agentPub: agent.pub, providerPub: svc.pub, timeout: TIMEOUT };
   const contract = tabContract(params, provider);
   // Owner opens the tab from a funded P2PKH wallet through the SDK.
   const ownerAddr = p2pkhAddress(owner.pub);
   provider.addUtxo(ownerAddr, randomUtxo({ satoshis: 200_000n }));
   const funding = await provider.getUtxos(ownerAddr);
   const open = await buildOpen({
-    provider, contract, ownerPriv: owner.priv, fundingUtxos: funding, budget: BUDGET, changeAddress: ownerAddr,
+    provider, contract, payerPriv: owner.priv, fundingUtxos: funding, budget: BUDGET, changeAddress: ownerAddr,
   }).send();
   const [tab] = await contract.getUtxos();
   assert.equal(tab.txid, open.txid);
   assert.equal(tab.satoshis, BUDGET);
-  return { provider, owner, svc, contract, tab };
+  return { provider, owner, agent, svc, contract, tab };
 }
 
 type Ctx = Awaited<ReturnType<typeof setup>>;
@@ -75,8 +76,8 @@ async function addTabUtxo(c: Ctx, satoshis: bigint): Promise<Utxo> {
 describe('AgentTab covenant', () => {
   test('happy path: 3 cumulative vouchers, settle highest, remainder back to owner', async () => {
     const c = await setup();
-    const vouchers = [1000n, 2000n, 3000n].map((a) => signVoucher(c.owner.priv, c.tab, a));
-    for (const v of vouchers) assert.ok(verifyVoucher(c.owner.pub, v));
+    const vouchers = [1000n, 2000n, 3000n].map((a) => signVoucher(c.agent.priv, c.tab, a));
+    for (const v of vouchers) assert.ok(verifyVoucher(c.agent.pub, v));
     await buildSettle({
       provider: c.provider, contract: c.contract, tabUtxo: c.tab,
       providerPriv: c.svc.priv, ownerPub: c.owner.pub, voucher: vouchers[2],
@@ -91,7 +92,7 @@ describe('AgentTab covenant', () => {
 
   test('overclaim: provider output above the signed amount is rejected', async () => {
     const c = await setup();
-    const v = signVoucher(c.owner.priv, c.tab, 5000n);
+    const v = signVoucher(c.agent.priv, c.tab, 5000n);
     await rejects(rawSettle(c, {
       voucher: v,
       providerOut: { to: p2pkhAddress(c.svc.pub), amount: 6000n },
@@ -101,13 +102,13 @@ describe('AgentTab covenant', () => {
 
   test('overclaim: provider bumps the amount argument beyond what the voucher signs', async () => {
     const c = await setup();
-    await rejects(rawSettle(c, { voucher: signVoucher(c.owner.priv, c.tab, 5000n), claimAmount: 50_000n }));
+    await rejects(rawSettle(c, { voucher: signVoucher(c.agent.priv, c.tab, 5000n), claimAmount: 50_000n }));
   });
 
   test('owner shortchanged: remainder below budget - amount is rejected', async () => {
     const c = await setup();
     await rejects(rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, 5000n),
+      voucher: signVoucher(c.agent.priv, c.tab, 5000n),
       ownerOut: { to: p2pkhAddress(c.owner.pub), amount: BUDGET - 5000n - 1n },
     }));
   });
@@ -115,7 +116,7 @@ describe('AgentTab covenant', () => {
   test('wrong destination: provider share sent to a third address is rejected', async () => {
     const c = await setup();
     await rejects(rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, 5000n),
+      voucher: signVoucher(c.agent.priv, c.tab, 5000n),
       providerOut: { to: p2pkhAddress(key().pub), amount: 4500n },
     }));
   });
@@ -123,7 +124,7 @@ describe('AgentTab covenant', () => {
   test('wrong destination: remainder sent anywhere but the owner is rejected', async () => {
     const c = await setup();
     await rejects(rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, 5000n),
+      voucher: signVoucher(c.agent.priv, c.tab, 5000n),
       ownerOut: { to: p2pkhAddress(c.svc.pub), amount: BUDGET - 5000n },
     }));
   });
@@ -131,7 +132,7 @@ describe('AgentTab covenant', () => {
   test('extra output siphoning value is rejected', async () => {
     const c = await setup();
     await rejects(rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, 5000n),
+      voucher: signVoucher(c.agent.priv, c.tab, 5000n),
       ownerOut: { to: p2pkhAddress(c.owner.pub), amount: BUDGET - 5000n },
       extraOutputs: [{ to: p2pkhAddress(c.svc.pub), amount: 1000n }],
     }));
@@ -140,18 +141,31 @@ describe('AgentTab covenant', () => {
   test('forged voucher (signed by provider key) is rejected', async () => {
     const c = await setup();
     const forged = signVoucher(c.svc.priv, c.tab, 5000n);
-    assert.equal(verifyVoucher(c.owner.pub, forged), false);
+    assert.equal(verifyVoucher(c.agent.pub, forged), false);
     await rejects(rawSettle(c, { voucher: forged }));
+  });
+
+  test('voucher signed by the owner (not the agent key) is rejected', async () => {
+    const c = await setup();
+    await rejects(rawSettle(c, { voucher: signVoucher(c.owner.priv, c.tab, 5000n) }));
+  });
+
+  test('agent key cannot refund (it can only sign vouchers)', async () => {
+    const c = await setup();
+    await rejects(buildRefund({
+      provider: c.provider, contract: c.contract, tabUtxo: c.tab, ownerPriv: c.agent.priv, timeout: TIMEOUT,
+      to: p2pkhAddress(c.agent.pub),
+    }).send());
   });
 
   test('third party without provider key cannot settle', async () => {
     const c = await setup();
-    await rejects(rawSettle(c, { voucher: signVoucher(c.owner.priv, c.tab, 5000n), signer: key().priv }));
+    await rejects(rawSettle(c, { voucher: signVoucher(c.agent.priv, c.tab, 5000n), signer: key().priv }));
   });
 
   test('voucher bound to outpoint: cannot be replayed on a second utxo at the same address', async () => {
     const c = await setup();
-    const v = signVoucher(c.owner.priv, c.tab, 5000n);
+    const v = signVoucher(c.agent.priv, c.tab, 5000n);
     // A second utxo accidentally sent to the same tab address.
     const second = await addTabUtxo(c, BUDGET);
     await rejects(rawSettle({ ...c, tab: second }, { voucher: v }));
@@ -162,19 +176,19 @@ describe('AgentTab covenant', () => {
   test('cannot bundle two tab utxos into one settle', async () => {
     const c = await setup();
     const second = await addTabUtxo(c, BUDGET);
-    await rejects(rawSettle(c, { voucher: signVoucher(c.owner.priv, c.tab, 5000n), inputs: [c.tab, second] }));
+    await rejects(rawSettle(c, { voucher: signVoucher(c.agent.priv, c.tab, 5000n), inputs: [c.tab, second] }));
   });
 
   test('min bounds: dust voucher and dust remainder are rejected', async () => {
     const c = await setup();
     // A sub-dust voucher can never produce a valid provider output (rejected by covenant/relay).
     await rejects((async () => rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, 545n),
+      voucher: signVoucher(c.agent.priv, c.tab, 545n),
       providerOut: { to: p2pkhAddress(c.svc.pub), amount: 545n },
     }))());
     const big = BUDGET - 500n;
     await rejects((async () => rawSettle(c, {
-      voucher: signVoucher(c.owner.priv, c.tab, big),
+      voucher: signVoucher(c.agent.priv, c.tab, big),
       providerOut: { to: p2pkhAddress(c.svc.pub), amount: big - 1000n },
       ownerOut: { to: p2pkhAddress(c.owner.pub), amount: 500n },
     }))());

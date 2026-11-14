@@ -20,8 +20,8 @@ const wif = (w: string) => {
   if (d.type !== 'testnet') throw new Error('refusing non-testnet key');
   return d.privateKey;
 };
-const ownerPriv = wif(env.OWNER_WIF), providerPriv = wif(env.PROVIDER_WIF);
-const ownerPub = pubFromPriv(ownerPriv), providerPub = pubFromPriv(providerPriv);
+const ownerPriv = wif(env.OWNER_WIF), agentPriv = wif(env.AGENT_WIF), providerPriv = wif(env.PROVIDER_WIF);
+const ownerPub = pubFromPriv(ownerPriv), agentPub = pubFromPriv(agentPriv), providerPub = pubFromPriv(providerPriv);
 const ownerAddr = p2pkhAddress(ownerPub, 'chipnet');
 const net = new ElectrumNetworkProvider('chipnet');
 
@@ -33,10 +33,10 @@ mkdirSync(new URL('.data/', root), { recursive: true });
 const save = () => writeFileSync(new URL('.data/chipnet-run.md', root), log.join('\n') + '\n');
 
 async function openTab(timeout: bigint, budget: bigint) {
-  const contract = tabContract({ ownerPub, providerPub, timeout }, net);
+  const contract = tabContract({ ownerPub, agentPub, providerPub, timeout }, net);
   const funding = await net.getUtxos(ownerAddr);
   if (!funding.length) throw new Error(`no utxos at ${ownerAddr}; fund it from a chipnet faucet`);
-  const tx = await buildOpen({ provider: net, contract, ownerPriv, fundingUtxos: funding, budget, changeAddress: ownerAddr }).send();
+  const tx = await buildOpen({ provider: net, contract, payerPriv: ownerPriv, fundingUtxos: funding, budget, changeAddress: ownerAddr }).send();
   const tab = (await contract.getUtxos()).find((u) => u.txid === tx.txid);
   if (!tab) throw new Error('tab utxo not found after open');
   return { contract, tab, txid: tx.txid };
@@ -44,7 +44,7 @@ async function openTab(timeout: bigint, budget: bigint) {
 
 const height = await net.getBlockHeight();
 out(`# chipnet run ${new Date().toISOString()} (height ${height})`);
-out(`owner ${ownerAddr}\nprovider ${p2pkhAddress(providerPub, 'chipnet')}`);
+out(`owner ${ownerAddr}\nagent pub ${Buffer.from(agentPub).toString('hex')}\nprovider ${p2pkhAddress(providerPub, 'chipnet')}`);
 
 // ---- Tab A: open -> 3 vouchers -> settle ----
 const A = await openTab(BigInt(height + 1000), 20_000n);
@@ -52,8 +52,8 @@ out(`\n## Tab A (timeout height ${height + 1000})\ncontract ${A.contract.address
 const PRICE = 1000n;
 let voucher;
 for (let call = 1n; call <= 3n; call++) {
-  voucher = signVoucher(ownerPriv, A.tab, PRICE * call);
-  if (!verifyVoucher(ownerPub, voucher)) throw new Error('voucher verify failed');
+  voucher = signVoucher(agentPriv, A.tab, PRICE * call);
+  if (!verifyVoucher(agentPub, voucher)) throw new Error('voucher verify failed');
   out(`voucher #${call}: amount=${voucher.amount} sig=${voucher.sig.slice(0, 16)}…`);
 }
 // Negative check on the real network: provider tries to settle with voucher #3 but pays itself more.
