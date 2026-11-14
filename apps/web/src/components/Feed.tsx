@@ -30,7 +30,7 @@ export function describe(e: FeedEvent) {
 export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; live: boolean }) {
   const now = useNow();
   return (
-    <section id="feed" className="rounded-2xl border border-line bg-panel">
+    <section id="feed" className="self-start rounded-2xl border border-line bg-panel">
       <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full ${live ? 'bg-bch pulse-dot' : 'bg-dim'}`} />
@@ -42,7 +42,7 @@ export function Feed({ events, net, live }: { events: FeedEvent[]; net: Net; liv
       {events.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Start the demo agent or fund a tab to see it here.</p>
       ) : (
-        <ol className="max-h-[440px] divide-y divide-line overflow-y-auto">
+        <ol className="max-h-[720px] divide-y divide-line overflow-y-auto">
           {events.map((e) => (
             <li key={e.id} className="slide-in grid grid-cols-[auto_1fr_auto] items-start gap-3 px-5 py-3 text-sm">
               <span className={`mt-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>

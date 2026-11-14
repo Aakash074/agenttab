@@ -2,12 +2,12 @@
 
 ## What the covenant enforces
 
-`packages/covenant/contracts/AgentTab.cash` is 126 bytes and has 68 opcodes.
+`packages/covenant/contracts/AgentTab.cash` is 127 bytes. Its constructor is `AgentTab(owner, agent, provider, timeout)`. The `owner` funds the tab, receives the remainder, and is the only key that can refund. The `agent` key can only sign vouchers.
 
 **`settle(providerSig, voucher, amountBytes)`** has these requirements:
 - **Shape:** exactly 1 input and exactly 2 outputs.
 - **Provider signature:** `checkSig(providerSig, provider)`. Only the provider can settle.
-- **Voucher signature:** `checkDataSig(voucher, "AGENTTAB" ‖ outpointTxHash ‖ outpointIndex(4) ‖ amountBytes, owner)`.
+- **Voucher signature:** `checkDataSig(voucher, "AGENTTAB" ‖ outpointTxHash ‖ outpointIndex(4) ‖ amountBytes, agent)`.
   - The voucher is bound to the exact funding outpoint.
   - The domain tag stops the signature being reused in another context.
 - **Bounds:**
@@ -30,6 +30,8 @@
 | Provider's share or owner's remainder sent to a third address | Rejected | covenant: wrong destination ×2 |
 | An extra output siphons value | Rejected (exactly 2 outputs) | covenant: extra output |
 | A forged voucher (wrong key) | Rejected | covenant and server |
+| A voucher signed by the owner instead of the agent key | Rejected | covenant |
+| The agent key tries to refund or withdraw | Rejected | covenant |
 | A third party settles without the provider key | Rejected | covenant |
 | A voucher replayed on another tab, or on a second utxo at the same address | Rejected (the voucher is bound to the outpoint, not to the address or bytecode) | covenant: outpoint binding |
 | Two tab utxos merged into one settle to pay once and take both | Rejected (exactly 1 input) | covenant: bundle |
@@ -42,8 +44,9 @@
 ## Known weaknesses and trade-offs
 
 1. **Timeout race.** After `timeout`, the owner can refund everything, including value already covered by vouchers. The provider must settle before then.
-   - The server refuses tabs within `safetyBlocks` (6) of their timeout.
-   - **TODO:** add an auto-settle job that closes tabs N blocks before timeout, and refuse vouchers once inside that window.
+   - The server refuses vouchers inside the `SAFETY_BLOCKS` window (6 blocks).
+   - `tick()` auto-settles any tab inside that window.
+   - If the server is down for the whole window, the provider loses that revenue.
 2. **No cooperative early close.** If the provider never settles, the owner's funds stay locked until `timeout`.
    - Keep timeouts short (for example 144 blocks, about 1 day).
    - A future `close(ownerSig, providerSig)` path could release funds early.
@@ -58,5 +61,11 @@
 7. **Timestamp timeouts lag about 1 hour.** Timestamp timeouts compare against median-time-past. Use block-height timeouts (all the demos do).
 8. **Provider sighash.** The provider can sign with any sighash type. A weak sighash only lets third parties reshuffle the provider's own output inside the covenant's limits, so the owner is never affected.
 9. **Server state is the provider's money.** Losing `.data/tabs.json` loses only unsettled revenue. Owners are not at risk.
-10. **Agent key is a hot key.** The owner key lives with the agent, so the budget is the maximum loss. Keep tabs small and short-lived.
-11. **Strict two-output shape.** The settle tx can't carry an OP_RETURN memo. This is a deliberate choice for simplicity.
+10. **The MCP client trusts the provider's count when adopting a human-funded tab.** It takes the provider's `highest` voucher as its starting point. A malicious provider could inflate that number to make the agent sign more.
+    - The agent's per-call price cap and total spend cap bound the damage.
+    - The owner sees spent vs. budget in the web UI.
+    - Tabs the agent opens itself are counted only from local state.
+11. **Agent key is a hot key.** The agent key lives with the agent. It can only sign vouchers, so the tab budget is the most it can lose. Keep tabs small and short-lived.
+12. **Strict two-output shape.** The settle tx can't carry an OP_RETURN memo. This is a deliberate choice for simplicity.
+
+13. **WizardConnect refund is not yet tested with a real wallet.** The refund tx spends a contract input that needs the owner's signature, which the wallet has to fill into a placeholder. Whether Paytaca signs contract inputs over WizardConnect has not been verified. The open-tab flow is the plain P2PKH case.

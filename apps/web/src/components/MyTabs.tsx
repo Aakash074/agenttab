@@ -44,7 +44,7 @@ function TabCard({ t, tip, net, wallet, info, onChange }: { t: TabRecord; tip: n
         <div><dt className="text-[11px] text-dim">Budget</dt><dd className="font-mono">{sats(budget)}</dd></div>
         <div><dt className="text-[11px] text-dim">Spent ({t.requests} calls)</dt><dd className="font-mono">{sats(spent)}</dd></div>
         <div><dt className="text-[11px] text-dim">Remaining</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
-        <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="font-mono">{left > 0 ? `${left} blk · ${blocksToText(left)}` : 'unlocked'}</dd></div>
+        <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="font-mono">{t.status === 'settled' || t.status === 'closed' ? 'closed' : left > 0 ? `${left} blk · ${blocksToText(left)}` : 'unlocked'}</dd></div>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {t.settledTxid && (
