@@ -38,6 +38,7 @@ export interface TabRecord {
   status: 'open' | 'settled' | 'cancelled' | 'expired' | 'closed';
   settledTxid?: string;
   settledAmount?: string;
+  settleTxBytes?: number;
 }
 
 export interface ServerInfo {
@@ -55,7 +56,7 @@ export interface ServerInfo {
   };
 }
 
-export interface DemoInfo { enabled: boolean; agentPub: string; lastCall?: string; lastError?: string; lastErrorAt?: string; healthy: boolean; balanceSats: string }
+export interface DemoInfo { enabled: boolean; agentPub: string; lastCall?: string; lastError?: string; lastErrorAt?: string; healthy: boolean; failingSince?: string; balanceSats: string }
 
 export class ApiError extends Error {
   status: number;

@@ -44,7 +44,7 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
           <h2 className="text-sm font-semibold tracking-wide">Live payment feed</h2>
           <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[11px] text-muted">{net}</span>
         </div>
-        <span className="text-xs text-dim">{live ? 'streaming' : 'polling'}</span>
+        <span className="whitespace-nowrap text-xs text-dim">{events[0] && now - Date.parse(events[0].at) > 60_000 ? `idle · last ${ago(events[0].at, now)}` : live ? 'streaming' : 'polling'}</span>
       </header>
       {events.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Fund a tab (or run the demo agent, if this server hosts one) to see it here.</p>
@@ -53,7 +53,7 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
           <ol className={`divide-y divide-line ${all ? 'max-h-[560px] overflow-y-auto' : ''}`}>
             {shown.map((e) => (
               <li key={e.id} className={`slide-in grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[auto_1fr_auto] ${mine?.has(e.tab) ? 'bg-bch/[0.06]' : ''}`}>
-                <span className={`mt-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
+                <span className={`mt-0.5 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
                 <div className="min-w-0 text-muted">
                   <div>{describe(e)}{mine?.has(e.tab) && <span className="ml-1.5 rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] text-bch-2">your tab</span>}</div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[11px] text-dim">

@@ -16,6 +16,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
   const [msg, setMsg] = useState<{ ok: boolean; text: string; txid?: string } | null>(null);
   const budget = BigInt(t.budget);
   const spent = BigInt(t.settledAmount ?? t.highest?.amount ?? '0');
+  const returned = t.status === 'cancelled' ? budget - BigInt(t.settleTxBytes ?? 0) : budget - spent;
   const cap = budget - 546n;
   const pct = cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0;
   const left = t.timeout - tip;
@@ -49,7 +50,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
     <li className="rounded-xl border border-line bg-ink/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${STATUS[t.status]}`}>{t.status}</span>
+          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${STATUS[t.status]}`}>{t.status === 'cancelled' ? 'waived' : t.status}</span>
           <a className="tap font-mono text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.outpoint.txid)} target="_blank" rel="noreferrer">opened in {short(t.outpoint.txid, 6)} ↗</a>
         </div>
         <span className="font-mono text-xs text-dim">agent {short(t.agentPub, 4)}{demoAgentPub && t.agentPub === demoAgentPub.toLowerCase() ? ' (demo)' : ''}</span>
@@ -63,14 +64,14 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
       <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-sm sm:grid-cols-4">
         <div><dt className="text-[11px] text-dim">Budget</dt><dd className="font-mono">{sats(budget)}</dd></div>
         <div><dt className="text-[11px] text-dim">Spent ({t.requests} call{t.requests === 1 ? '' : 's'})</dt><dd className="font-mono">{sats(spent)}</dd></div>
-        <div><dt className="text-[11px] text-dim">{t.status === 'settled' || t.status === 'cancelled' ? 'Returned to you' : 'Remaining'}</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
+        <div><dt className="text-[11px] text-dim">{t.status === 'settled' || t.status === 'cancelled' ? 'Returned to you' : 'Remaining'}</dt><dd className="font-mono">{sats(returned)}</dd></div>
         <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="whitespace-nowrap font-mono">{t.status !== 'open' && t.status !== 'expired' ? 'closed' : left > 0 ? `in ${blocksToText(left)}` : 'unlocked'}</dd></div>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {t.settledTxid && (
           <a className="text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.settledTxid)} target="_blank" rel="noreferrer">
             {t.status === 'cancelled'
-              ? <>{t.requests} call{t.requests === 1 ? '' : 's'}, waived (too small to settle). The whole budget minus the miner fee went back to you · </>
+              ? <>{t.requests} call{t.requests === 1 ? '' : 's'}, waived (too small to settle). {sats(returned)} sats came back to you (budget minus the {sats(budget - returned)}-sat miner fee) · </>
               : <>Status: settled. Provider took {sats(t.settledAmount)} sats, {sats(budget - spent)} returned to you · </>}
             <span className="font-mono">{short(t.settledTxid, 6)} ↗</span>
           </a>
@@ -79,20 +80,20 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
           <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             {isDemo && onRunOnTab && (
               <button onClick={() => onRunOnTab(t.id)} disabled={running || busy}
-                className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5">
-                {running ? 'Busy…' : 'Run agent on this tab'}
+                className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5">
+                {running ? 'Busy…' : 'Run 3 calls on this tab'}
               </button>
             )}
             <button onClick={closeNow} disabled={!canClose || busy}
-              className="min-h-[44px] flex-1 rounded-lg border border-line-2 px-3 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5"
+              className="min-h-[44px] flex-1 rounded-lg border border-line-2 px-3 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5"
               title={canClose ? 'Settle now: provider gets what was signed, the rest comes back to you' : 'Needs at least ~1,046 sats of vouchers to settle on-chain; otherwise refund after the timeout'}>
-              {busy ? 'Closing…' : 'Close tab now'}
+              {busy ? 'Closing…' : spent >= 1_246n ? 'Close tab now' : 'Close tab now (full refund)'}
             </button>
           </div>
         )}
         {t.status === 'expired' && (
           <button onClick={refund} disabled={!refundable || busy}
-            className="min-h-[44px] rounded-lg border border-line-2 px-3 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:py-1.5"
+            className="min-h-[44px] rounded-lg border border-line-2 px-3 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:py-1.5"
             title={refundable ? 'Reclaim everything in this tab' : 'Available after the timeout; the provider can settle until then'}>
             {busy ? 'Refunding…' : refundable ? 'Refund' : `Refund unlocks in ${blocksToText(left)}`}
           </button>

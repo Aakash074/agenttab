@@ -4,6 +4,7 @@ import { Banner } from './components/Banner';
 import { Hero, type DemoRun } from './components/Hero';
 import { IDLE_JOURNEY, type JourneyState } from './components/Journey';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { TabTimeline } from './components/TabTimeline';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
 import { MyTabs } from './components/MyTabs';
@@ -19,7 +20,7 @@ function Logo() {
   return (
     <a href="#" className="tap flex items-center gap-2.5" aria-label="AgentTab home">
       <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="8" fill="#0ac18e" /><path d="M9 22V10h7.5a4 4 0 0 1 0 8H13m0-8v12" stroke="#05140f" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      <span className="hidden text-[17px] font-bold tracking-tight min-[400px]:inline">AgentTab</span>
+      <span className="text-[17px] font-bold tracking-tight">AgentTab</span>
     </a>
   );
 }
@@ -49,54 +50,9 @@ function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizar
   );
 }
 
-function HowItWorks({ events, net, focusTab }: { events: FeedEvent[]; net: Net; focusTab?: string }) {
-  // Show a real tab's life: the visitor's own if they ran the journey, else the most recent closed tab.
-  const closed = events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tag !== 'attack' && events.some((p) => p.type === 'pay' && p.tab === e.tab));
-  const tab = focusTab ?? closed?.tab;
-  const open = tab ? events.find((e) => e.type === 'open' && e.tab === tab) : undefined;
-  const pays = tab ? events.filter((e) => e.type === 'pay' && e.tab === tab).sort((a, b) => a.id - b.id) : [];
-  const close = tab ? events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tab === tab) : undefined;
-  const budget = open?.amount ? BigInt(open.amount) : undefined;
-  const settled = close?.type === 'settle' ? BigInt(close.amount ?? 0) : 0n;
-  const link = (txid?: string) => txid
-    ? <a className="tap font-mono text-sm text-bch-2 hover:underline" href={explorerTx(net, txid)} target="_blank" rel="noreferrer">{short(txid, 6)} ↗</a>
-    : <span className="font-mono text-sm text-dim">pending</span>;
-  const nodes = [
-    { k: 'On-chain tx 1 · open', title: budget ? `${sats(budget)} sats locked in the covenant` : 'Budget locked in the covenant', body: link(open?.txid),
-      note: 'Owner, agent and provider keys plus a refund timeout are baked into the contract address.' },
-    { k: `Off-chain · ${pays.length || 'N'} voucher${pays.length === 1 ? '' : 's'}`, title: pays.length ? pays.map((p) => sats(p.amount)).join(' → ') + ' sats' : 'Running total, signed per call',
-      body: <span className="font-mono text-sm text-muted">0 transactions · 0 fees</span>,
-      note: 'Each API call carries one signature over the running total, bound to this exact tab.' },
-    { k: `On-chain tx 2 · ${close?.type === 'cancel' ? 'waive' : 'settle'}`,
-      title: close ? (close.type === 'settle' && budget ? `provider ${sats(settled)} · owner ${sats(budget - settled)}` : 'everything back to the owner') : 'Provider settles once',
-      body: link(close?.txid),
-      note: 'The covenant pays the provider at most what was signed and forces the exact remainder back to the owner.' },
-  ];
-  return (
-    <section id="how" className="scroll-mt-24 mx-auto max-w-6xl px-4 py-16">
-      <h2 className="text-3xl font-bold tracking-tight">{focusTab ? 'Your tab, start to finish' : 'One real tab, start to finish'}</h2>
-      <p className="mt-2 max-w-2xl text-muted">Two transactions on Bitcoin Cash, however many API calls happen in between.{tab ? <> Tab <span className="font-mono">#{tab.slice(0, 4).toUpperCase()}</span>.</> : ''}</p>
-      <ol className="relative mt-8 grid gap-6 md:grid-cols-3 md:gap-0">
-        <div aria-hidden className="absolute left-[11px] top-3 bottom-3 w-px bg-line-2 md:left-3 md:right-3 md:top-[11px] md:bottom-auto md:h-px md:w-auto" />
-        {nodes.map((n, i) => (
-          <li key={n.k} className="relative pl-9 md:pl-0 md:pr-8 md:pt-9">
-            <span className={`absolute left-0 top-0 grid h-6 w-6 place-items-center rounded-full border-2 text-[11px] font-bold ${i === 1 ? 'border-line-2 bg-panel text-dim' : 'border-bch bg-bch text-on-bch'}`}>{i === 1 ? '…' : i === 0 ? '1' : '2'}</span>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-dim">{n.k}</div>
-            <div className="mt-1 font-semibold">{n.title}</div>
-            <div className="mt-1">{n.body}</div>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{n.note}</p>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-10 grid gap-4 md:grid-cols-[1fr_1.2fr]">
-        <div className="min-w-0">
-          <h3 className="font-semibold">Give your own agent a tab</h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted">
-            The MCP server lets Claude or any MCP agent pay a <code className="font-mono">402 bch-credit</code> API from a tab, with per-call and total spend caps.
-            Tools: <code className="font-mono">fetch_paid</code>, <code className="font-mono">tab_status</code>, <code className="font-mono">close_tab</code>, <code className="font-mono">agent_info</code>.
-          </p>
-        </div>
-        <pre className="card min-w-0 overflow-x-auto rounded-xl border border-line bg-panel p-4 font-mono text-[12px] leading-5 text-muted">{`{
+function McpSection() {
+  const [copied, setCopied] = useState(false);
+  const json = `{
   "mcpServers": {
     "agenttab": {
       "command": "node",
@@ -104,7 +60,22 @@ function HowItWorks({ events, net, focusTab }: { events: FeedEvent[]; net: Net; 
       "env": { "AGENT_WIF": "…", "MAX_BUDGET_SATS": "20000" }
     }
   }
-}`}</pre>
+}`;
+  return (
+    <section id="mcp" className="scroll-mt-24 mx-auto grid max-w-6xl gap-4 px-4 py-16 md:grid-cols-[1fr_1.2fr]">
+      <div className="min-w-0">
+        <h2 className="text-2xl font-bold tracking-tight">Give your own agent a tab</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          The MCP server lets Claude or any MCP agent pay a <code className="font-mono">402 bch-credit</code> API from a tab, with per-call and total spend caps.
+          Tools: <code className="font-mono">fetch_paid</code>, <code className="font-mono">tab_status</code>, <code className="font-mono">close_tab</code>, <code className="font-mono">agent_info</code>.
+        </p>
+      </div>
+      <div className="card relative min-w-0 rounded-xl border border-line bg-panel">
+        <button onClick={() => { navigator.clipboard?.writeText(json); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          className="absolute right-2 top-2 min-h-[36px] rounded-lg border border-line-2 bg-panel px-3 text-xs font-medium text-muted hover:text-fg">
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+        <pre className="overflow-x-auto p-4 pr-20 font-mono text-[12px] leading-5 text-muted">{json}</pre>
       </div>
     </section>
   );
@@ -178,7 +149,11 @@ export default function App() {
 
   useEffect(() => {
     if (!demoEnabled) { setDemoIssue(undefined); return; }
-    const load = () => api.demoInfo().then((d) => setDemoIssue(d.healthy ? undefined : d.lastError)).catch(() => {});
+    // Only surface a problem if the house agent's own background job has been failing for over a minute.
+    const load = () => api.demoInfo().then((d) => {
+      const since = d.failingSince ? Date.parse(d.failingSince) : 0;
+      setDemoIssue(since && Date.now() - since > 60_000 ? 'paused' : undefined);
+    }).catch(() => {});
     load();
     const t = setInterval(load, 30_000);
     return () => clearInterval(t);
@@ -276,6 +251,14 @@ export default function App() {
     if (wallet && pendingJourney.current) { pendingJourney.current = false; void runJourney(wallet); }
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** "Run agent on this tab": three paid calls, so closing afterwards settles instead of being waived. */
+  async function runDemo3(tab: string) {
+    for (let i = 0; i < 3; i++) {
+      await runDemo(tab);
+      if (i < 2) await sleep(4300);
+    }
+  }
+
   async function runDemo(tab?: string) {
     const target = tab ?? preferTab;
     setRun({ busy: true });
@@ -305,10 +288,11 @@ export default function App() {
             <a href="#fund" className="hover:text-fg">Fund a tab</a>
             <a href="#cheat" className="hover:text-fg">Try to cheat it</a>
             <a href="#how" className="hover:text-fg">How it works</a>
+            <a href="#mcp" className="hover:text-fg">MCP</a>
           </nav>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button onClick={theme.next} aria-label={`Theme: ${theme.choice}. Switch theme`} title={`Theme: ${theme.choice} (click to switch)`}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-line-2 bg-panel text-muted hover:text-fg">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <button onClick={theme.next} aria-label={`Theme: ${theme.choice === 'system' ? 'auto' : theme.choice}. Switch theme`} title="Switch theme (light / dark / auto)"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-line-2 bg-panel px-2 text-xs sm:px-2.5 font-medium text-muted hover:text-fg">
               {theme.choice === 'light' ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
               ) : theme.choice === 'dark' ? (
@@ -316,9 +300,10 @@ export default function App() {
               ) : (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
               )}
+              <span className="hidden sm:inline">{theme.choice === 'light' ? 'Light' : theme.choice === 'dark' ? 'Dark' : 'Auto'}</span>
             </button>
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="w-[112px] rounded-lg border border-line-2 bg-panel px-2 py-1.5 text-sm" title="Network (chipnet = testnet)">
+              className="w-[92px] rounded-lg border border-line-2 bg-panel px-1.5 py-1.5 text-sm sm:w-[112px] sm:px-2" title="Network (chipnet = testnet)">
               <option value="chipnet">Chipnet</option>
               <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (at submission)'}</option>
             </select>
@@ -336,7 +321,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-3 py-1.5 text-sm font-semibold text-on-bch hover:bg-bch-hover">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-2.5 py-1.5 text-sm font-semibold sm:px-3 text-on-bch hover:bg-bch-hover">Connect</button>
             )}
           </div>
         </div>
@@ -350,7 +335,8 @@ export default function App() {
 
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
-        pinTab={preferTab ?? (journey.openTxid ? `${journey.openTxid}:0` : undefined)} run={run} onRun={() => runDemo()} onFund={fund}
+        pinTab={preferTab ?? (journey.openTxid ? `${journey.openTxid}:0` : undefined)} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
+        timeline={<TabTimeline events={events} net={net} focusTab={journey.openTxid ? `${journey.openTxid}:0` : undefined} />}
         journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
         apiDown={!info} apiError={!!infoErr} lastSeen={lastSeen} stale={stale} />
       </ErrorBoundary>
@@ -364,16 +350,16 @@ export default function App() {
               <span className="text-dim">▾</span>
             </summary>
             <FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
-              onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} openTabs={wallet ? openTabs : undefined} />
+              openTabs={wallet ? openTabs : undefined} />
           </details>
           <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
-            onRunOnTab={demoEnabled ? (t) => runDemo(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
+            onRunOnTab={demoEnabled ? (t) => runDemo3(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
         </div>
       </main>
 
       {info?.features?.attacks && <ErrorBoundary label="The attack panel"><Suspense fallback={null}><CheatPanel net={net} /></Suspense></ErrorBoundary>}
 
-      <HowItWorks events={events} net={net} focusTab={journey.openTxid ? `${journey.openTxid}:0` : undefined} />
+      <McpSection />
 
       {toast && (
         <div role="status" className="slide-in fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-bch/40 bg-panel px-4 py-2.5 text-sm shadow-xl">{toast}</div>

@@ -51,7 +51,9 @@ function Receipt({ events, net, bchUsd, pinTab }: { events: FeedEvent[]; net: Ne
           <div className="slip-tear my-3" />
           <div className="px-5">
             <div className="flex items-end justify-between gap-4">
-              <span className="text-[11px] uppercase tracking-wider text-dim">{close ? (close.type === 'settle' ? 'Total settled' : 'Waived') : 'Total'}</span>
+              <span className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-dim">{close ? (close.type === 'settle' ? 'Total settled' : 'Waived') : 'Total'}
+                {justSettled && <span className="stamp rounded border-2 border-bch-2 px-1.5 py-px text-[11px] font-bold tracking-[0.2em] text-bch-2">{close!.type === 'settle' ? 'SETTLED' : 'WAIVED'}</span>}
+              </span>
               <span className="text-right"><span className="text-2xl font-bold text-fg">{sats(spent)}</span> <span className="text-muted">sats</span>
                 {bchUsd && <span className="block text-[11px] text-dim">{usd(spent, bchUsd)}</span>}</span>
             </div>
@@ -70,11 +72,7 @@ function Receipt({ events, net, bchUsd, pinTab }: { events: FeedEvent[]; net: Ne
             <Row k="open" v={open?.txid ? <a className={link} href={explorerTx(net, open.txid)} target="_blank" rel="noreferrer">{short(open.txid, 6)} ↗</a> : '…'} />
             <Row k={close?.type === 'cancel' ? 'waive' : 'settle'} v={close?.txid ? <a className={link} href={explorerTx(net, close.txid)} target="_blank" rel="noreferrer">{short(close.txid, 6)} ↗</a> : <span className="text-dim">when the tab closes</span>} />
           </div>
-          {justSettled && (
-            <span className="stamp pointer-events-none absolute right-6 top-[46%] rotate-[-8deg] rounded border-2 border-bch-2 px-2 py-0.5 text-sm font-bold tracking-[0.2em] text-bch-2">
-              {close!.type === 'settle' ? 'SETTLED' : 'WAIVED'}
-            </span>
-          )}
+
         </>
       ) : (
         <p className="px-5 pb-6 text-dim">waiting for the first paid call…</p>
@@ -83,10 +81,11 @@ function Receipt({ events, net, bchUsd, pinTab }: { events: FeedEvent[]; net: Ne
   );
 }
 
-export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund, journey, onStartJourney, onResetJourney, apiDown, apiError, lastSeen, stale }: {
+export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTab, run, onRun, onFund, journey, onStartJourney, onResetJourney, hasOpenTab, timeline, apiDown, apiError, lastSeen, stale }: {
   events: FeedEvent[]; stats: Stats | null; net: Net; bchUsd?: number; demoEnabled: boolean; demoIssue?: string;
   pinTab?: string; run: DemoRun; onRun: () => void; onFund: () => void;
   journey: JourneyState; onStartJourney: () => void; onResetJourney: () => void;
+  hasOpenTab?: boolean; timeline?: React.ReactNode;
   apiDown?: boolean; apiError?: boolean; lastSeen?: number | null; stale?: boolean;
 }) {
   const now = useNow(5000);
@@ -100,8 +99,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
           </p>
           {stats && stats.paidCalls > 0 ? (
             <h1 className="break-words text-[32px] font-extrabold leading-[1.08] tracking-tight sm:text-[38px] md:text-[46px]">
-              <span className="underline decoration-bch decoration-[5px] underline-offset-[6px]">{stats.paidCalls.toLocaleString()} API calls</span> paid by AI agents
-              <span className="mt-2 block text-[0.6em] font-bold text-muted">· {(stats.onchainTxs ?? 0).toLocaleString()} on-chain transactions</span>
+              <span className="underline decoration-bch decoration-[5px] underline-offset-[6px]">{stats.paidCalls.toLocaleString()} API calls</span> paid by AI agents in {(stats.onchainTxs ?? 0).toLocaleString()} transactions.
             </h1>
           ) : (
             <h1 className="break-words text-[34px] font-extrabold leading-[1.06] tracking-tight sm:text-[40px] md:text-[52px]">
@@ -111,6 +109,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
         </div>
         <div className="order-3 min-w-0 md:order-none md:col-start-2 md:row-span-2 md:row-start-1">
           <Receipt events={events} net={net} bchUsd={bchUsd} pinTab={pinTab} />
+          {timeline}
           {stale && lastSeen && <p className="mt-2 text-right text-[11px] text-warn">last seen {ago(new Date(lastSeen).toISOString(), now)} · reconnecting</p>}
         </div>
         <div className="order-2 min-w-0 md:order-none md:col-start-1 md:row-start-2">
@@ -124,7 +123,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {demoEnabled && !journey.active && (
                 <button onClick={onRun} disabled={run.busy || apiDown} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
-                  {run.busy ? 'Agent is paying…' : pinTab ? 'Just run the agent on your tab' : 'Or just watch the demo agent pay once'}
+                  {run.busy ? 'Agent is paying…' : hasOpenTab ? 'Run the agent once on your open tab' : 'Or watch the house demo agent pay once'}
                 </button>
               )}
               <button onClick={onFund} className="tap font-medium text-muted hover:text-fg">Advanced: fund your own agent</button>
@@ -142,7 +141,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, pinTa
             )}
             {!journey.active && res?.ok === false && <p className="text-warn">{/rate/i.test(res.msg) ? 'Rate limited: one call every few seconds.' : res.msg}</p>}
 
-            {!res && demoIssue && <p className="text-warn">Demo agent call failed: {demoIssue.slice(0, 120)}. The feed below still shows real payments.</p>}
+            {!res && demoIssue && <p className="text-warn">The house demo agent is paused right now. Real payments in the feed and your own tab still work.</p>}
           </div>
           {stats && (
             <div className="card mt-5 max-w-xl overflow-hidden rounded-xl border border-line bg-panel">

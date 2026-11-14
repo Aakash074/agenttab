@@ -107,6 +107,6 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .tap { display: inline-flex; align-items: center; min-height: 44px; }
 @media (min-width: 640px) { .tap { min-height: 0; } }
 
-@keyframes stamp-in { 0% { opacity: 0; transform: scale(1.6) rotate(-8deg); } 60% { opacity: 1; transform: scale(0.95) rotate(-8deg); } 100% { transform: scale(1) rotate(-8deg); } }
+@keyframes stamp-in { 0% { opacity: 0; transform: scale(1.8) rotate(-6deg); } 60% { opacity: 1; transform: scale(0.95) rotate(-6deg); } 100% { transform: scale(1) rotate(-6deg); } }
 .stamp { animation: stamp-in 0.45s ease-out both; background: color-mix(in oklab, var(--color-panel) 85%, transparent); }
 @media (prefers-reduced-motion: reduce) { .stamp { animation: none; } }

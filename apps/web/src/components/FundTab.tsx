@@ -43,7 +43,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
   const minBudget = budgets[0];
   const needsDrip = balance !== null && balance < minBudget + FEE_ROOM;
   // "Use my balance": everything the wallet can put in, if that's a valid tab (provider minimum ~2.2k sats).
-  const maxAffordable = balance !== null ? ((balance - FEE_ROOM) / 100n) * 100n : 0n;
+  const maxAffordable = balance !== null && balance > FEE_ROOM ? ((balance - FEE_ROOM) / 100n) * 100n : 0n;
   const showUseBalance = balance !== null && !funded && maxAffordable >= 2_200n && !budgets.includes(maxAffordable);
   // Below the selected preset but enough for a smaller tab: default to "Use my balance".
   useEffect(() => { if (showUseBalance && budget > maxAffordable && step.state !== 'done') setBudget(maxAffordable); }, [showUseBalance, maxAffordable]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,6 +100,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
       </div>
 
       <div className="mt-6 grid gap-5">
+        {step.state !== 'done' && <>
         <label className="grid gap-1.5">
           <span className="flex flex-wrap items-center justify-between gap-1 text-xs font-medium uppercase tracking-wider text-dim">
             Agent public key
@@ -124,7 +125,13 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               </button>
             ))}
           </div>
-          {(showUseBalance || (!budgets.includes(budget) && budget > 0n)) && (
+          {wallet && balance !== null && !funded && maxAffordable < 2_200n && (
+            <div className={`${choice(false)} cursor-not-allowed opacity-70`} aria-disabled="true">
+              <span className="font-mono text-sm font-semibold">Use my balance</span>
+              <span className="block text-[11px] text-dim">Balance too low ({sats(balance)} sats). Get test coins below.</span>
+            </div>
+          )}
+          {(showUseBalance || (!budgets.includes(budget) && budget > 0n && maxAffordable >= 2_200n)) && (
             <button onClick={() => setBudget(maxAffordable)} className={`${choice(budget === maxAffordable)} flex items-center justify-between`}>
               <span><span className="font-mono text-sm font-semibold">Use my balance · {sats(maxAffordable)} sats</span>
                 <span className="block text-[11px] text-dim">{sats(maxAffordable)} usable (600 kept for the fee) · ≈ {String((maxAffordable - 546n) / price)} calls</span></span>
@@ -160,6 +167,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           </div>
         </dl>
 
+        </>}
         {step.state === 'done' ? null : !wallet ? (
           <button onClick={onConnect} className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch hover:bg-bch-hover">Connect a wallet to fund</button>
         ) : (
@@ -185,7 +193,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               </div>
             )}
             <button disabled={!!blocker || step.state === 'busy'} onClick={open}
-              className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-not-allowed disabled:opacity-40">
+              className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-not-allowed disabled:opacity-60">
               {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats${net === 'mainnet' && bchUsd ? ` (${usd(budget, bchUsd)})` : ''}`}
             </button>
             {blocker && step.state !== 'busy' && <p className="text-center text-xs text-dim">{blocker}</p>}
@@ -198,9 +206,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           <p className="slide-in rounded-lg border border-bch/30 bg-bch/10 px-3 py-2.5 text-sm">
             Tab open with {sats(step.budget)} sats. {isDemo ? 'The demo agent can now pay from it.' : 'Your agent can start paying now.'}{' '}
             <a className="tap font-mono text-bch-2 hover:underline" href={explorerTx(net, step.txid)} target="_blank" rel="noreferrer">{short(step.txid, 8)} ↗</a>
-            {isDemo && onRunOnTab && (
-              <button onClick={() => onRunOnTab(`${step.txid}:0`)} className="mt-2 block min-h-[44px] w-full rounded-lg bg-bch px-4 py-2 font-semibold text-on-bch hover:bg-bch-hover">Run agent on this tab</button>
-            )}
+            <span className="mt-1 block text-muted">Run calls or close it from the tab card under <a className="text-bch-2 underline" href="#tabs">Your tabs</a>.</span>
           </p>
         )}
         {step.state === 'error' && <p className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2.5 text-sm text-bad">{step.msg}</p>}

@@ -46,7 +46,7 @@ export function CheatPanel({ net }: { net: Net }) {
           </p>
         </div>
         <button onClick={go} disabled={busy}
-          className="w-full rounded-xl border border-bch/60 bg-bch/10 px-5 py-3 font-semibold text-bch-2 transition hover:bg-bch/20 disabled:opacity-60 sm:w-auto">
+          className="w-full rounded-xl bg-fg px-5 py-3 font-semibold text-panel transition hover:opacity-90 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
           {busy ? 'Attacking chipnet… (~30 s)' : 'Run 7 attacks on chipnet'}
         </button>
       </div>
@@ -64,8 +64,12 @@ export function CheatPanel({ net }: { net: Net }) {
           </ol>
         </div>
       )}
-      {!busy && run ? (
-        <div className="mt-6 overflow-hidden card rounded-2xl border border-line bg-panel">
+      {!busy && run ? (<>
+        <div className="mt-6 flex items-baseline gap-3">
+          <span className={`font-mono text-5xl font-bold text-fg transition-transform ${flash ? 'scale-110' : ''}`}>{rejected}/{run.results.length}</span>
+          <span className="text-lg font-semibold text-muted">attacks rejected</span>
+        </div>
+        <div className="mt-4 overflow-hidden card rounded-2xl border border-line bg-panel">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3 text-xs text-dim">
             <span><b className={`text-bch-2 transition-all ${flash ? 'rounded bg-bch/20 px-2 py-1 text-base' : ''}`}>{rejected}/{run.results.length} rejected</b> · run {ago(run.at)} · {Math.round(run.ms / 1000)} s</span>
             <span className="font-mono">
@@ -115,7 +119,7 @@ export function CheatPanel({ net }: { net: Net }) {
             )}
           </ol>
         </div>
-      ) : !busy && (
+      </>) : !busy && (
         <p className="mt-6 card rounded-2xl border border-line bg-panel px-5 py-8 text-center text-sm text-muted">No attack run yet. Press the button to try.</p>
       )}
     </section>

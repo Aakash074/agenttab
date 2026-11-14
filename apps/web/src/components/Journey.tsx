@@ -34,17 +34,18 @@ export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disab
   const idx = j.step ? STEPS.findIndex((s) => s.id === j.step) : -1;
   if (!j.active && !j.done && !j.error) {
     return (
-      <button onClick={onStart} disabled={!!disabledReason} title={disabledReason}
-        className="group w-full rounded-2xl bg-bch px-5 py-4 text-left text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-60 sm:max-w-xl">
-        <span className="block text-lg font-bold leading-snug">Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back.</span>
-        <span className="mt-1 block text-sm font-medium opacity-80">
-          {disabledReason ?? `One click, about 30 seconds, on ${net === 'chipnet' ? 'chipnet with free test coins' : 'mainnet with your wallet'} →`}
-        </span>
-      </button>
+      <div className="sm:max-w-xl">
+        <button onClick={onStart} disabled={!!disabledReason} title={disabledReason}
+          className="min-h-[48px] w-full rounded-xl bg-bch px-6 text-base font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+          {disabledReason ? disabledReason : 'Give an AI agent a 5¢ tab'}
+        </button>
+        <p className="mt-2 text-sm text-muted">Watch it pay 3 API calls, then get your change back. About 30 seconds{net === 'chipnet' ? ', free test coins' : ', with your wallet'}.</p>
+      </div>
     );
   }
   return (
-    <div className="w-full rounded-2xl border border-line-2 bg-panel p-4 sm:max-w-xl" aria-live="polite">
+    <div className="card w-full rounded-2xl border border-line-2 bg-panel p-4 sm:max-w-xl" aria-live="polite">
+      {j.openTxid && <div className="mb-2 font-mono text-[11px] text-dim">{j.done ? 'Last run' : 'This run'} · tab #{j.openTxid.slice(0, 4).toUpperCase()}</div>}
       <ol className="grid gap-2">
         {STEPS.map((s, i) => {
           const state = j.done || i < idx ? 'done' : i === idx ? (j.error ? 'error' : 'now') : 'todo';
