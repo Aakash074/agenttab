@@ -1,0 +1,58 @@
+import { SERVERS, type Net } from '../config';
+
+export interface FeedEvent {
+  id: number;
+  at: string;
+  type: 'open' | 'pay' | 'settle' | 'expired' | 'closed';
+  tab: string;
+  txid?: string;
+  amount?: string;
+  price?: string;
+  route?: string;
+  auto?: boolean;
+}
+
+export interface Stats { tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number }
+
+export interface TabRecord {
+  id: string;
+  outpoint: { txid: string; vout: number };
+  ownerPub: string;
+  agentPub: string;
+  timeout: number;
+  budget: string;
+  contractAddress: string;
+  highest?: { amount: string; sig: string };
+  requests: number;
+  openedAt: string;
+  status: 'open' | 'settled' | 'expired' | 'closed';
+  settledTxid?: string;
+  settledAmount?: string;
+}
+
+export interface ServerInfo {
+  providerPub: string;
+  network: 'chipnet' | 'mainnet';
+  tip: number;
+  safetyBlocks: number;
+  routes: { path: string; price: string; description: string }[];
+}
+
+let SERVER = SERVERS.chipnet;
+export const selectServer = (net: Net) => { SERVER = SERVERS[net]; };
+
+async function j<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(SERVER + path, init);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.message ?? body.error ?? `${r.status}`);
+  return body as T;
+}
+
+export const api = {
+  info: () => j<ServerInfo>('/.well-known/agenttab'),
+  feed: (since = 0) => j<{ network: string; stats: Stats; events: FeedEvent[] }>(`/feed?since=${since}&limit=60`),
+  tabsByOwner: (owner: string) => j<{ tip: number; tabs: TabRecord[] }>(`/tabs?owner=${owner}`),
+  register: (b: { txid: string; vout: number; ownerPub: string; agentPub: string; timeout: number }) =>
+    j<TabRecord>('/tabs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }),
+  streamUrl: () => `${SERVER}/feed/stream`,
+};

@@ -1,0 +1,95 @@
+import { useCallback, useEffect, useState } from 'react';
+import { explorerTx, type Net } from '../config';
+import { api, type ServerInfo, type TabRecord } from '../lib/api';
+import { blocksToText, sats, short } from '../lib/format';
+import { hex, unhex, type Wallet } from '../lib/wallet';
+
+const STATUS: Record<TabRecord['status'], string> = {
+  open: 'text-bch-2 bg-bch/10', settled: 'text-amber-200 bg-amber-300/10', expired: 'text-muted bg-white/5', closed: 'text-muted bg-white/5',
+};
+
+function TabCard({ t, tip, net, wallet, info, onChange }: { t: TabRecord; tip: number; net: Net; wallet: Wallet; info: ServerInfo; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; txid?: string } | null>(null);
+  const budget = BigInt(t.budget);
+  const spent = BigInt(t.settledAmount ?? t.highest?.amount ?? '0');
+  const cap = budget - 546n;
+  const pct = cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0;
+  const left = t.timeout - tip;
+  const refundable = left <= 0 && t.status !== 'settled' && t.status !== 'closed';
+
+  async function refund() {
+    setBusy(true); setMsg(null);
+    try {
+      const txid = await wallet.refund({ agentPub: unhex(t.agentPub), providerPub: unhex(info.providerPub), timeout: BigInt(t.timeout), txid: t.outpoint.txid, vout: t.outpoint.vout });
+      setMsg({ ok: true, text: 'Refunded to your wallet.', txid });
+      onChange();
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
+    setBusy(false);
+  }
+
+  return (
+    <li className="rounded-xl border border-line bg-ink/50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${STATUS[t.status]}`}>{t.status}</span>
+          <a className="font-mono text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.outpoint.txid)} target="_blank" rel="noreferrer">tab {short(t.outpoint.txid, 6)}</a>
+        </div>
+        <span className="font-mono text-xs text-dim">agent {short(t.agentPub, 4)}</span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+        <div className="h-full rounded-full bg-gradient-to-r from-bch to-bch-2 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-sm sm:grid-cols-4">
+        <div><dt className="text-[11px] text-dim">Budget</dt><dd className="font-mono">{sats(budget)}</dd></div>
+        <div><dt className="text-[11px] text-dim">Spent ({t.requests} calls)</dt><dd className="font-mono">{sats(spent)}</dd></div>
+        <div><dt className="text-[11px] text-dim">Remaining</dt><dd className="font-mono">{sats(budget - spent)}</dd></div>
+        <div><dt className="text-[11px] text-dim">Refund unlock</dt><dd className="font-mono">{left > 0 ? `${left} blk · ${blocksToText(left)}` : 'unlocked'}</dd></div>
+      </dl>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {t.settledTxid && (
+          <a className="text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.settledTxid)} target="_blank" rel="noreferrer">
+            settled {sats(t.settledAmount)} sats · remainder {sats(budget - spent)} returned · <span className="font-mono">{short(t.settledTxid, 6)}</span>
+          </a>
+        )}
+        {t.status !== 'settled' && t.status !== 'closed' && (
+          <button onClick={refund} disabled={!refundable || busy}
+            className="ml-auto rounded-lg border border-line-2 px-3 py-1.5 text-sm font-medium transition hover:border-bch/60 disabled:cursor-not-allowed disabled:opacity-40"
+            title={refundable ? 'Reclaim everything in this tab' : 'Available after the timeout; the provider can settle until then'}>
+            {busy ? 'Refunding…' : 'Refund'}
+          </button>
+        )}
+      </div>
+      {msg && (
+        <p className={`mt-2 text-sm ${msg.ok ? 'text-bch-2' : 'text-bad'}`}>
+          {msg.text} {msg.txid && <a className="font-mono underline" href={explorerTx(net, msg.txid)} target="_blank" rel="noreferrer">{short(msg.txid, 8)}</a>}
+        </p>
+      )}
+    </li>
+  );
+}
+
+export function MyTabs({ wallet, info, net, refreshKey }: { wallet: Wallet | null; info: ServerInfo | null; net: Net; refreshKey: number }) {
+  const [tabs, setTabs] = useState<TabRecord[]>([]);
+  const [tip, setTip] = useState(0);
+  const load = useCallback(() => {
+    if (!wallet) return;
+    api.tabsByOwner(hex(wallet.ownerPub)).then((r) => { setTabs(r.tabs); setTip(r.tip); }).catch(() => {});
+  }, [wallet]);
+  useEffect(() => { setTabs([]); load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load, refreshKey]);
+
+  return (
+    <section id="tabs" className="rounded-2xl border border-line bg-panel p-6">
+      <h2 className="text-xl font-bold">Your tabs</h2>
+      {!wallet ? (
+        <p className="mt-2 text-sm text-muted">Connect a wallet to see the tabs you funded.</p>
+      ) : tabs.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">No tabs yet for this wallet on {net}.</p>
+      ) : (
+        <ul className="mt-4 grid gap-3">
+          {tabs.map((t) => <TabCard key={t.id} t={t} tip={tip} net={net} wallet={wallet} info={info!} onChange={load} />)}
+        </ul>
+      )}
+    </section>
+  );
+}

@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-ink: #070b0a;
+  --color-panel: #0e1513;
+  --color-panel-2: #131c19;
+  --color-line: #1e2b27;
+  --color-line-2: #2a3a35;
+  --color-fg: #e8f3ef;
+  --color-muted: #8ba49c;
+  --color-dim: #5d7169;
+  --color-bch: #0ac18e;
+  --color-bch-2: #3ee0ae;
+  --color-warn: #f5b84b;
+  --color-bad: #f2716b;
+}
+
+html { background: var(--color-ink); color-scheme: dark; }
+body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); background: var(--color-ink); -webkit-font-smoothing: antialiased; }
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(62, 224, 174, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(62, 224, 174, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
+}
+
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.slide-in { animation: slide-in 0.35s ease-out; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+input, select, button { font: inherit; }
+input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--color-bch) 60%, transparent); outline-offset: 1px; }

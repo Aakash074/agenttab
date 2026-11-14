@@ -117,6 +117,8 @@ export function buildOpen(opts: {
   contract: Contract;
   payerPriv?: Uint8Array;
   unlocker?: Unlocker;
+  /** Per-utxo unlocker, e.g. when a wallet's utxos sit on several addresses. */
+  unlockerFor?: (u: Utxo) => Unlocker;
   fundingUtxos: Utxo[];
   budget: bigint;
   changeAddress: string;
@@ -124,12 +126,14 @@ export function buildOpen(opts: {
   const { provider, contract, fundingUtxos, budget, changeAddress } = opts;
   if (budget < 2n * DUST) throw new Error(`budget must be >= ${2n * DUST} sats`);
   const total = fundingUtxos.filter((u) => !u.token).reduce((s, u) => s + u.satoshis, 0n);
-  const unlocker = opts.unlocker ?? new SignatureTemplate(opts.payerPriv!).unlockP2PKH();
+  const unlockerFor = opts.unlockerFor
+    ?? (() => { const u = opts.unlocker ?? new SignatureTemplate(opts.payerPriv!).unlockP2PKH(); return () => u; })();
+  const spendable = fundingUtxos.filter((u) => !u.token);
   return withFee((fee) => {
     const change = total - budget - fee;
     if (change < 0n) throw new Error(`insufficient funds: have ${total}, need ${budget + fee}`);
     const b = new TransactionBuilder({ provider })
-      .addInputs(fundingUtxos.filter((u) => !u.token), unlocker)
+      .addInputs(spendable.map((u) => ({ ...u, unlocker: unlockerFor(u) })))
       .addOutput({ to: contract.address, amount: budget });
     if (change >= DUST) b.addOutput({ to: changeAddress, amount: change });
     return b;
