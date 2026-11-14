@@ -117,6 +117,14 @@ export function FundTab({ wallet, info, net, onConnect, onOpened }: {
               <span>Paying from {wallet.label} · <span className="font-mono">{short(wallet.address.split(':')[1] ?? wallet.address, 6)}</span></span>
               <span className="font-mono">{balance === null ? '…' : `${sats(balance)} sats available`}</span>
             </div>
+            {wallet.kind === 'burner' && balance !== null && balance < budget + 1_000n && (
+              <div className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
+                This test wallet needs chipnet coins. Send free test BCH to
+                <button className="mt-1.5 block w-full break-all rounded bg-ink/60 px-2 py-1.5 text-left font-mono text-[11px] text-fg"
+                  title="Copy" onClick={() => navigator.clipboard?.writeText(wallet.address)}>{wallet.address}</button>
+                <a className="mt-1.5 inline-block underline" href="https://chipnet.bch.ninja" target="_blank" rel="noreferrer">Get test coins from a chipnet faucet →</a>
+              </div>
+            )}
             <button disabled={!valid || step.state === 'busy'} onClick={open}
               className="rounded-xl bg-bch px-5 py-3 font-semibold text-ink transition hover:bg-bch-2 disabled:cursor-not-allowed disabled:opacity-40">
               {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats`}
