@@ -1,0 +1,19 @@
+{
+  "name": "@agenttab/covenant",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "cashc contracts/AgentTab.cash -o contracts/AgentTab.json",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "^3.1.0-next.8",
+    "cashscript": "^0.14.0"
+  },
+  "devDependencies": {
+    "cashc": "^0.14.0"
+  }
+}

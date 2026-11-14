@@ -1,0 +1,20 @@
+{
+  "name": "agenttab",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "build:contract": "npm run build -w @agenttab/covenant",
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
