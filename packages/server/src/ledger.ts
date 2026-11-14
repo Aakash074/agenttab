@@ -36,6 +36,9 @@ export interface FeedEvent {
   price?: string;
   route?: string;
   auto?: boolean;
+  contract?: string;
+  agent?: string;
+  demo?: boolean;
 }
 
 export class PaymentError extends Error {
@@ -53,6 +56,8 @@ export interface LedgerOptions {
   /** Optional JSON file for persistence. */
   file?: string;
   maxEvents?: number;
+  /** Refuse to register tabs larger than this (keeps mainnet exposure tiny). */
+  maxBudgetSats?: bigint;
 }
 
 export const tabId = (o: Outpoint) => `${o.txid}:${o.vout}`;
@@ -64,6 +69,8 @@ export class TabLedger extends EventEmitter {
   tabs = new Map<string, TabRecord>();
   events: FeedEvent[] = [];
   tip = 0;
+  /** Set by the demo module so feed events can flag demo-agent activity. */
+  demoAgentPub?: string;
   readonly providerPub: Uint8Array;
   readonly network: Network;
   readonly safetyBlocks: number;
@@ -92,7 +99,11 @@ export class TabLedger extends EventEmitter {
   }
 
   private emitEvent(e: Omit<FeedEvent, 'id' | 'at'>) {
-    const ev: FeedEvent = { id: this.nextEventId++, at: new Date().toISOString(), ...e };
+    const rec = this.tabs.get(e.tab);
+    const ev: FeedEvent = {
+      id: this.nextEventId++, at: new Date().toISOString(), contract: rec?.contractAddress, agent: rec?.agentPub,
+      demo: this.demoAgentPub !== undefined && rec?.agentPub === this.demoAgentPub, ...e,
+    };
     this.events.push(ev);
     const max = this.o.maxEvents ?? 500;
     if (this.events.length > max) this.events.splice(0, this.events.length - max);
@@ -128,6 +139,7 @@ export class TabLedger extends EventEmitter {
     const utxo = (await contract.getUtxos()).find((u) => u.txid === outpoint.txid && u.vout === outpoint.vout);
     if (!utxo) throw new PaymentError('tab_not_found', `no utxo ${id} at ${contract.address}`, 400);
     if (utxo.token) throw new PaymentError('tab_has_tokens', 'tab utxo must not carry tokens', 400);
+    if (this.o.maxBudgetSats !== undefined && utxo.satoshis > this.o.maxBudgetSats) throw new PaymentError('budget_too_large', `this provider accepts tabs up to ${this.o.maxBudgetSats} sats`, 400);
     if (utxo.satoshis < 2n * DUST + MIN_SETTLE) throw new PaymentError('budget_too_small', `budget must be >= ${2n * DUST + MIN_SETTLE} sats`, 400);
     await this.refreshTip();
     if (this.tip + this.safetyBlocks >= timeout) throw new PaymentError('tab_expiring', `timeout ${timeout} too close to tip ${this.tip}`, 400);

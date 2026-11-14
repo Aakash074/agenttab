@@ -85,18 +85,21 @@ export class AgentTabClient {
     return run;
   }
 
-  private async pickTab(origin: string, terms: Terms, price: bigint): Promise<LocalTab> {
+  private async pickTab(origin: string, terms: Terms, price: bigint, preferTab?: string): Promise<LocalTab> {
     const tip = await this.cfg.provider.getBlockHeight();
     const margin = (terms.extra?.minTimeoutBlocks ?? 7) + 1;
     const usable = (t: LocalTab) => !t.closed && t.origin === origin && t.providerPub === terms.payTo && t.timeout > tip + margin
       && BigInt(t.signed) + price <= BigInt(t.budget) - DUST;
-    const local = [...this.tabs.values()].find(usable);
+    const preferred = preferTab ? this.tabs.get(preferTab) : undefined;
+    if (preferred && usable(preferred)) return preferred;
+    const local = preferTab ? undefined : [...this.tabs.values()].find(usable);
     if (local) return local;
 
     // A tab a human funded for this agent at this provider?
     const r = await this.fetch(`${origin}/tabs?agent=${this.agentPubHex}`);
     if (r.ok) {
       const { tabs } = await r.json() as { tabs: { id: string; status: string; ownerPub: string; timeout: number; budget: string; highest?: { amount: string } }[] };
+      tabs.sort((a, b) => Number(b.id === preferTab) - Number(a.id === preferTab));
       for (const s of tabs) {
         if (s.status !== 'open' || this.tabs.has(s.id)) continue;
         const t: LocalTab = {
@@ -112,6 +115,10 @@ export class AgentTabClient {
         this.save();
         if (usable(t)) return t;
       }
+    }
+    if (preferTab) {
+      const fallback = [...this.tabs.values()].find(usable);
+      if (fallback) return fallback;
     }
     return this.openOwnTab(origin, terms, tip);
   }
@@ -141,7 +148,7 @@ export class AgentTabClient {
   }
 
   /** GET/POST a URL; if it answers 402 bch-credit, pay one call from a tab and retry. */
-  fetchPaid(url: string, init: RequestInit = {}, maxPrice = this.cfg.maxPriceSats) {
+  fetchPaid(url: string, init: RequestInit = {}, maxPrice = this.cfg.maxPriceSats, opts: { preferTab?: string } = {}) {
     return this.exclusive(async () => {
       const origin = new URL(url).origin;
       const first = await this.fetch(url, init);
@@ -154,7 +161,7 @@ export class AgentTabClient {
       if (price > cap) throw new Error(`price ${price} sats exceeds cap ${cap}`);
       if (this.totalSigned() + price > this.cfg.maxTotalSats) throw new Error(`total spend cap ${this.cfg.maxTotalSats} sats reached`);
 
-      const tab = await this.pickTab(origin, terms, price);
+      const tab = await this.pickTab(origin, terms, price, opts.preferTab);
       const [txid, vout] = tab.id.split(':');
       const amount = BigInt(tab.signed) + price;
       const v = signVoucher(this.cfg.agentPriv, { txid, vout: Number(vout) }, amount);

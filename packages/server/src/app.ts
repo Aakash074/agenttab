@@ -1,6 +1,7 @@
 // Minimal x402-style paywall: 402 + `bch-credit` terms, one cumulative voucher per paid request.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { artifact, binToHex } from '@agenttab/covenant';
 import { PaymentError, type TabLedger } from './ledger.ts';
 
@@ -11,16 +12,23 @@ export interface PaidRoute {
   handler: (url: URL) => Promise<unknown> | unknown;
 }
 
+export type ExtraHandler = (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean> | boolean;
+
 export interface AppOptions {
   ledger: TabLedger;
   network: 'chipnet' | 'mainnet' | 'mocknet';
   routes: PaidRoute[];
   adminToken?: string;
+  /** Extra routes (demo agent, faucet drip…). Return true when handled. */
+  extra?: ExtraHandler[];
+  /** Advertised in /.well-known/agenttab. */
+  features?: Record<string, unknown>;
 }
 
+export const CONTRACT_SOURCE = readFileSync(new URL('../../covenant/contracts/AgentTab.cash', import.meta.url), 'utf8');
 export const ARTIFACT_HASH = binToHex(createHash('sha256').update(artifact.debug?.bytecode ?? artifact.bytecode).digest());
 
-const json = (res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
+export const json = (res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
   res.writeHead(status, {
     'content-type': 'application/json',
     'access-control-allow-origin': '*',
@@ -31,7 +39,7 @@ const json = (res: ServerResponse, status: number, body: unknown, headers: Recor
   res.end(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
 };
 
-async function readBody(req: IncomingMessage): Promise<any> {
+export async function readBody(req: IncomingMessage): Promise<any> {
   let raw = '';
   for await (const c of req) { raw += c; if (raw.length > 16_384) throw new PaymentError('too_large', 'body too large', 413); }
   try { return raw ? JSON.parse(raw) : {}; } catch { throw new PaymentError('bad_json', 'invalid JSON', 400); }
@@ -92,10 +100,16 @@ export function createApp(o: AppOptions) {
       if (req.method === 'GET' && url.pathname === '/.well-known/agenttab') {
         return json(res, 200, {
           providerPub: o.ledger.providerPubHex(), network: o.network, artifactHash: ARTIFACT_HASH,
-          tip: o.ledger.tip, safetyBlocks: o.ledger.safetyBlocks,
+          tip: o.ledger.tip, safetyBlocks: o.ledger.safetyBlocks, features: o.features ?? {},
           routes: o.routes.map((r) => ({ path: r.path, price: r.price, description: r.description })),
         });
       }
+      if (req.method === 'GET' && url.pathname === '/contract') {
+        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' });
+        res.end(CONTRACT_SOURCE);
+        return;
+      }
+      for (const h of o.extra ?? []) if (await h(req, res, url)) return;
       if (req.method === 'GET' && url.pathname === '/feed') {
         const since = Number(url.searchParams.get('since') ?? 0);
         const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 200);

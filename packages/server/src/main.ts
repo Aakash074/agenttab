@@ -1,28 +1,60 @@
-// AgentTab paywall server. Env (.env or process): NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1),
-// PROVIDER_WIF, PORT (8402), ADMIN_TOKEN (optional, guards /settle), TICK_SECONDS (30), SAFETY_BLOCKS (6),
-// PRICE_SATS (1000).
+// AgentTab paywall server.
+// Env (.env or process):
+//   NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1 and mainnet WIFs), PROVIDER_WIF, PORT (8402),
+//   ADMIN_TOKEN (optional, guards /settle), TICK_SECONDS (30), SAFETY_BLOCKS (6), PRICE_SATS (1000),
+//   MAX_TAB_BUDGET_SATS (chipnet: none, mainnet default 100000),
+//   DEMO_AGENT_WIF (or AGENT_WIF) to host the demo agent; DEMO_CRON_SECONDS (60; 0 = off); DEMO_BUDGET_SATS (20000);
+//   DEMO_ON_MAINNET=1 to allow the demo agent on mainnet (off by default);
+//   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip; TRUST_PROXY=1 behind a reverse proxy.
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
-import { createApp } from './app.ts';
+import { createApp, type ExtraHandler } from './app.ts';
 import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
 import { oracleHandler } from './oracle.ts';
+import { createDemo } from './demo.ts';
+import { createFaucet } from './faucet.ts';
 
 const env = loadEnv();
 const network = resolveNetwork(env);
+const mainnet = network === 'mainnet';
 const provider = new ElectrumNetworkProvider(network);
+const price = BigInt(env.PRICE_SATS ?? (mainnet ? 100 : 1000));
+const maxBudget = env.MAX_TAB_BUDGET_SATS ? BigInt(env.MAX_TAB_BUDGET_SATS) : mainnet ? 100_000n : undefined;
 const ledger = new TabLedger({
   provider, network,
   providerPriv: networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network),
   safetyBlocks: Number(env.SAFETY_BLOCKS ?? 6),
+  maxBudgetSats: maxBudget,
   file: new URL(`.data/tabs-${network}.json`, repoRoot).pathname,
 });
+const port = Number(env.PORT ?? (mainnet ? 8403 : 8402));
+const route = '/api/oracle';
+const trustProxy = env.TRUST_PROXY === '1';
+
+const extra: ExtraHandler[] = [];
+const features: Record<string, unknown> = { maxBudgetSats: maxBudget?.toString() ?? null };
+
+const demoWif = env.DEMO_AGENT_WIF ?? env.AGENT_WIF;
+let demo: ReturnType<typeof createDemo> | undefined;
+if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
+  demo = createDemo({
+    ledger, provider, network, agentPriv: networkKey(demoWif, 'DEMO_AGENT_WIF', network),
+    selfUrl: () => `http://127.0.0.1:${port}`, route, price,
+    budgetSats: BigInt(env.DEMO_BUDGET_SATS ?? (mainnet ? 5_000 : 20_000)),
+    stateFile: new URL(`.data/demo-agent-${network}.json`, repoRoot).pathname, trustProxy,
+  });
+  extra.push(demo.handler);
+  features.demo = { agentPub: demo.agent.agentPubHex, cronSeconds: Number(env.DEMO_CRON_SECONDS ?? 60) };
+}
+if (!mainnet && env.FAUCET_WIF) {
+  const faucet = createFaucet({ network, provider, faucetPriv: networkKey(env.FAUCET_WIF, 'FAUCET_WIF', network), dripSats: BigInt(env.DRIP_SATS ?? 25_000), trustProxy });
+  extra.push(faucet.handler);
+  features.faucet = { dripSats: env.DRIP_SATS ?? '25000', address: faucet.address };
+}
+
 const app = createApp({
-  ledger, network, adminToken: env.ADMIN_TOKEN,
-  routes: [{
-    path: '/api/oracle', price: BigInt(env.PRICE_SATS ?? 1000),
-    description: 'BCH market oracle: live BCH/USD + chain tip, per call',
-    handler: oracleHandler(provider, network),
-  }],
+  ledger, network, adminToken: env.ADMIN_TOKEN, extra, features,
+  routes: [{ path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracleHandler(provider, network) }],
 });
 await ledger.refreshTip();
 const tick = async () => {
@@ -32,5 +64,8 @@ const tick = async () => {
   } catch (e) { console.error('tick failed', (e as Error).message); }
 };
 setInterval(tick, Number(env.TICK_SECONDS ?? 30) * 1000);
-const port = Number(env.PORT ?? 8402);
-app.listen(port, () => console.log(`AgentTab paywall [${network}] http://localhost:${port}  tip ${ledger.tip}  provider ${ledger.providerPubHex()}`));
+app.listen(port, () => {
+  console.log(`AgentTab paywall [${network}] http://localhost:${port}  tip ${ledger.tip}  provider ${ledger.providerPubHex()}  price ${price}`);
+  if (demo) demo.startCron(Number(env.DEMO_CRON_SECONDS ?? 60));
+  console.log(`demo agent: ${demo ? 'on' : 'off'}  faucet drip: ${features.faucet ? 'on' : 'off'}  max tab: ${maxBudget ?? 'none'}`);
+});

@@ -105,7 +105,8 @@ export const maxSpendable = (budget: bigint) => budget - DUST;
 /** Builds a tx twice: once with a placeholder fee to measure size, then with the real fee.
  *  Works with wallet placeholder unlockers too (size counted as if signed). */
 function withFee(build: (fee: bigint) => TransactionBuilder, rate = FEE_RATE): TransactionBuilder {
-  const size = build(1000n).getTransactionSize();
+  // Probe with a zero fee so small outputs (e.g. a provider share near dust) don't fail the probe.
+  const size = build(0n).getTransactionSize();
   return build((size + 2n) * rate);
 }
 
