@@ -38,6 +38,16 @@ Prior art and credit:
 
 `bch-credit` is meant to sit alongside their `exact`-style scheme in the same `accepts[]`, so one server can offer both.
 
+### How it compares
+
+| Approach | On-chain txs for 100 paid calls | Who can take the unspent budget | Per-call latency |
+|---|---|---|---|
+| Per-call payment (x402 `exact`, agent spend-limit wallets) | 100 | No one, but every call waits for a broadcast | one tx broadcast |
+| Facilitator batch settlement (e.g. Coinbase x402 batch, PSF batch debit) | a few, settled later | The facilitator holds the funds in the meantime | none (an off-chain IOU) |
+| **AgentTab `bch-credit`** | **2** (open + settle) | **No one.** The covenant only pays the provider what the agent signed for; the rest returns to the owner, or the owner refunds after the timeout | none (a signed voucher, checked locally) |
+
+The settle is one transaction with exactly two outputs, so the provider claims all 100 calls in that single transaction.
+
 ## Build timeline
 
 - **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.
