@@ -53,4 +53,8 @@ The flow:
 
 All of these transactions were accepted to the chipnet mempool. That means they passed full node script validation, including the covenant. Run `node packages/covenant/scripts/tx-status.ts <txid>...` to check confirmations.
 
-Status at the last check: CONFIRMATION_STATUS
+At the last check (2026-11-14 14:23 UTC, tip 332320), every tx above was still **0-conf in the mempool**, including the faucet's own funding tx (1 sat/byte). Chipnet blocks 332319 and 332320 were mined without them, which looks like sparse or empty testnet mining. Re-check later with:
+
+```sh
+node packages/covenant/scripts/tx-status.ts 6f14f00fc1a4bc9c480038df08fe6c953d5d86cd018f4c2a09cfd73cbf10c8ed 235c78a1d061112ccf904940233ccbfdff3b24c5d3521fc5f790367c8cd4c2a1 2a58b9b19e41c14f51213ae476406f39d33b584ec64e35bb900634e160212757
+```
