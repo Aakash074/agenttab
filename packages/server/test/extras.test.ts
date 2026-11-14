@@ -67,6 +67,27 @@ describe('demo agent', () => {
     assert.equal(b.cumulativeSats, '1000');
   });
 
+  test('public close: anyone can settle a tab now; remainder goes back to the owner', async () => {
+    const humanPub = pubFromPriv(humanPriv), demoPub = pubFromPriv(demoPriv);
+    const tab = [...ledger.tabs.values()].find((t) => t.ownerPub === binToHex(humanPub) && t.status === 'open')!;
+    await post('/demo/call', { tab: tab.id }); // 2nd call -> 2000 >= MIN_SETTLE
+    const r = await post(`/tabs/${tab.id}/close`);
+    assert.equal(r.status, 200);
+    const b = await r.json();
+    assert.equal(b.settledSats, '2000');
+    assert.equal(b.returnedSats, '8000');
+    assert.equal(ledger.tabs.get(tab.id)!.status, 'settled');
+    void demoPub;
+  });
+
+  test('recycles provider proceeds back to the demo agent', async () => {
+    const d2 = createDemo({ ledger, provider: net, network: 'mocknet' as never, agentPriv: demoPriv, selfUrl: () => base, route: '/api/oracle', price: 1000n, budgetSats: 3_100n, recycleFromPriv: providerPriv });
+    const before = await d2.agent.balance();
+    const txid = await d2.recycle(true);
+    assert.match(txid!, /^[0-9a-f]{64}$/);
+    assert.ok((await d2.agent.balance()) > before);
+  });
+
   test('rate limited per client', async () => {
     const limited = createDemo({ ledger, provider: net, network: 'mocknet' as never, agentPriv: demoPriv, selfUrl: () => base, route: '/api/oracle', price: 1000n, budgetSats: 3_100n });
     const app2 = createApp({ ledger, network: 'mocknet', extra: [limited.handler], routes: [] });
@@ -81,14 +102,35 @@ describe('demo agent', () => {
 });
 
 describe('chipnet drip faucet', () => {
-  test('drips to a chipnet P2PKH address once, then rate-limits it', async () => {
-    const to = p2pkhAddress(pubFromPriv(generatePrivateKey()), 'chipnet');
+  test('drips while the wallet is low, refuses while it is funded, rate-limits bursts', async () => {
+    const k = generatePrivateKey();
+    const to = p2pkhAddress(pubFromPriv(k), 'chipnet');
     const r = await post('/faucet/drip', { address: to });
     assert.equal(r.status, 200);
     assert.match((await r.json()).txid, /^[0-9a-f]{64}$/);
     const got = (await net.getUtxos(to)).reduce((s, u) => s + u.satoshis, 0n);
     assert.equal(got, 25_000n);
-    assert.equal((await post('/faucet/drip', { address: to })).status, 429);
+    assert.equal((await post('/faucet/drip', { address: to })).status, 409, 'funded wallets are told so, not rate-limited');
+    // spend it down below the refill threshold -> can drip again (no 24 h dead end)
+    const [u] = await net.getUtxos(to);
+    const { TransactionBuilder, SignatureTemplate } = await import('cashscript');
+    await new TransactionBuilder({ provider: net }).addInput(u, new SignatureTemplate(k).unlockP2PKH())
+      .addOutput({ to: faucet.address, amount: 21_000n }).addOutput({ to, amount: 3_000n }).send();
+    assert.equal((await post('/faucet/drip', { address: to })).status, 200);
+  });
+
+  test('per-address burst limit returns 429 with a retry hint', async () => {
+    const f2 = createFaucet({ network: 'mocknet', provider: net, faucetPriv, dripSats: 1_000n, refillBelowSats: 1_000_000n, limits: { perAddress: [1, 60_000] } });
+    const a2 = createApp({ ledger, network: 'mocknet', extra: [f2.handler], routes: [] });
+    await new Promise<void>((r) => a2.listen(0, r));
+    const b2 = `http://127.0.0.1:${(a2.address() as AddressInfo).port}`;
+    const to = p2pkhAddress(pubFromPriv(generatePrivateKey()), 'chipnet');
+    const p2 = () => fetch(`${b2}/faucet/drip`, { method: 'POST', body: JSON.stringify({ address: to }) });
+    assert.equal((await p2()).status, 200);
+    const second = await p2();
+    assert.equal(second.status, 429);
+    assert.match((await second.json()).message, /Try again in \d+ min/);
+    a2.close();
   });
 
   test('rejects mainnet / non-P2PKH addresses', async () => {

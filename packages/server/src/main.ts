@@ -5,7 +5,9 @@
 //   MAX_TAB_BUDGET_SATS (chipnet: none, mainnet default 100000),
 //   DEMO_AGENT_WIF (or AGENT_WIF) to host the demo agent; DEMO_CRON_SECONDS (60; 0 = off); DEMO_BUDGET_SATS (20000);
 //   DEMO_ON_MAINNET=1 to allow the demo agent on mainnet (off by default);
-//   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip; TRUST_PROXY=1 behind a reverse proxy.
+//   DEMO_IDLE_SECONDS (600: cron rate when nobody watches the feed);
+//   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip, FAUCET_TOPUP_BELOW_SATS (100000, from the
+//   public chipnet PoW faucet); TRUST_PROXY=1 behind a reverse proxy.
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp, type ExtraHandler } from './app.ts';
@@ -20,9 +22,9 @@ const mainnet = network === 'mainnet';
 const provider = new ElectrumNetworkProvider(network);
 const price = BigInt(env.PRICE_SATS ?? (mainnet ? 100 : 1000));
 const maxBudget = env.MAX_TAB_BUDGET_SATS ? BigInt(env.MAX_TAB_BUDGET_SATS) : mainnet ? 100_000n : undefined;
+const providerPriv = networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network);
 const ledger = new TabLedger({
-  provider, network,
-  providerPriv: networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network),
+  provider, network, providerPriv,
   safetyBlocks: Number(env.SAFETY_BLOCKS ?? 6),
   maxBudgetSats: maxBudget,
   file: new URL(`.data/tabs-${network}.json`, repoRoot).pathname,
@@ -42,13 +44,21 @@ if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
     selfUrl: () => `http://127.0.0.1:${port}`, route, price,
     budgetSats: BigInt(env.DEMO_BUDGET_SATS ?? (mainnet ? 5_000 : 20_000)),
     stateFile: new URL(`.data/demo-agent-${network}.json`, repoRoot).pathname, trustProxy,
+    // testnet only: sweep provider proceeds back to the demo agent so the live demo never runs dry
+    recycleFromPriv: mainnet ? undefined : providerPriv,
+    idleSeconds: Number(env.DEMO_IDLE_SECONDS ?? 600),
   });
   extra.push(demo.handler);
   features.demo = { agentPub: demo.agent.agentPubHex, cronSeconds: Number(env.DEMO_CRON_SECONDS ?? 60) };
 }
 if (!mainnet && env.FAUCET_WIF) {
-  const faucet = createFaucet({ network, provider, faucetPriv: networkKey(env.FAUCET_WIF, 'FAUCET_WIF', network), dripSats: BigInt(env.DRIP_SATS ?? 25_000), trustProxy });
+  const faucet = createFaucet({
+    network, provider, faucetPriv: networkKey(env.FAUCET_WIF, 'FAUCET_WIF', network), dripSats: BigInt(env.DRIP_SATS ?? 25_000), trustProxy,
+    topUpBelowSats: BigInt(env.FAUCET_TOPUP_BELOW_SATS ?? 100_000),
+  });
   extra.push(faucet.handler);
+  faucet.maybeTopUp().catch(() => {});
+  setInterval(() => faucet.maybeTopUp().catch(() => {}), 30 * 60_000);
   features.faucet = { dripSats: env.DRIP_SATS ?? '25000', address: faucet.address };
 }
 

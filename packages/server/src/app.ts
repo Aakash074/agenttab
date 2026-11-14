@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { artifact, binToHex } from '@agenttab/covenant';
 import { PaymentError, type TabLedger } from './ledger.ts';
+import { RateLimiter, clientIp } from './ratelimit.ts';
 
 export interface PaidRoute {
   path: string;
@@ -95,6 +96,7 @@ export function encodePaymentHeader(network: string, payload: { tab: string; amo
 }
 
 export function createApp(o: AppOptions) {
+  const closeLimiter = new RateLimiter(5, 60_000);
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
@@ -128,7 +130,8 @@ export function createApp(o: AppOptions) {
         for (const e of o.ledger.events.slice(-20)) send(e);
         const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
         o.ledger.on('event', send);
-        req.on('close', () => { clearInterval(ping); o.ledger.off('event', send); });
+        o.ledger.viewers++;
+        req.on('close', () => { clearInterval(ping); o.ledger.off('event', send); o.ledger.viewers--; });
         return;
       }
       if (req.method === 'GET' && url.pathname === '/tabs') {
@@ -140,10 +143,19 @@ export function createApp(o: AppOptions) {
       if (req.method === 'POST' && url.pathname === '/tabs') {
         return json(res, 201, await o.ledger.register(await readBody(req)));
       }
-      const m = url.pathname.match(/^\/tabs\/([0-9a-f]{64}:\d+)(\/settle)?$/i);
+      const m = url.pathname.match(/^\/tabs\/([0-9a-f]{64}:\d+)(\/settle|\/close)?$/i);
       if (m && req.method === 'GET' && !m[2]) {
         const t = o.ledger.tabs.get(m[1]);
         return t ? json(res, 200, { ...t, tip: o.ledger.tip }) : json(res, 404, { error: 'unknown_tab' });
+      }
+      if (m && req.method === 'POST' && m[2] === '/close') {
+        // Public "close tab now": settles at the highest voucher; the remainder goes straight back to the owner.
+        // Harmless to expose (it can only pay out what the agent signed), but rate-limited per client.
+        const wait = closeLimiter.take(clientIp(req, process.env.TRUST_PROXY === '1')) || closeLimiter.take(m[1]);
+        if (wait) return json(res, 429, { error: 'rate_limited', retryInMs: wait });
+        const txid = await o.ledger.settle(m[1]);
+        const t = o.ledger.tabs.get(m[1])!;
+        return json(res, 200, { txid, settledSats: t.settledAmount, returnedSats: (BigInt(t.budget) - BigInt(t.settledAmount ?? '0')).toString() });
       }
       if (m && req.method === 'POST' && m[2]) {
         if (o.adminToken && req.headers.authorization !== `Bearer ${o.adminToken}`) return json(res, 401, { error: 'unauthorized' });

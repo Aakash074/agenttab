@@ -1,8 +1,8 @@
 // Demo agent hosted by the server: makes real paid calls to this server's own paywall, through the
 // same HTTP 402 -> voucher flow an external agent uses (AgentTabClient from @agenttab/mcp).
 // It spends from a tab a visitor funded for the demo agent (if given), else from its own demo tab.
-import type { NetworkProvider } from 'cashscript';
-import { DUST } from '@agenttab/covenant';
+import { SignatureTemplate, TransactionBuilder, type NetworkProvider } from 'cashscript';
+import { DUST, p2pkhAddress, pubFromPriv } from '@agenttab/covenant';
 import { AgentTabClient } from '../../mcp/src/agent.ts';
 import { MIN_SETTLE, PaymentError, type TabLedger } from './ledger.ts';
 import { json, readBody, type ExtraHandler } from './app.ts';
@@ -20,6 +20,12 @@ export interface DemoOptions {
   stateFile?: string;
   trustProxy?: boolean;
   perIpMs?: number;
+  /** Provider key: settlement proceeds are swept back to the demo agent so the demo never runs dry (testnet only). */
+  recycleFromPriv?: Uint8Array;
+  /** Sweep provider proceeds to the demo agent when its balance drops below this. */
+  recycleBelowSats?: bigint;
+  /** With nobody watching the feed, the cron makes at most one call per this many seconds. */
+  idleSeconds?: number;
 }
 
 export function createDemo(o: DemoOptions) {
@@ -32,6 +38,26 @@ export function createDemo(o: DemoOptions) {
   const global = new RateLimiter(20, 60_000);
   let lastCall: string | undefined;
   let lastError: string | undefined;
+  let lastErrorAt: string | undefined;
+  let lastRecycle: string | undefined;
+
+  /** Sweep the provider's settlement proceeds back to the demo agent (chipnet/mocknet only). */
+  async function recycle(force = false) {
+    if (!o.recycleFromPriv || o.network === 'mainnet') return undefined;
+    const below = o.recycleBelowSats ?? 60_000n;
+    if (!force && (await agent.balance()) >= below) return undefined;
+    const from = p2pkhAddress(pubFromPriv(o.recycleFromPriv), 'chipnet');
+    const utxos = (await o.provider.getUtxos(from)).filter((u) => !u.token);
+    const total = utxos.reduce((a, u) => a + u.satoshis, 0n);
+    if (total < 3_000n) return undefined;
+    const build = (fee: bigint) => new TransactionBuilder({ provider: o.provider })
+      .addInputs(utxos, new SignatureTemplate(o.recycleFromPriv!).unlockP2PKH())
+      .addOutput({ to: agent.address, amount: total - fee });
+    const fee = build(0n).getTransactionSize() + 2n;
+    const tx = await build(fee).send();
+    lastRecycle = tx.txid;
+    return tx.txid;
+  }
   const questions = ['What is BCH trading at?', 'Price check for my portfolio agent', 'Is the chain alive?', 'BCH/USD for a quote', 'Tip height + price, please'];
 
   /** Settle demo-owned tabs that can't pay another call (keeps the feed's settle rows coming). */
@@ -52,15 +78,19 @@ export function createDemo(o: DemoOptions) {
       lastCall = new Date().toISOString();
       lastError = undefined;
       await rollOver();
+      recycle().catch((e) => console.error('demo recycle', (e as Error).message));
       return r;
     } catch (e) {
       lastError = (e as Error).message;
+      lastErrorAt = new Date().toISOString();
+      console.error('demo call failed:', lastError);
       throw e;
     }
   }
 
   const info = async () => ({
-    enabled: true, agentPub: agent.agentPubHex, fundingAddress: agent.address, lastCall, lastError,
+    enabled: true, agentPub: agent.agentPubHex, fundingAddress: agent.address, lastCall, lastError, lastErrorAt, lastRecycle,
+    viewers: o.ledger.viewers, healthy: !lastError,
     balanceSats: (await agent.balance().catch(() => 0n)).toString(),
   });
 
@@ -84,11 +114,17 @@ export function createDemo(o: DemoOptions) {
   };
 
   let timer: ReturnType<typeof setInterval> | undefined;
+  /** Every `seconds` while someone watches the live feed; otherwise at most once per idleSeconds (default 600). */
   const startCron = (seconds: number) => {
     if (seconds <= 0) return;
-    timer = setInterval(() => { call().catch((e) => console.error('demo cron', (e as Error).message)); }, seconds * 1000);
+    const idle = (o.idleSeconds ?? 600) * 1000;
+    timer = setInterval(() => {
+      const since = lastCall ? Date.now() - Date.parse(lastCall) : Infinity;
+      if (o.ledger.viewers === 0 && since < idle) return;
+      call().catch(() => {});
+    }, seconds * 1000);
   };
   const stop = () => timer && clearInterval(timer);
 
-  return { agent, call, info, handler, startCron, stop };
+  return { agent, call, info, handler, startCron, stop, recycle };
 }

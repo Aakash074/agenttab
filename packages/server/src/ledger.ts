@@ -69,6 +69,8 @@ export class TabLedger extends EventEmitter {
   tabs = new Map<string, TabRecord>();
   events: FeedEvent[] = [];
   tip = 0;
+  /** Live SSE viewers (the demo cron runs faster while someone is watching). */
+  viewers = 0;
   /** Set by the demo module so feed events can flag demo-agent activity. */
   demoAgentPub?: string;
   readonly providerPub: Uint8Array;
