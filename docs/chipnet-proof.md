@@ -109,12 +109,26 @@ UX r2 flow: closing the visitor's tab "now" settled 4,000 sats and returned 16,0
   3. The agent paid 3 calls with vouchers (1,000 / 2,000 / 3,000).
   4. The close settled 3,000 and returned 17,000 in `3987f76a69652ecbb4dc03aef90ce38d30bc146fc7e3f295bd52eded239b6509`.
 
-## Confirmation status
+## Confirmation status and why nothing confirmed at first (investigated 2026-11-14 ~16:15 UTC)
 
-All of these transactions were accepted to the chipnet mempool. That means they passed full node script validation, including the covenant. Run `node packages/covenant/scripts/tx-status.ts <txid>...` to check confirmations.
+**Symptom:** between 14:05 and 16:15 UTC (blocks 332318–332329), none of our transactions confirmed. That includes the public faucet's own payout to us (`76822cfc…`). `blockchain.transaction.get` on `chipnet.bch.ninja` reported every one of them as "in mempool".
 
-At the last check (2026-11-14 ~16:00 UTC, tip 332326), every tx above was still **0-conf in the mempool**. None was dropped, including the faucet's own funding tx (1 sat/byte). Chipnet blocks 332319 through 332326 were mined without any of them, including the public faucet's own payout, which looks like sparse or empty testnet mining. Re-check later with:
+**What I checked** (`packages/covenant/scripts/chipnet-diagnose.ts`):
+
+1. **Are miners mining empty blocks?** No. Every block from 332318 to 332329 contains several non-coinbase transactions (checked with `blockchain.transaction.id_from_pos`). Chipnet was confirming other people's transactions the whole time.
+2. **Fee and policy.** Relay and mempool minimum is 1 sat/byte on both servers, and ours were at about 1 sat/byte, the same as the faucet's own 123-byte tx (123-sat fee). The txs are version 2, and the covenant outputs are standard P2SH32. Fee and standardness were not the problem.
+3. **Do other nodes know the txs?** No. A second, independent server, `chipnet.imaginary.cash`, answered `No such mempool or blockchain transaction` for both the faucet payout and our settle. **The txs only existed in the mempool of the node behind `chipnet.bch.ninja`**, the server CashScript uses by default for chipnet and the one the BCH Ninja faucet itself broadcasts through. That node accepted them, which means it validated the scripts, but never relayed them to the rest of chipnet. So no miner ever saw them.
+4. `chipnet.c3-soft.com` and `cbch.loping.net` were unreachable over WSS.
+
+**Fix (on our side):**
+- `packages/covenant/scripts/chipnet-rebroadcast.ts` pulled all **65** unconfirmed txs touching our addresses from `chipnet.bch.ninja`, parents included and in parent-before-child order. It pushed them to `chipnet.imaginary.cash`. All 65 were accepted (16:16 UTC, tip 332329).
+- The SDK now has `electrumProvider(network)`. On chipnet it reads from `chipnet.imaginary.cash` and mirrors every broadcast to `chipnet.bch.ninja` (`MirroredElectrumProvider`). The server, MCP server, web app and scripts all use it, so no future transaction depends on a single node's peers.
+
+**What the proof txids mean in the meantime:** every txid in this document was accepted by a full chipnet node's mempool. That means each one passed full consensus and script validation, including the covenant. Confirmation status after the rebroadcast is below and can be re-checked with:
 
 ```sh
-node packages/covenant/scripts/tx-status.ts 6f14f00fc1a4bc9c480038df08fe6c953d5d86cd018f4c2a09cfd73cbf10c8ed 235c78a1d061112ccf904940233ccbfdff3b24c5d3521fc5f790367c8cd4c2a1 2a58b9b19e41c14f51213ae476406f39d33b584ec64e35bb900634e160212757
+node packages/covenant/scripts/tx-status.ts <txid>...
+node packages/covenant/scripts/chipnet-diagnose.ts <txid>...   # compares several servers
 ```
+
+**Result:** the next block, **332331** (mined 16:21 UTC, about 5 minutes after the rebroadcast), **confirmed every tx in this document**. I checked all 20 proof txids, from the faucet payout `76822cfc…` through the v3 attack-run settle `86ab45b5…`; each had 1 confirmation at tip 332331. They are now ordinary confirmed chipnet transactions; no re-run was needed.
