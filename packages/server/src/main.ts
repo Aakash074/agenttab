@@ -1,29 +1,36 @@
-// Chipnet paywall server. PORT, PROVIDER_WIF (testnet) from env / .env.
+// AgentTab paywall server. Env (.env or process): NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1),
+// PROVIDER_WIF, PORT (8402), ADMIN_TOKEN (optional, guards /settle), TICK_SECONDS (30), SAFETY_BLOCKS (6),
+// PRICE_SATS (1000).
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp } from './app.ts';
-import { loadEnv, repoRoot, testnetKey } from './env.ts';
+import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
+import { oracleHandler } from './oracle.ts';
 
 const env = loadEnv();
-const network = 'chipnet' as const;
+const network = resolveNetwork(env);
+const provider = new ElectrumNetworkProvider(network);
 const ledger = new TabLedger({
-  provider: new ElectrumNetworkProvider(network),
-  providerPriv: testnetKey(env.PROVIDER_WIF, 'PROVIDER_WIF'),
-  network,
-  file: new URL('.data/tabs.json', repoRoot).pathname,
+  provider, network,
+  providerPriv: networkKey(env.PROVIDER_WIF, 'PROVIDER_WIF', network),
+  safetyBlocks: Number(env.SAFETY_BLOCKS ?? 6),
+  file: new URL(`.data/tabs-${network}.json`, repoRoot).pathname,
 });
-const facts = [
-  'BCH blocks are ~32MB with sub-cent fees, so a 1000-sat API call is economical.',
-  'CashTokens (May 2023) added native fungible tokens and NFTs to BCH.',
-  'The 2025 VM limits upgrade made larger covenant scripts practical on BCH.',
-  'OP_CHECKDATASIG lets a BCH script verify a signature over arbitrary data, which is what AgentTab vouchers use.',
-];
 const app = createApp({
   ledger, network, adminToken: env.ADMIN_TOKEN,
   routes: [{
-    path: '/api/oracle', price: 1000n, description: 'BCH Oracle: one answer per call',
-    handler: (u) => ({ q: u.searchParams.get('q'), answer: facts[Math.floor(Math.random() * facts.length)], at: new Date().toISOString() }),
+    path: '/api/oracle', price: BigInt(env.PRICE_SATS ?? 1000),
+    description: 'BCH market oracle: live BCH/USD + chain tip, per call',
+    handler: oracleHandler(provider, network),
   }],
 });
+await ledger.refreshTip();
+const tick = async () => {
+  try {
+    const r = await ledger.tick();
+    if (r.settled.length || r.expired.length) console.log('tick', r);
+  } catch (e) { console.error('tick failed', (e as Error).message); }
+};
+setInterval(tick, Number(env.TICK_SECONDS ?? 30) * 1000);
 const port = Number(env.PORT ?? 8402);
-app.listen(port, () => console.log(`AgentTab paywall on http://localhost:${port} (provider ${ledger.providerPubHex()})`));
+app.listen(port, () => console.log(`AgentTab paywall [${network}] http://localhost:${port}  tip ${ledger.tip}  provider ${ledger.providerPubHex()}`));

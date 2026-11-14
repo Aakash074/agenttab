@@ -16,8 +16,6 @@ export interface AppOptions {
   network: 'chipnet' | 'mainnet' | 'mocknet';
   routes: PaidRoute[];
   adminToken?: string;
-  /** Minimum blocks between now and tab timeout the server accepts. */
-  minTimeoutBlocks?: number;
 }
 
 export const ARTIFACT_HASH = binToHex(createHash('sha256').update(artifact.debug?.bytecode ?? artifact.bytecode).digest());
@@ -58,7 +56,8 @@ export function paymentRequirements(o: AppOptions, route: PaidRoute, resource: s
         artifactHash: ARTIFACT_HASH,
         voucher: 'schnorr datasig(owner, sha256("AGENTTAB" || outpointTxHashLE || voutLE32 || cumulativeAmountLE64))',
         openTab: '/tabs',
-        minTimeoutBlocks: o.minTimeoutBlocks ?? 6,
+        minTimeoutBlocks: o.ledger.safetyBlocks + 1,
+        voucherSigner: 'agentPub (register with POST /tabs {txid,vout,ownerPub,agentPub,timeout})',
       },
     }],
   };
@@ -93,8 +92,33 @@ export function createApp(o: AppOptions) {
       if (req.method === 'GET' && url.pathname === '/.well-known/agenttab') {
         return json(res, 200, {
           providerPub: o.ledger.providerPubHex(), network: o.network, artifactHash: ARTIFACT_HASH,
+          tip: o.ledger.tip, safetyBlocks: o.ledger.safetyBlocks,
           routes: o.routes.map((r) => ({ path: r.path, price: r.price, description: r.description })),
         });
+      }
+      if (req.method === 'GET' && url.pathname === '/feed') {
+        const since = Number(url.searchParams.get('since') ?? 0);
+        const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 200);
+        const events = o.ledger.events.filter((e) => e.id > since).slice(-limit).reverse();
+        return json(res, 200, { network: o.network, stats: o.ledger.stats(), events });
+      }
+      if (req.method === 'GET' && url.pathname === '/feed/stream') {
+        res.writeHead(200, {
+          'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive',
+          'access-control-allow-origin': '*',
+        });
+        const send = (e: unknown) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+        for (const e of o.ledger.events.slice(-20)) send(e);
+        const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
+        o.ledger.on('event', send);
+        req.on('close', () => { clearInterval(ping); o.ledger.off('event', send); });
+        return;
+      }
+      if (req.method === 'GET' && url.pathname === '/tabs') {
+        const agent = url.searchParams.get('agent')?.toLowerCase();
+        const owner = url.searchParams.get('owner')?.toLowerCase();
+        const list = [...o.ledger.tabs.values()].filter((t) => (!agent || t.agentPub === agent) && (!owner || t.ownerPub === owner));
+        return json(res, 200, { tip: o.ledger.tip, tabs: list.reverse() });
       }
       if (req.method === 'POST' && url.pathname === '/tabs') {
         return json(res, 201, await o.ledger.register(await readBody(req)));
@@ -102,7 +126,7 @@ export function createApp(o: AppOptions) {
       const m = url.pathname.match(/^\/tabs\/([0-9a-f]{64}:\d+)(\/settle)?$/i);
       if (m && req.method === 'GET' && !m[2]) {
         const t = o.ledger.tabs.get(m[1]);
-        return t ? json(res, 200, t) : json(res, 404, { error: 'unknown_tab' });
+        return t ? json(res, 200, { ...t, tip: o.ledger.tip }) : json(res, 404, { error: 'unknown_tab' });
       }
       if (m && req.method === 'POST' && m[2]) {
         if (o.adminToken && req.headers.authorization !== `Bearer ${o.adminToken}`) return json(res, 401, { error: 'unauthorized' });
@@ -112,7 +136,7 @@ export function createApp(o: AppOptions) {
       if (route && req.method === 'GET') {
         const pay = parsePaymentHeader(req.headers['x-payment'] as string | undefined);
         if (!pay) return json(res, 402, paymentRequirements(o, route, url.pathname));
-        const receipt = o.ledger.charge(pay, route.price);
+        const receipt = o.ledger.charge(pay, route.price, route.path);
         const body = await route.handler(url);
         return json(res, 200, body, {
           'x-payment-response': Buffer.from(JSON.stringify({ success: true, scheme: 'bch-credit', ...receipt },

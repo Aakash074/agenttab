@@ -7,8 +7,8 @@ import { loadEnv, testnetKey } from '../src/env.ts';
 
 const env = loadEnv();
 const base = env.SERVER_URL ?? 'http://localhost:8402';
-const ownerPriv = testnetKey(env.OWNER_WIF, 'OWNER_WIF');
-const ownerPub = pubFromPriv(ownerPriv);
+const ownerPriv = testnetKey(env.OWNER_WIF, 'OWNER_WIF'), agentPriv = testnetKey(env.AGENT_WIF, 'AGENT_WIF');
+const ownerPub = pubFromPriv(ownerPriv), agentPub = pubFromPriv(agentPriv);
 const net = new ElectrumNetworkProvider('chipnet');
 const link = (t: string) => `https://chipnet.imaginary.cash/tx/${t}`;
 
@@ -17,18 +17,18 @@ const terms = (await first.json()).accepts[0];
 console.log(`402 -> scheme=${terms.scheme} price=${terms.maxAmountRequired} payTo=${terms.payTo.slice(0, 16)}…`);
 
 const timeout = BigInt((await net.getBlockHeight()) + 144);
-const contract = tabContract({ ownerPub, providerPub: hexToBin(terms.payTo), timeout }, net);
+const contract = tabContract({ ownerPub, agentPub, providerPub: hexToBin(terms.payTo), timeout }, net);
 const ownerAddr = p2pkhAddress(ownerPub, 'chipnet');
-const open = await buildOpen({ provider: net, contract, ownerPriv, fundingUtxos: await net.getUtxos(ownerAddr), budget: 20_000n, changeAddress: ownerAddr }).send();
+const open = await buildOpen({ provider: net, contract, payerPriv: ownerPriv, fundingUtxos: await net.getUtxos(ownerAddr), budget: 20_000n, changeAddress: ownerAddr }).send();
 console.log(`open tab ${open.txid} ${link(open.txid)}`);
 const outpoint = { txid: open.txid, vout: 0 };
-const reg = await fetch(`${base}/tabs`, { method: 'POST', body: JSON.stringify({ ...outpoint, ownerPub: binToHex(ownerPub), timeout: timeout.toString() }) });
+const reg = await fetch(`${base}/tabs`, { method: 'POST', body: JSON.stringify({ ...outpoint, ownerPub: binToHex(ownerPub), agentPub: binToHex(agentPub), timeout: timeout.toString() }) });
 console.log('register', reg.status, (await reg.json()).contractAddress);
 
 const price = BigInt(terms.maxAmountRequired);
 let last = '';
 for (let i = 1n; i <= 3n; i++) {
-  const v = signVoucher(ownerPriv, outpoint, price * i);
+  const v = signVoucher(agentPriv, outpoint, price * i);
   last = encodePaymentHeader('chipnet', { tab: `${open.txid}:0`, amount: v.amount, sig: v.sig });
   const r = await fetch(`${base}/api/oracle?q=call${i}`, { headers: { 'x-payment': last } });
   console.log(`call ${i}: ${r.status} voucher=${v.amount}`, (await r.json()).answer?.slice(0, 50));

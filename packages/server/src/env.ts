@@ -13,10 +13,27 @@ export function loadEnv(): Record<string, string | undefined> {
   return { ...fromFile, ...process.env };
 }
 
-export function testnetKey(wif: string | undefined, name: string): Uint8Array {
+export type ChainNetwork = 'chipnet' | 'mainnet';
+
+/** NETWORK=chipnet (default) | mainnet. Mainnet additionally requires ALLOW_MAINNET=1. */
+export function resolveNetwork(env: Record<string, string | undefined>): ChainNetwork {
+  const n = (env.NETWORK ?? 'chipnet').toLowerCase();
+  if (n === 'chipnet') return 'chipnet';
+  if (n === 'mainnet') {
+    if (env.ALLOW_MAINNET !== '1') throw new Error('NETWORK=mainnet refused: set ALLOW_MAINNET=1 explicitly');
+    return 'mainnet';
+  }
+  throw new Error(`unknown NETWORK ${n}`);
+}
+
+/** Decodes a WIF and checks it matches the network (testnet WIF for chipnet, mainnet WIF for mainnet). */
+export function networkKey(wif: string | undefined, name: string, network: ChainNetwork = 'chipnet'): Uint8Array {
   if (!wif) throw new Error(`${name} missing (run: node packages/covenant/scripts/keygen.ts)`);
   const d = decodePrivateKeyWif(wif);
   if (typeof d === 'string') throw new Error(`${name}: ${d}`);
-  if (d.type !== 'testnet') throw new Error(`${name}: refusing non-testnet key`);
+  const want = network === 'mainnet' ? 'mainnet' : 'testnet';
+  if (d.type !== want) throw new Error(`${name}: expected a ${want} WIF for ${network}`);
   return d.privateKey;
 }
+
+export const testnetKey = (wif: string | undefined, name: string) => networkKey(wif, name, 'chipnet');
