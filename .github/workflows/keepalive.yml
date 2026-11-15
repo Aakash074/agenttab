@@ -9,6 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in "${{ vars.AGENTTAB_API_CHIPNET }}" "${{ vars.AGENTTAB_API_MAINNET }}"; do
-            [ -n "$u" ] && curl -fsS -m 30 "$u/.well-known/agenttab" > /dev/null && echo "ok $u" || echo "skip/fail $u"
+          for u in "${{ vars.AGENTTAB_API_CHIPNET || 'https://agenttab-api-chipnet.onrender.com' }}" "${{ vars.AGENTTAB_API_MAINNET }}" "https://agenttab.onrender.com"; do
+            [ -n "$u" ] && curl -fsS -m 60 "$u/.well-known/agenttab" > /dev/null && echo "ok $u" || echo "skip/fail $u"
           done
