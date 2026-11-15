@@ -11,12 +11,14 @@ import {
 } from '@bitauth/libauth';
 import type { DappConnectionManager } from '@wizardconnect/dapp';
 import {
-  buildOpen, buildRefund, p2pkhAddress, pubFromPriv, tabContract,
+  buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, tabContract,
 } from '@agenttab/covenant';
 import type { Net } from '../config';
 
 const providers: Partial<Record<Net, ElectrumNetworkProvider>> = {};
 export const chain = (net: Net) => (providers[net] ??= electrumProvider(net));
+/** Current tip in nLockTime units: compare with / derive tab timeouts from this, never the raw height. */
+export const lockTipOf = (net: Net) => chainLockTip(chain(net), net);
 
 export interface Wallet {
   kind: 'wizard' | 'burner';
@@ -43,8 +45,9 @@ async function findTabUtxo(net: Net, p: { ownerPub: Uint8Array; agentPub: Uint8A
 }
 
 async function assertRefundable(net: Net, timeout: bigint) {
-  const tip = await chain(net).getBlockHeight();
-  if (BigInt(tip) < timeout) throw new Error(`Refund unlocks at block ${timeout} (tip is ${tip}).`);
+  // Lock tip, not raw height: after faster blocks (chipnet, 2026-11-15) nLockTime counts 10-minute units.
+  const tip = await lockTipOf(net);
+  if (BigInt(tip) < timeout) throw new Error(`Refund unlocks at lock height ${timeout} (now ${tip}; ~${(Number(timeout) - tip) * 10} min).`);
 }
 
 // ---------- Chipnet test wallet ----------

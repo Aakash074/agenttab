@@ -67,8 +67,8 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
     if (!wallet || !info) return;
     try {
       setStep({ state: 'busy', msg: wallet.kind === 'wizard' ? 'Approve the transaction in your wallet…' : 'Signing and broadcasting…' });
-      const { chain } = await loadWallet();
-      const timeout = (await chain(net).getBlockHeight()) + duration;
+      const { lockTipOf } = await loadWallet();
+      const timeout = (await lockTipOf(net)) + duration; // lock units (10-min), see lockTip
       const txid = await wallet.openTab({ agentPub: unhex(agentPub.trim()), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
       setStep({ state: 'busy', msg: 'Registering the tab with the API provider…' });
       let lastErr: unknown;

@@ -31,6 +31,40 @@ export const FEE_RATE = 1n;
 
 export type Network = 'mainnet' | 'chipnet' | 'mocknet';
 
+/**
+ * Faster blocks (CHIP-2025-03) keep height-based nLockTime / OP_CHECKLOCKTIMEVERIFY in idealized
+ * 10-minute units: after activation height A with 1-minute blocks, a block at height h counts as
+ * lock height A + floor((h - A) / 10). Raw block height and lock height diverge, so a tab `timeout`
+ * (the covenant's `tx.time >= timeout`, enforced through nLockTime) must be compared with the LOCK
+ * height, never with the raw tip.
+ * Chipnet activated it on 2026-11-15. A = 332451 was measured against two chipnet nodes
+ * (imaginary.cash, bch.ninja) by bisecting the highest nLockTime they accept as final at several tips;
+ * mainnet has not activated it.
+ */
+export const FAST_BLOCKS: Partial<Record<Network, { height: number; factor: number }>> = {
+  chipnet: { height: 332_451, factor: 10 },
+};
+
+/** The nLockTime-unit height of the block at raw height `height`. */
+export function lockHeightAt(height: number, network: Network): number {
+  const fb = FAST_BLOCKS[network];
+  return !fb || height <= fb.height ? height : fb.height + Math.floor((height - fb.height) / fb.factor);
+}
+
+/**
+ * The "lock tip": the largest height-based nLockTime that is final for the next block, so a tx with
+ * nLockTime <= lockTip(tip) is accepted now. Equals the raw tip before faster blocks. Use it wherever
+ * code used `tip` against a tab timeout (refund unlocked iff lockTip >= timeout; new timeout = lockTip + n).
+ */
+export function lockTip(tip: number, network: Network): number {
+  return lockHeightAt(tip + 1, network) - 1;
+}
+
+/** Current lock tip from a provider (see lockTip). */
+export async function chainLockTip(provider: NetworkProvider, network: Network): Promise<number> {
+  return lockTip(await provider.getBlockHeight(), network);
+}
+
 export interface Outpoint {
   txid: string; // display (big-endian) hex
   vout: number;

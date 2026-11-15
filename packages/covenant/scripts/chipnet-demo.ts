@@ -1,4 +1,4 @@
-import { electrumProvider } from '../src/index.ts';
+import { chainLockTip, electrumProvider } from '../src/index.ts';
 // End-to-end AgentTab run on CHIPNET (testnet) with throwaway keys from ./.env.
 //   Tab A: open -> 3 cumulative vouchers -> provider settles the highest.
 //   Tab B: open with timeout = height+1 -> early refund rejected by the network -> wait -> refund.
@@ -43,7 +43,7 @@ async function openTab(timeout: bigint, budget: bigint) {
   return { contract, tab, txid: tx.txid };
 }
 
-const height = await net.getBlockHeight();
+const height = await chainLockTip(net, 'chipnet'); // nLockTime units
 out(`# chipnet run ${new Date().toISOString()} (height ${height})`);
 out(`owner ${ownerAddr}\nagent pub ${Buffer.from(agentPub).toString('hex')}\nprovider ${p2pkhAddress(providerPub, 'chipnet')}`);
 
@@ -68,7 +68,7 @@ out(`settle (voucher #3 = 3000 sats) ${settle.txid} ${link(settle.txid)}`);
 save();
 
 // ---- Tab B: refund after timeout ----
-const h2 = await net.getBlockHeight();
+const h2 = await chainLockTip(net, 'chipnet');
 const timeoutB = BigInt(h2 + 1);
 const B = await openTab(timeoutB, 10_000n);
 out(`\n## Tab B (timeout height ${timeoutB})\ncontract ${B.contract.address}\nopen ${B.txid} ${link(B.txid)}`);
@@ -79,12 +79,12 @@ try {
 } catch (e) { out(`early refund at height ${h2} rejected by node: ${(e as Error).message.split('\n')[0].slice(0, 160)}`); }
 save();
 for (;;) {
-  const h = await net.getBlockHeight();
+  const h = await chainLockTip(net, 'chipnet');
   if (h >= Number(timeoutB)) break;
   console.log(`waiting for height ${timeoutB} (now ${h})…`);
   await sleep(30_000);
 }
 const r = await refund();
-out(`refund after timeout (height ${await net.getBlockHeight()}) ${r.txid} ${link(r.txid)}`);
+out(`refund after timeout (lock tip ${await chainLockTip(net, 'chipnet')}) ${r.txid} ${link(r.txid)}`);
 save();
 process.exit(0);

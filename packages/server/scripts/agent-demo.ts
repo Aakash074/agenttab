@@ -1,4 +1,4 @@
-import { electrumProvider } from '@agenttab/covenant';
+import { chainLockTip, electrumProvider } from '@agenttab/covenant';
 // Agent-side demo against a running paywall server on chipnet:
 // hit 402 -> open tab on chain -> register -> 3 paid calls (one voucher each) -> replay attempt -> ask server to settle.
 import { ElectrumNetworkProvider } from 'cashscript';
@@ -17,7 +17,7 @@ const first = await fetch(`${base}/api/oracle?q=hello`);
 const terms = (await first.json()).accepts[0];
 console.log(`402 -> scheme=${terms.scheme} price=${terms.maxAmountRequired} payTo=${terms.payTo.slice(0, 16)}…`);
 
-const timeout = BigInt((await net.getBlockHeight()) + 144);
+const timeout = BigInt((await chainLockTip(net, 'chipnet')) + 144); // nLockTime units
 const contract = tabContract({ ownerPub, agentPub, providerPub: hexToBin(terms.payTo), timeout }, net);
 const ownerAddr = p2pkhAddress(ownerPub, 'chipnet');
 const open = await buildOpen({ provider: net, contract, payerPriv: ownerPriv, fundingUtxos: await net.getUtxos(ownerAddr), budget: 20_000n, changeAddress: ownerAddr }).send();

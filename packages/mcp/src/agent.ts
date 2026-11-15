@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { NetworkProvider } from 'cashscript';
 import {
-  DUST, binToHex, buildOpen, buildRefund, hexToBin, p2pkhAddress, pubFromPriv, signVoucher, tabContract,
+  DUST, binToHex, buildOpen, buildRefund, chainLockTip, hexToBin, p2pkhAddress, pubFromPriv, signVoucher, tabContract,
 } from '@agenttab/covenant';
 
 export interface AgentConfig {
@@ -110,7 +110,7 @@ export class AgentTabClient {
   }
 
   private async pickTab(origin: string, terms: Terms, price: bigint, preferTab?: string, ownTabsOnly = false): Promise<LocalTab> {
-    const tip = await this.cfg.provider.getBlockHeight();
+    const tip = await chainLockTip(this.cfg.provider, this.cfg.network); // nLockTime units, see lockTip
     const margin = (terms.extra?.minTimeoutBlocks ?? 7) + 1;
     const usable = (t: LocalTab) => !t.closed && t.origin === origin && t.providerPub === terms.payTo && t.timeout > tip + margin
       && BigInt(t.signed) + price <= BigInt(t.budget) - DUST && (!ownTabsOnly || t.fundedBy === 'agent');
@@ -232,7 +232,7 @@ export class AgentTabClient {
   }
 
   async status(id?: string) {
-    const tip = await this.cfg.provider.getBlockHeight();
+    const tip = await chainLockTip(this.cfg.provider, this.cfg.network); // nLockTime units, see lockTip
     const list = id ? [this.tabs.get(id)].filter(Boolean) as LocalTab[] : [...this.tabs.values()];
     return Promise.all(list.map(async (t) => {
       let server: unknown;
@@ -250,7 +250,7 @@ export class AgentTabClient {
   async close(id: string) {
     const t = this.tabs.get(id);
     if (!t) throw new Error(`unknown tab ${id}`);
-    const tip = await this.cfg.provider.getBlockHeight();
+    const tip = await chainLockTip(this.cfg.provider, this.cfg.network); // nLockTime units, see lockTip
     if (tip >= t.timeout && t.fundedBy === 'agent') {
       const [txid, vout] = id.split(':');
       const contract = tabContract({ ownerPub: this.agentPub, agentPub: this.agentPub, providerPub: hexToBin(t.providerPub), timeout: BigInt(t.timeout) }, this.cfg.provider);

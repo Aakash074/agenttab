@@ -219,8 +219,8 @@ export default function App() {
       const budget = plan.budget;
       upd({ budget, note: undefined });
       upd({ step: 'open', note: w.kind === 'wizard' ? 'Approve the transaction in your wallet…' : 'Signing and broadcasting…' });
-      const { chain } = await loadWallet();
-      const timeout = (await chain(net).getBlockHeight()) + 12;
+      const { lockTipOf } = await loadWallet();
+      const timeout = (await lockTipOf(net)) + 12; // lock units (10-min), see lockTip
       const txid = await w.openTab({ agentPub: unhex(demoPub), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
       upd({ openTxid: txid, note: 'Registering the tab with the API…' });
       let reg: unknown = 'pending';

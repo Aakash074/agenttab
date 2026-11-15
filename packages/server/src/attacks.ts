@@ -5,7 +5,7 @@
 import { SignatureTemplate, TransactionBuilder, type NetworkProvider } from 'cashscript';
 import { bigIntToBinUint64LE, generatePrivateKey, hexToBin } from '@bitauth/libauth';
 import {
-  binToHex, buildOpen, buildRefund, p2pkhAddress, pubFromPriv, signVoucher, tabContract,
+  binToHex, buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, signVoucher, tabContract,
 } from '@agenttab/covenant';
 import type { TabLedger } from './ledger.ts';
 import { json, type ExtraHandler } from './app.ts';
@@ -72,7 +72,7 @@ export function createAttacks(o: {
     const t0 = Date.now();
     const agentPriv = generatePrivateKey(); // fresh agent key for this run
     const agentPub = pubFromPriv(agentPriv);
-    const tip = await o.provider.getBlockHeight();
+    const tip = await chainLockTip(o.provider, o.network);
     const timeout = tip + 144;
     const contract = tabContract({ ownerPub, agentPub, providerPub, timeout: BigInt(timeout) }, o.provider);
     const funding = (await o.provider.getUtxos(ownerAddr)).filter((u) => !u.token);

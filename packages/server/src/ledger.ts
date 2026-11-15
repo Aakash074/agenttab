@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { NetworkProvider } from 'cashscript';
 import {
-  DUST, buildCancel, buildSettle, hexToBin, binToHex, pubFromPriv, tabContract, verifyVoucher,
+  DUST, buildCancel, buildSettle, hexToBin, binToHex, lockTip, pubFromPriv, tabContract, verifyVoucher,
   type Network, type Outpoint, type Voucher,
 } from '@agenttab/covenant';
 
@@ -152,8 +152,10 @@ export class TabLedger extends EventEmitter {
     }, this.o.provider);
   }
 
+  /** `tip` is the LOCK tip (nLockTime units, see lockTip in @agenttab/covenant), not the raw block height:
+   *  every use compares it with a tab timeout, and after faster blocks the two differ. */
   async refreshTip() {
-    this.tip = await this.o.provider.getBlockHeight();
+    this.tip = lockTip(await this.o.provider.getBlockHeight(), this.network);
     return this.tip;
   }
 

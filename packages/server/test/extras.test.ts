@@ -287,3 +287,9 @@ test('regression: house demo agent survives visitors closing their tabs (no stal
   assert.doesNotMatch(body.message, /[0-9a-f]{16}/);
   a4.close();
 });
+
+test('ledger.tip is the chipnet lock tip (faster blocks), so tabs are not judged by raw height', async () => {
+  const provider = { getBlockHeight: async () => 332687 } as unknown as MockNetworkProvider;
+  const l = new TabLedger({ provider, providerPriv: generatePrivateKey(), network: 'chipnet' });
+  assert.equal(await l.refreshTip(), 332473);
+});

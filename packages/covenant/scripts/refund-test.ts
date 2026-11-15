@@ -17,7 +17,7 @@
 // Use --no-register to exercise the owner-refund path itself (same provider key, server unaware).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { decodePrivateKeyWif, generatePrivateKey, hexToBin } from '@bitauth/libauth';
-import { binToHex, buildOpen, buildRefund, electrumProvider, p2pkhAddress, pubFromPriv, tabContract } from '../src/index.ts';
+import { binToHex, buildOpen, buildRefund, chainLockTip, electrumProvider, p2pkhAddress, pubFromPriv, tabContract } from '../src/index.ts';
 
 const root = new URL('../../../', import.meta.url);
 const API = (process.env.AGENTTAB_API ?? 'https://agenttab-api-chipnet.onrender.com').replace(/\/$/, '');
@@ -53,7 +53,7 @@ interface State {
 if (!flag('--refund')) {
   const { body: info } = await api<{ providerPub: string; network: string; safetyBlocks: number; tip: number }>('/.well-known/agenttab');
   if (info.network !== 'chipnet') throw new Error(`API network is ${info.network}; refusing (chipnet only)`);
-  const tip = Math.max(await net.getBlockHeight(), info.tip);
+  const tip = Math.max(await chainLockTip(net, 'chipnet'), info.tip); // both in nLockTime units
   const timeout = tip + info.safetyBlocks + 1;
   const budget = BigInt(opt('--budget') ?? 5000);
   // Throwaway agent key: this test never pays for calls.
@@ -87,7 +87,7 @@ if (!flag('--refund')) {
   };
   mkdirSync(new URL('.data/', root), { recursive: true });
   writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
-  console.log(`refund becomes valid when the chain tip reaches block ${timeout} (nLockTime ${timeout}; first includable in block ${timeout + 1}), ~${timeout - tip} blocks / ~${(timeout - tip) * 10} min.`);
+  console.log(`refund becomes valid when the lock tip reaches ${timeout} (nLockTime ${timeout}), ~${timeout - tip} lock units / ~${(timeout - tip) * 10} min.`);
   console.log(`then run: node packages/covenant/scripts/refund-test.ts --refund${registered ? '' : ' --no-register'}   (state: ${stateFile.pathname})`);
   process.exit(0);
 }
@@ -101,7 +101,7 @@ const contract = tabContract({ ownerPub, agentPub: hexToBin(s.agentPub), provide
 console.log(`tab ${s.txid}:${s.vout}  timeout ${s.timeout}  contract ${s.contract}  registered=${s.registered}`);
 
 for (;;) {
-  const tip = await net.getBlockHeight();
+  const tip = await chainLockTip(net, 'chipnet'); // nLockTime units (faster blocks on chipnet since 2026-11-15)
   const utxo = (await contract.getUtxos()).find((u) => u.txid === s.txid && u.vout === s.vout);
   if (!utxo) {
     console.log('tab utxo is already spent.');
@@ -117,7 +117,7 @@ for (;;) {
     console.log(`owner refund at tip ${tip}: ${tx.txid}  (${utxo.satoshis} sats back to ${ownerAddr} minus fee)\n  ${link(tx.txid)}`);
     process.exit(0);
   }
-  console.log(`tip ${tip} < timeout ${s.timeout}: refund not valid yet (${s.timeout - tip} block(s) to go).`);
+  console.log(`tip ${tip} < timeout ${s.timeout}: refund not valid yet (${s.timeout - tip} lock unit(s) to go, ~${(s.timeout - tip) * 10} min).`);
   if (!flag('--wait')) process.exit(1);
   await sleep(30_000);
 }
