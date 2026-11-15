@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
-import { Hero, type DemoRun } from './components/Hero';
+import { Hero, type DemoRun, type LocalPaid } from './components/Hero';
 import { IDLE_JOURNEY, type JourneyState } from './components/Journey';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TabTimeline } from './components/TabTimeline';
@@ -62,15 +62,15 @@ function McpSection() {
   }
 }`;
   return (
-    <section id="mcp" className="scroll-mt-24 mx-auto grid max-w-6xl gap-4 px-4 py-16 md:grid-cols-[1fr_1.2fr]">
+    <section id="mcp" className="card scroll-mt-24 min-w-0 rounded-2xl border border-line bg-panel p-6">
       <div className="min-w-0">
-        <h2 className="text-2xl font-bold tracking-tight">Give your own agent a tab</h2>
+        <h2 className="text-xl font-bold">Give your own agent a tab</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           The MCP server lets Claude or any MCP agent pay a <code className="font-mono">402 bch-credit</code> API from a tab, with per-call and total spend caps.
           Tools: <code className="font-mono">fetch_paid</code>, <code className="font-mono">tab_status</code>, <code className="font-mono">close_tab</code>, <code className="font-mono">agent_info</code>.
         </p>
       </div>
-      <div className="card relative min-w-0 rounded-xl border border-line bg-panel">
+      <div className="relative mt-4 min-w-0 rounded-xl border border-line bg-panel-2">
         <button onClick={() => { navigator.clipboard?.writeText(json); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
           className="absolute right-2 top-2 min-h-[36px] rounded-lg border border-line-2 bg-panel px-3 text-xs font-medium text-muted hover:text-fg">
           {copied ? 'Copied' : 'Copy'}
@@ -94,22 +94,29 @@ export default function App() {
   const [run, setRun] = useState<DemoRun>({ busy: false });
   const [demoIssue, setDemoIssue] = useState<string | undefined>();
   const [journey, setJourney] = useState<JourneyState>({ active: false, calls: 0 });
+  const [infoSlow, setInfoSlow] = useState(false);
+  const [wakeLong, setWakeLong] = useState(false);
+  const [queued, setQueued] = useState(false);
   const pendingJourney = useRef(false);
   const wc = useWizardConnect({ dappName: 'AgentTab' });
   const theme = useTheme();
 
   selectServer(net);
   useEffect(() => {
-    setInfo(null); setInfoErr(null);
+    setInfo(null); setInfoErr(null); setInfoSlow(false); setWakeLong(false); setQueued(false);
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
-    const load = () => api.info().then((i) => { if (!stop) { setInfo(i); setInfoErr(null); } })
+    // Free hosting sleeps when idle: after ~3 s without an answer, say so (and keep retrying).
+    const slow = setTimeout(() => !stop && setInfoSlow(true), 3_000);
+    const long = setTimeout(() => !stop && setWakeLong(true), 90_000);
+    const load = () => api.info().then((i) => { if (!stop) { setInfo(i); setInfoErr(null); clearTimeout(slow); clearTimeout(long); setInfoSlow(false); setWakeLong(false); } })
       .catch((e) => { if (!stop) { setInfoErr(e.message); timer = setTimeout(load, 4000); } });
     load();
     const refreshInfo = setInterval(() => api.info().then((i) => !stop && setInfo(i)).catch(() => {}), 60_000);
-    return () => { stop = true; clearTimeout(timer); clearInterval(refreshInfo); };
+    return () => { stop = true; clearTimeout(timer); clearTimeout(slow); clearTimeout(long); clearInterval(refreshInfo); };
   }, [net]);
-  const { events, stats, live, error, lastSeen, stale } = useFeed(net);
+  const { events, stats, live, error, lastSeen, stale, waking: feedWaking } = useFeed(net);
+  const waking = !info && (infoSlow || feedWaking);
 
   useEffect(() => {
     if (wc.state === 'connected' && wc.manager) {
@@ -133,7 +140,18 @@ export default function App() {
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 5) : null, [wallet]);
   const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
-  const mine = useMemo(() => new Set(myTabs.map((t) => t.id)), [myTabs]);
+  const journeyTab = journey.openTxid ? `${journey.openTxid}:0` : undefined;
+  const mine = useMemo(() => new Set([...myTabs.map((t) => t.id), ...(journeyTab ? [journeyTab] : [])]), [myTabs, journeyTab]);
+  // One tab for the receipt, the timeline and the step counter: the visitor's own if they have one, else the latest paid tab.
+  const lastPaid = run.result?.ok ? run.result.r : undefined;
+  const paysOn = (tab: string) => events.filter((e) => e.type === 'pay' && e.tab === tab).length;
+  const visitorTab = journeyTab ?? preferTab ?? (lastPaid && mine.has(lastPaid.tab) ? lastPaid.tab : undefined)
+    ?? myTabs.find((t) => events.some((e) => e.type === 'pay' && e.tab === t.id))?.id;
+  const focusTab = visitorTab ?? events.find((e) => e.type === 'pay' && e.tag !== 'attack')?.tab;
+  const journeyCalls = journeyTab ? Math.max(journey.calls, paysOn(journeyTab)) : journey.calls;
+  const local: LocalPaid | undefined = focusTab && lastPaid?.tab === focusTab
+    ? { tab: focusTab, calls: focusTab === journeyTab ? journeyCalls : 0, cumulative: BigInt(lastPaid.cumulativeSats), price: BigInt(lastPaid.priceSats) }
+    : undefined;
   const openTabs = useMemo(() => new Set(myTabs.filter((t) => t.status === 'open').map((t) => t.id)), [myTabs]);
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }, [toast]);
@@ -237,6 +255,7 @@ export default function App() {
     }
   }
   function startJourney() {
+    if (!info) { setQueued(true); return; } // server still waking: start as soon as it answers
     setJourney({ active: true, step: 'wallet', calls: 0 });
     if (!wallet) {
       pendingJourney.current = true;
@@ -247,6 +266,9 @@ export default function App() {
     }
     void runJourney(wallet);
   }
+  useEffect(() => {
+    if (info && queued) { setQueued(false); startJourney(); }
+  }, [info, queued]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (wallet && pendingJourney.current) { pendingJourney.current = false; void runJourney(wallet); }
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -292,7 +314,7 @@ export default function App() {
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button onClick={theme.next} aria-label={`Theme: ${theme.choice === 'system' ? 'auto' : theme.choice}. Switch theme`} title="Switch theme (light / dark / auto)"
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-line-2 bg-panel px-2 text-xs sm:px-2.5 font-medium text-muted hover:text-fg">
+              className="flex h-11 items-center gap-1.5 rounded-lg sm:h-9 border border-line-2 bg-panel px-2 text-xs sm:px-2.5 font-medium text-muted hover:text-fg">
               {theme.choice === 'light' ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
               ) : theme.choice === 'dark' ? (
@@ -303,13 +325,13 @@ export default function App() {
               <span className="hidden sm:inline">{theme.choice === 'light' ? 'Light' : theme.choice === 'dark' ? 'Dark' : 'Auto'}</span>
             </button>
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="w-[92px] rounded-lg border border-line-2 bg-panel px-1.5 py-1.5 text-sm sm:w-[112px] sm:px-2" title="Network (chipnet = testnet)">
+              className="min-h-[44px] w-[92px] rounded-lg border border-line-2 bg-panel px-1.5 py-1.5 text-sm sm:min-h-0 sm:w-[112px] sm:px-2" title="Network (chipnet = testnet)">
               <option value="chipnet">Chipnet</option>
               <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (at submission)'}</option>
             </select>
             {wallet ? (
               <div className="relative">
-                <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-1.5 font-mono text-sm" aria-expanded={menu}>
+                <button onClick={() => setMenu((m) => !m)} className="flex min-h-[44px] items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-1.5 font-mono text-sm sm:min-h-0" aria-expanded={menu}>
                   <span className="h-1.5 w-1.5 rounded-full bg-bch" />{walletLabel} <span className="text-dim">▾</span>
                 </button>
                 {menu && (
@@ -321,13 +343,13 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="whitespace-nowrap rounded-lg bg-bch px-2.5 py-1.5 text-sm font-semibold sm:px-3 text-on-bch hover:bg-bch-hover">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="min-h-[44px] whitespace-nowrap rounded-lg bg-bch px-2.5 py-1.5 text-sm font-semibold sm:min-h-0 sm:px-3 text-on-bch hover:bg-bch-hover">Connect</button>
             )}
           </div>
         </div>
       </header>
 
-      {(infoErr || error) && (
+      {(infoErr || error) && !waking && (
         <div className="border-b border-warn/30 bg-warn/10 px-4 py-2 text-center text-sm text-warn">
           Reconnecting to the AgentTab API on {net}…{lastSeen ? ` Showing what was live ${ago(new Date(lastSeen).toISOString())}.` : ''}
         </div>
@@ -335,14 +357,14 @@ export default function App() {
 
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
-        pinTab={preferTab ?? (journey.openTxid ? `${journey.openTxid}:0` : undefined)} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
-        timeline={<TabTimeline events={events} net={net} focusTab={journey.openTxid ? `${journey.openTxid}:0` : undefined} />}
-        journey={journey} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
-        apiDown={!info} apiError={!!infoErr} lastSeen={lastSeen} stale={stale} />
+        tab={focusTab} tabIsMine={!!visitorTab} local={local} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
+        timeline={<TabTimeline events={events} net={net} tab={focusTab} mine={!!visitorTab} minCalls={focusTab && focusTab === journeyTab ? journeyCalls : 0} />}
+        journey={{ ...journey, calls: journeyCalls }} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
+        apiDown={!info} apiError={!!infoErr} waking={waking} wakeLong={wakeLong} queued={queued} lastSeen={lastSeen} stale={stale} />
       </ErrorBoundary>
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
-        <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} /></ErrorBoundary></div></div>
+        <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} waking={waking} /></ErrorBoundary></div></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
           <details id="advanced" className="group card rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
             <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold group-open:hidden">
@@ -354,12 +376,12 @@ export default function App() {
           </details>
           <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
             onRunOnTab={demoEnabled ? (t) => runDemo3(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
+          <McpSection />
         </div>
       </main>
 
       {info?.features?.attacks && <ErrorBoundary label="The attack panel"><Suspense fallback={null}><CheatPanel net={net} /></Suspense></ErrorBoundary>}
-
-      <McpSection />
+      <div aria-hidden className="h-16" />
 
       {toast && (
         <div role="status" className="slide-in fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-bch/40 bg-panel px-4 py-2.5 text-sm shadow-xl">{toast}</div>

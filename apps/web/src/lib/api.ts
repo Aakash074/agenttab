@@ -14,11 +14,12 @@ export interface FeedEvent {
   agent?: string;
   demo?: boolean;
   tag?: string;
+  restored?: boolean;
 }
 
 export interface Stats {
   tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number;
-  onchainTxs?: number; feeSats?: number; perCallTxs?: number; perCallFeeSats?: number;
+  onchainTxs?: number; feeSats?: number; perCallTxs?: number; perCallFeeSats?: number; restoredTabs?: number;
 }
 
 export interface AttackResult { id: string; title: string; attempt: string; layer: string; outcome: 'rejected' | 'ACCEPTED'; message: string; attemptedTxid?: string }
@@ -77,8 +78,8 @@ async function j<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  info: () => j<ServerInfo>('/.well-known/agenttab'),
-  feed: (since = 0) => j<{ network: string; stats: Stats; events: FeedEvent[] }>(`/feed?since=${since}&limit=60`),
+  info: () => j<ServerInfo>('/.well-known/agenttab', { signal: AbortSignal.timeout(45_000) }),
+  feed: (since = 0) => j<{ network: string; epoch?: string; stats: Stats; events: FeedEvent[] }>(`/feed?since=${since}&limit=60`, { signal: AbortSignal.timeout(45_000) }),
   tabsByOwner: (owner: string) => j<{ tip: number; tabs: TabRecord[] }>(`/tabs?owner=${owner}`),
   register: (b: { txid: string; vout: number; ownerPub: string; agentPub: string; timeout: number }) =>
     j<TabRecord>('/tabs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }),

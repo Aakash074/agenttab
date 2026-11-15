@@ -28,8 +28,10 @@ const STEPS: { id: JourneyStep; label: string }[] = [
 ];
 
 /** The one-button judge path: connect → open → 3 paid calls → close → change back. */
-export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disabledReason }: {
+export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disabledReason, waking, wakeLong, queued }: {
   j?: JourneyState; net: Net; bchUsd?: number; onStart: () => void; onReset: () => void; disabledReason?: string;
+  /** The API has not answered for a few seconds (free hosting waking up): pressing the button queues the run. */
+  waking?: boolean; wakeLong?: boolean; queued?: boolean;
 }) {
   const idx = j.step ? STEPS.findIndex((s) => s.id === j.step) : -1;
   if (!j.active && !j.done && !j.error) {
@@ -39,7 +41,14 @@ export function Journey({ j = IDLE_JOURNEY, net, bchUsd, onStart, onReset, disab
           className="min-h-[48px] w-full rounded-xl bg-bch px-6 text-base font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-60 sm:w-auto">
           {disabledReason ? disabledReason : 'Give an AI agent a 5¢ tab'}
         </button>
-        <p className="mt-2 text-sm text-muted">Watch it pay 3 API calls, then get your change back. About 30 seconds{net === 'chipnet' ? ', free test coins' : ', with your wallet'}.</p>
+        {waking ? (
+          <p className="mt-2 flex items-start gap-2 text-sm text-muted" role="status">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-bch pulse-dot" />
+            <span>{wakeLong ? `The ${net} server is taking longer than usual to wake. Still retrying every few seconds.` : `Waking the ${net} server (~30 s)… It sleeps when nobody is using it and this page retries on its own.`}{queued ? ' Your run starts as soon as it answers.' : ' You can press the button now; the run starts when it answers.'}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-muted">Watch it pay 3 API calls, then get your change back. About 30 seconds{net === 'chipnet' ? ', free test coins' : ', with your wallet'}.</p>
+        )}
       </div>
     );
   }

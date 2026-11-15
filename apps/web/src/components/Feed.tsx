@@ -18,21 +18,23 @@ export function useNow(ms = 5000) {
   return now;
 }
 
-export function describe(e: FeedEvent) {
-  const who = e.demo ? 'House demo agent' : 'Agent';
+export function describe(e: FeedEvent, mine = false) {
+  const who = mine ? 'Your agent' : e.demo ? 'House demo agent' : 'Agent';
   switch (e.type) {
-    case 'open': return <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'an agent'}</>;
+    case 'open': return mine
+      ? <>You locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'your agent'}</>
+      : <>Owner locked <b className="text-fg">{sats(e.amount)} sats</b> in a tab for {e.demo ? 'the demo agent' : 'an agent'}</>;
     case 'pay': return <>{who} paid <b className="text-fg">{sats(e.price)} sats</b> for <code className="font-mono text-fg">{e.route}</code> · voucher total {sats(e.amount)}</>;
-    case 'settle': return <>Provider settled <b className="text-fg">{sats(e.amount)} sats</b>, remainder forced back to owner{e.auto ? ' (auto, before timeout)' : ''}</>;
-    case 'cancel': return <>Provider waived the tab: the whole budget went back to the owner{e.auto ? ' (auto, before timeout)' : ''}</>;
+    case 'settle': return <>Provider settled <b className="text-fg">{sats(e.amount)} sats</b>, remainder forced back to {mine ? 'you' : 'owner'}{e.auto ? ' (auto, before timeout)' : ''}{e.restored ? ' (recovered from the chain after a server restart)' : ''}</>;
+    case 'cancel': return <>Provider waived the tab: the whole budget went back to {mine ? 'you' : 'the owner'}{e.auto ? ' (auto, before timeout)' : ''}</>;
     case 'expired': return <>Tab reached its timeout with nothing to settle</>;
-    case 'closed': return <>Owner reclaimed the tab after timeout</>;
+    case 'closed': return <>{mine ? 'You' : 'Owner'} reclaimed the tab after timeout</>;
   }
 }
 
 const VISIBLE = 8;
 
-export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Net; live: boolean; mine?: Set<string> }) {
+export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[]; net: Net; live: boolean; mine?: Set<string>; waking?: boolean }) {
   const now = useNow();
   const [all, setAll] = useState(false);
   const shown = all ? events : events.slice(0, VISIBLE);
@@ -44,9 +46,11 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
           <h2 className="text-sm font-semibold tracking-wide">Live payment feed</h2>
           <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[11px] text-muted">{net}</span>
         </div>
-        <span className="whitespace-nowrap text-xs text-dim">{events[0] && now - Date.parse(events[0].at) > 60_000 ? `idle · last ${ago(events[0].at, now)}` : live ? 'streaming' : 'polling'}</span>
+        <span className="whitespace-nowrap text-xs text-dim">{waking ? 'waking server' : events[0] && now - Date.parse(events[0].at) > 60_000 ? `idle · last ${ago(events[0].at, now)}` : live ? 'streaming' : 'polling'}</span>
       </header>
-      {events.length === 0 ? (
+      {events.length === 0 && waking ? (
+        <p className="flex items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted"><span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" />Waking the {net} server (~30 s)… It sleeps when idle; this retries on its own.</p>
+      ) : events.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Fund a tab (or run the demo agent, if this server hosts one) to see it here.</p>
       ) : (
         <>
@@ -55,7 +59,7 @@ export function Feed({ events, net, live, mine }: { events: FeedEvent[]; net: Ne
               <li key={e.id} className={`slide-in grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[auto_1fr_auto] ${mine?.has(e.tab) ? 'bg-bch/[0.06]' : ''}`}>
                 <span className={`mt-0.5 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${KIND[e.type].tone}`}>{KIND[e.type].label}</span>
                 <div className="min-w-0 text-muted">
-                  <div>{describe(e)}{mine?.has(e.tab) && <span className="ml-1.5 rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] text-bch-2">your tab</span>}</div>
+                  <div>{describe(e, !!mine?.has(e.tab))}{mine?.has(e.tab) && <span className="ml-1.5 rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] text-bch-2">your tab</span>}</div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[11px] text-dim">
                     {e.contract
                       ? <a className="tap hover:text-bch-2" href={explorerAddr(net, e.contract)} target="_blank" rel="noreferrer" title="Covenant (P2SH32) address holding this tab">covenant {short(e.contract.split(':')[1] ?? e.contract, 5)}</a>
