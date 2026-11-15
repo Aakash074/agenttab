@@ -142,3 +142,6 @@ One-button journey (browser test wallet, faucet drip from the hosted server):
 "Try to cheat the tab" from the hosted UI: 7/7 REJECTED (replay, overclaim, forge-amount, wrong-remainder, early-refund, agent-refund, cancel-to-self)
 - Attack tab open: `32c3495fda96a4646e92754077deab1730460693067340f1b818dbb0c60fa72d`
 - Honest settle accepted: `5a0cb526798085132840aac6244a774100e8f2ce79de338f4d787d712bc5a1ab`
+
+## Note: chipnet faster blocks (2026-11-15)
+Chipnet activated the faster-blocks upgrade (CHIP-2025-03) at height 332451 (measured): blocks now arrive about every minute, but height-based nLockTime still counts 10-minute units: lock height = 332451 + floor((h − 332451) / 10). AgentTab now compares tab timeouts with this "lock tip" everywhere (`lockTip` in packages/covenant/src/index.ts); mainnet is unchanged. Found when an owner refund at raw height 332649 (timeout 332642) was rejected as non-final; the refund for tab de3828…18d0 runs once the lock tip reaches 332642.
