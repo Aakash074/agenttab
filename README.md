@@ -48,6 +48,12 @@ Prior art and credit:
 
 The settle is one transaction with exactly two outputs, so the provider claims all 100 calls in that single transaction.
 
+**Prior art, named honestly.** The mechanism is a one-way payment channel, the same family as Spilman channels, Streamium (BCH, 2017) and, in this hackathon, CashCast (pay-per-second music). What AgentTab adds is what an *AI agent* needs and a human listener does not:
+- the agent holds a key that can **only sign vouchers**: it cannot move the deposit, only the owner can;
+- a machine-readable **402 `bch-credit` scheme**, so any x402 client can discover and pay;
+- an **MCP server**, so Claude and other agents use it as a tool with no wallet code;
+- a **provider `cancel()`** and a live panel that replays **7 attacks** against the covenant on chipnet.
+
 ## Build timeline
 
 - **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.

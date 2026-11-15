@@ -72,3 +72,9 @@
     - **Drip faucet:** sends free test coins from a server key. It is limited per address, per IP and globally, and refuses to start on mainnet.
     - Rate limits are in-memory and reset on restart.
 15. **Render free hosting is ephemeral.** A restart loses the server's record of the highest voucher. The owner never loses: they refund at the timeout. The provider can lose unsettled revenue, so keep tabs short. See `docs/deploy.md`.
+
+## Why refund needs the owner's signature (design choice)
+Some channel designs (e.g. CashCast) let *anyone* trigger the timeout refund, with a covenant that forces the output to the owner. AgentTab keeps `refund(ownerSig)` because:
+- the deposit and the owner's key stay in the owner's wallet (Paytaca); the always-online agent key can never trigger anything that moves the deposit;
+- a keyless refund would add output-introspection checks (owner P2PKH bytecode, value minus a fee cap), growing the script and the attack surface during a 1-week build.
+Trade-off: if the owner is offline after `timeout`, funds wait in the covenant until they come back; they are never at risk from the provider or agent. A keyless variant is listed as future work.
