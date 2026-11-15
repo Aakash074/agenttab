@@ -145,3 +145,4 @@ One-button journey (browser test wallet, faucet drip from the hosted server):
 
 ## Note: chipnet faster blocks (2026-11-15)
 Chipnet activated the faster-blocks upgrade (CHIP-2025-03) at height 332451 (measured): blocks now arrive about every minute, but height-based nLockTime still counts 10-minute units: lock height = 332451 + floor((h − 332451) / 10). AgentTab now compares tab timeouts with this "lock tip" everywhere (`lockTip` in packages/covenant/src/index.ts); mainnet is unchanged. Found when an owner refund at raw height 332649 (timeout 332642) was rejected as non-final; the refund for tab de3828…18d0 runs once the lock tip reaches 332642.
+- Owner refund after the timeout with the lock-tip fix (2026-11-15): tab `87d7713cb06a72bab258732a117490708fd21de8b96777329cac174cbfeb8d94` (timeout 332481) refunded at lock tip 332481: `2ff91cfcb6568d007e23c0060ce4bce08793f31711c5102fa232700f34e0021d`
