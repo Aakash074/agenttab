@@ -7,7 +7,7 @@ import {
   type SpendableUtxo, type TransactionBuilder,
 } from 'cashscript';
 import {
-  binToHex, cashAddressToLockingBytecode, decodePrivateKeyWif, encodePrivateKeyWif, generatePrivateKey, hexToBin,
+  binToHex, cashAddressToLockingBytecode, decodePrivateKeyWif, encodePrivateKeyWif, generatePrivateKey, hexToBin, stringify,
 } from '@bitauth/libauth';
 import type { DappConnectionManager } from '@wizardconnect/dapp';
 import {
@@ -106,7 +106,9 @@ export function wizardWallet(manager: DappConnectionManager, net: Net, name: str
   };
   const signAndSend = async (builder: TransactionBuilder, inputPaths: [number, string, number][], prompt: string) => {
     const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: prompt });
-    const res = await manager.signTransaction({ transaction: wc as never, inputPaths });
+    // The relay JSON-encodes messages; libauth's stringify turns bigint/Uint8Array into the
+    // "<bigint: Nn>" / "<Uint8Array: 0x..>" forms wallets parse (plain JSON.stringify throws on bigint).
+    const res = await manager.signTransaction({ transaction: JSON.parse(stringify(wc)), inputPaths });
     if (res.error || !res.signedTransaction) throw new Error(res.error ?? 'Wallet declined to sign.');
     return chain(net).sendRawTransaction(res.signedTransaction);
   };
