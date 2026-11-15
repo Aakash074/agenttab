@@ -29,6 +29,8 @@ export interface TabRecord {
   settleTxBytes?: number;
   /** e.g. 'attack' for tabs opened by the cheat panel (excluded from the headline counter). */
   tag?: string;
+  /** Rebuilt from the chain after a restart: `requests` is a lower bound and no voucher signature is kept. */
+  restored?: boolean;
 }
 
 export interface FeedEvent {
@@ -45,6 +47,8 @@ export interface FeedEvent {
   agent?: string;
   demo?: boolean;
   tag?: string;
+  /** Rebuilt from the chain after a restart (no per-call voucher events exist for it). */
+  restored?: boolean;
 }
 
 export class PaymentError extends Error {
@@ -84,6 +88,8 @@ export class TabLedger extends EventEmitter {
   readonly safetyBlocks: number;
   private o: LedgerOptions;
   private nextEventId = 1;
+  /** Changes whenever event ids are renumbered (boot, chain replay), so clients drop their cached list. */
+  epoch = Date.now().toString(36);
   private settling = new Set<string>();
 
   constructor(opts: LedgerOptions) {
@@ -117,6 +123,26 @@ export class TabLedger extends EventEmitter {
     if (this.events.length > max) this.events.splice(0, this.events.length - max);
     this.emit('event', ev);
     return ev;
+  }
+
+  /** Adds tabs rebuilt from the chain (see replay.ts) with their open/settle events at their real times. */
+  restore(items: { rec: TabRecord; settledAt: string }[]) {
+    const add = items.filter((i) => !this.tabs.has(i.rec.id));
+    if (!add.length) return;
+    const restored: FeedEvent[] = [];
+    for (const { rec, settledAt } of add) {
+      this.tabs.set(rec.id, rec);
+      const base = { tab: rec.id, contract: rec.contractAddress, agent: rec.agentPub, demo: this.demoAgentPub !== undefined && rec.agentPub === this.demoAgentPub, restored: true, ...(rec.tag ? { tag: rec.tag } : {}) };
+      restored.push({ ...base, id: 0, at: rec.openedAt, type: 'open', txid: rec.outpoint.txid, amount: rec.budget });
+      restored.push({ ...base, id: 0, at: settledAt, type: 'settle', txid: rec.settledTxid, amount: rec.settledAmount });
+    }
+    const all = [...restored, ...this.events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.id - b.id);
+    const max = this.o.maxEvents ?? 500;
+    this.events = all.slice(-max).map((e, i) => ({ ...e, id: i + 1 }));
+    this.nextEventId = this.events.length + 1;
+    this.epoch = Date.now().toString(36);
+    this.persist();
+    this.emit('restored', add.length);
   }
 
   contractFor(rec: { ownerPub: string; agentPub: string; timeout: number | bigint }) {
@@ -296,7 +322,7 @@ export class TabLedger extends EventEmitter {
     }
     // Baseline: paying per call on-chain = one ~226-byte P2PKH payment per call.
     const perCallFeeSats = paidCalls * 226;
-    return { tabs: this.tabs.size, openTabs: open, paidCalls, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
+    return { tabs: this.tabs.size, openTabs: open, paidCalls, restoredTabs: [...this.tabs.values()].filter((t) => t.restored).length, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
   }
 
   providerPubHex() { return binToHex(this.providerPub); }

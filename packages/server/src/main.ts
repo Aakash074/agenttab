@@ -1,4 +1,4 @@
-import { electrumProvider } from '@agenttab/covenant';
+import { binToHex, electrumProvider, pubFromPriv } from '@agenttab/covenant';
 // AgentTab paywall server.
 // Env (.env or process):
 //   NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1 and mainnet WIFs), PROVIDER_WIF, PORT (8402),
@@ -17,6 +17,7 @@ import { bchPriceCached, fxHandler, oracleHandler, tipHandler } from './oracle.t
 import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
 import { createAttacks } from './attacks.ts';
+import { electrumSource, replayFromChain } from './replay.ts';
 
 const network = resolveNetwork(loadEnv());
 const env = withSeedKeys(loadEnv(), network);
@@ -69,7 +70,9 @@ if (!mainnet && env.FAUCET_WIF) {
 }
 
 const attackOwner = env.ATTACK_OWNER_WIF ?? env.OWNER_WIF;
+const tagOwners: Record<string, string> = {};
 if (!mainnet && attackOwner) {
+  tagOwners[binToHex(pubFromPriv(networkKey(attackOwner, 'ATTACK_OWNER_WIF', network)))] = 'attack';
   const attacks = createAttacks({
     ledger, provider, network: 'chipnet', ownerPriv: networkKey(attackOwner, 'ATTACK_OWNER_WIF', network), providerPriv,
     selfUrl: () => `http://127.0.0.1:${port}`, price, file: new URL(`.data/attacks-${network}.json`, repoRoot).pathname,
@@ -97,5 +100,11 @@ setInterval(tick, Number(env.TICK_SECONDS ?? 30) * 1000);
 app.listen(port, () => {
   console.log(`AgentTab paywall [${network}] http://localhost:${port}  tip ${ledger.tip}  provider ${ledger.providerPubHex()}  price ${price}`);
   if (demo) demo.startCron(Number(env.DEMO_CRON_SECONDS ?? 60));
+  // Disk wiped on restart (free hosting)? Rebuild settled tabs from the provider address's chain history.
+  if (env.REPLAY_FROM_CHAIN !== '0') {
+    replayFromChain(ledger, electrumSource(provider), { maxPrice: price, tagOwners, limit: Number(env.REPLAY_LIMIT ?? 300) })
+      .then((n) => n && console.log(`replayed ${n} settled tab(s) from chain`))
+      .catch((e) => console.error('chain replay failed', (e as Error).message));
+  }
   console.log(`demo agent: ${demo ? 'on' : 'off'}  faucet drip: ${features.faucet ? 'on' : 'off'}  max tab: ${maxBudget ?? 'none'}`);
 });

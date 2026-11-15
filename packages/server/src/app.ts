@@ -119,7 +119,7 @@ export function createApp(o: AppOptions) {
         const since = Number(url.searchParams.get('since') ?? 0);
         const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 200);
         const events = o.ledger.events.filter((e) => e.id > since).slice(-limit).reverse();
-        return json(res, 200, { network: o.network, stats: o.ledger.stats(), events });
+        return json(res, 200, { network: o.network, epoch: o.ledger.epoch, stats: o.ledger.stats(), events });
       }
       if (req.method === 'GET' && url.pathname === '/feed/stream') {
         res.writeHead(200, {
