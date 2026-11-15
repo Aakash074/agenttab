@@ -168,7 +168,7 @@ export function createAttacks(o: {
   }
 
   const handler: ExtraHandler = async (req, res, url) => {
-    if (url.pathname === '/attacks' && req.method === 'GET') { json(res, 200, { last: last ?? null, running: !!running }); return true; }
+    if (url.pathname === '/attacks' && req.method === 'GET') { json(res, 200, { last: last ?? null, running: !!running, ownerAddress: ownerAddr }); return true; }
     if (url.pathname !== '/attacks/run' || req.method !== 'POST') return false;
     if (running) { json(res, 202, { running: true, last: last ?? null }); return true; }
     const wait = limiter.take('all');
