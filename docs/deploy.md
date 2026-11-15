@@ -1,6 +1,6 @@
 # Deploying AgentTab (Vercel + Render free)
 
-There are no accounts yet. The user creates them; nothing here has been deployed.
+Update 2026-11-15: the user created Render + Vercel accounts. Step 1 deploys `render.yaml` (chipnet API + static web, both on Render free). Keys come from a Render-generated `KEY_SEED` (server derives each role key), so no WIF is typed into a dashboard. Fund the derived faucet/demo addresses (shown at `/.well-known/agenttab` and the faucet route) with chipnet coins. The mainnet API is added only after the user's chipnet Paytaca test passes.
 
 ## API servers on Render (`render.yaml`)
 

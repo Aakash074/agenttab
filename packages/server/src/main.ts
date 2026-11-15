@@ -2,7 +2,7 @@ import { electrumProvider } from '@agenttab/covenant';
 // AgentTab paywall server.
 // Env (.env or process):
 //   NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1 and mainnet WIFs), PROVIDER_WIF, PORT (8402),
-//   ADMIN_TOKEN (optional, guards /settle), TICK_SECONDS (30), SAFETY_BLOCKS (6), PRICE_SATS (1000),
+//   KEY_SEED (hosted: derives any unset role WIFs, see env.ts withSeedKeys); ADMIN_TOKEN (optional, guards /settle), TICK_SECONDS (30), SAFETY_BLOCKS (6), PRICE_SATS (1000),
 //   MAX_TAB_BUDGET_SATS (chipnet: none, mainnet default 100000),
 //   DEMO_AGENT_WIF (or AGENT_WIF) to host the demo agent; DEMO_CRON_SECONDS (60; 0 = off); DEMO_BUDGET_SATS (20000);
 //   DEMO_ON_MAINNET=1 to allow the demo agent on mainnet (off by default);
@@ -12,14 +12,14 @@ import { electrumProvider } from '@agenttab/covenant';
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp, type ExtraHandler } from './app.ts';
-import { loadEnv, networkKey, repoRoot, resolveNetwork } from './env.ts';
+import { loadEnv, networkKey, repoRoot, resolveNetwork, withSeedKeys } from './env.ts';
 import { bchPriceCached, fxHandler, oracleHandler, tipHandler } from './oracle.ts';
 import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
 import { createAttacks } from './attacks.ts';
 
-const env = loadEnv();
-const network = resolveNetwork(env);
+const network = resolveNetwork(loadEnv());
+const env = withSeedKeys(loadEnv(), network);
 const mainnet = network === 'mainnet';
 const provider = electrumProvider(network);
 const price = BigInt(env.PRICE_SATS ?? (mainnet ? 600 : 1000));

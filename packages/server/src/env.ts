@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { decodePrivateKeyWif } from '@bitauth/libauth';
+import { decodePrivateKeyWif, encodePrivateKeyWif, sha256, secp256k1, utf8ToBin } from '@bitauth/libauth';
 
 export const repoRoot = new URL('../../../', import.meta.url);
 
@@ -37,3 +37,23 @@ export function networkKey(wif: string | undefined, name: string, network: Chain
 }
 
 export const testnetKey = (wif: string | undefined, name: string) => networkKey(wif, name, 'chipnet');
+
+const SEEDED = ['PROVIDER_WIF', 'DEMO_AGENT_WIF', 'FAUCET_WIF', 'ATTACK_OWNER_WIF'] as const;
+
+/**
+ * Hosted deploys: if KEY_SEED is set (e.g. Render `generateValue: true`), any of the role WIFs that are not set
+ * explicitly are derived as sha256("agenttab:<network>:<ROLE>:<seed>"), so no private key is ever typed into a
+ * dashboard and keys survive restarts. Explicit *_WIF env vars always win.
+ */
+export function withSeedKeys(env: Record<string, string | undefined>, network: ChainNetwork) {
+  const seed = env.KEY_SEED;
+  if (!seed) return env;
+  const out = { ...env };
+  for (const role of SEEDED) {
+    if (out[role]) continue;
+    let priv = sha256.hash(utf8ToBin(`agenttab:${network}:${role}:${seed}`));
+    while (!secp256k1.validatePrivateKey(priv)) priv = sha256.hash(priv);
+    out[role] = encodePrivateKeyWif(priv, network === 'mainnet' ? 'mainnet' : 'testnet');
+  }
+  return out;
+}
