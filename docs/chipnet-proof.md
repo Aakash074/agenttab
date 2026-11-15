@@ -132,3 +132,13 @@ node packages/covenant/scripts/chipnet-diagnose.ts <txid>...   # compares severa
 ```
 
 **Result:** the next block, **332331** (mined 16:21 UTC, about 5 minutes after the rebroadcast), **confirmed every tx in this document**. I checked all 20 proof txids, from the faucet payout `76822cfc…` through the v3 attack-run settle `86ab45b5…`; each had 1 confirmation at tip 332331. They are now ordinary confirmed chipnet transactions; no re-run was needed.
+
+## Hosted deployment run (2026-11-15, https://agenttab-wihk.onrender.com, driven in a real browser)
+One-button journey (browser test wallet, faucet drip from the hosted server):
+- Open tab #21E8, 20,000 sats: `21e81aba55dc8292890807c81effc952308b74ab756db85a6e0069f65e2fcd4f`
+- 3 paid calls (vouchers 1,000 → 2,000 → 3,000 sats, 0 on-chain txs)
+- Settle (provider 3,000 / owner 17,000): `0ce3dec01bc063ae96acacfd21b5a322685bac309c81f7ca791461c1a85545eb`
+
+"Try to cheat the tab" from the hosted UI: 7/7 REJECTED (replay, overclaim, forge-amount, wrong-remainder, early-refund, agent-refund, cancel-to-self)
+- Attack tab open: `32c3495fda96a4646e92754077deab1730460693067340f1b818dbb0c60fa72d`
+- Honest settle accepted: `5a0cb526798085132840aac6244a774100e8f2ce79de338f4d787d712bc5a1ab`
