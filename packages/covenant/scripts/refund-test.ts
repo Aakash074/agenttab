@@ -24,7 +24,9 @@ const API = (process.env.AGENTTAB_API ?? 'https://agenttab-api-chipnet.onrender.
 const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 // Registered and unregistered test tabs keep separate state, so both can be in flight at once.
-const stateFile = new URL(`.data/refund-test${flag('--no-register') ? '-unregistered' : ''}.json`, root);
+const stateFile = process.env.STATE_FILE
+  ? new URL(process.env.STATE_FILE, root)
+  : new URL(`.data/refund-test${flag('--no-register') ? '-unregistered' : ''}.json`, root);
 const opt = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined; };
 const link = (txid: string) => `https://chipnet.imaginary.cash/tx/${txid}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
