@@ -21,7 +21,7 @@ function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[
   const open = tab ? events.find((e) => e.type === 'open' && e.tab === tab) : undefined;
   const close = tab ? events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tab === tab) : undefined;
   const calls = Math.max(pays.length, loc?.calls ?? 0);
-  const paid = !!pay || !!loc;
+  const paid = !!pay || !!loc || close?.type === 'settle';
   const budget = open?.amount ? BigInt(open.amount) : undefined;
   const voucher = BigInt(pay?.amount ?? 0) > (loc?.cumulative ?? 0n) ? BigInt(pay!.amount!) : (loc?.cumulative ?? 0n);
   const spent = close?.type === 'settle' ? BigInt(close.amount ?? 0) : voucher;
@@ -49,8 +49,8 @@ function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[
         <>
           <div className="grid gap-1.5 px-5">
             <Row k={`GET ${pay?.route ?? '/api/oracle'}`} v={<><span className="text-warn">402</span> → <span className="text-bch-2">200 OK</span></>} />
-            <Row k="price per call" v={`${sats(pay?.price ?? loc?.price)} sats`} />
-            <Row k="last voucher" v={`#${calls}, signed by the agent`} />
+            {(pay?.price ?? loc?.price) && <Row k="price per call" v={`${sats(pay?.price ?? loc?.price)} sats`} />}
+            <Row k="last voucher" v={calls ? `#${calls}, signed by the agent` : 'cumulative, signed by the agent'} />
             <Row k="on-chain txs for these calls" v="0" />
           </div>
           <div className="slip-tear my-3" />
@@ -163,12 +163,15 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
           {stale && !waking && lastSeen && <p className="mt-2 text-right text-[11px] text-warn">last seen {ago(new Date(lastSeen).toISOString(), now)} · reconnecting</p>}
         </div>
         <div className="order-2 min-w-0 md:order-none md:col-start-1 md:row-start-2">
-          {direct && <div className="mb-7">{direct}</div>}
+          {direct}
+          {stats && stats.paidCalls > 0 && stats.feeSats !== undefined && stats.perCallFeeSats !== undefined && <FeeBox stats={stats} bchUsd={bchUsd} />}
+          <div className="mb-7" />
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
             Like a bar tab for software: you put a few cents behind the bar in <b className="text-fg">one transaction</b>, the AI agent pays per API call
             instantly and for free, and when you close the tab you get your change back. Bitcoin Cash script makes sure nobody can take more than was spent.
           </p>
           <div className="mt-7">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-dim">The real thing: a 5¢ tab your agent spends</p>
             <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney} waking={waking} wakeLong={wakeLong} queued={queued}
               disabledReason={queued ? 'Starting when the server is awake…' : apiDown && !waking ? (apiError ? 'API reconnecting… (a few seconds)' : 'Connecting to the API…') : undefined} />
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -194,7 +197,6 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
 
             {!res && !journey.active && !journey.done && demoIssue && <p className="text-muted">Demo agent idle. Press the button to run your own.</p>}
           </div>
-          {stats && stats.paidCalls > 0 && stats.feeSats !== undefined && stats.perCallFeeSats !== undefined && <FeeBox stats={stats} bchUsd={bchUsd} />}
         </div>
       </div>
     </section>

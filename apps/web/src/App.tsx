@@ -39,7 +39,7 @@ function ConnectDialog({ net, onWizard, onBurner, onClose, purpose }: { net: Net
         <h3 className="text-lg font-bold">Connect a wallet</h3>
         <p className="mt-1 text-sm text-muted">{purpose === 'direct' ? 'You approve the 1¢ payment in your wallet.' : 'You fund the tab and get the remainder back.'} Your keys never leave your wallet.</p>
         <button onClick={onWizard} className="mt-5 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60">
-          <span><b>WizardConnect</b><span className="block text-xs text-muted">Scan with Paytaca or another WizardConnect wallet</span></span>
+          <span><b>WizardConnect</b><span className="block text-xs text-muted">Scan with Paytaca or another WizardConnect wallet{net === 'chipnet' ? '. Paytaca: switch to Chipnet in Settings first.' : ''}</span></span>
           <span className="text-bch-2">→</span>
         </button>
         <button onClick={onBurner} disabled={net !== 'chipnet'} className="mt-3 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60 disabled:opacity-40">
@@ -100,6 +100,9 @@ export default function App() {
   const [queued, setQueued] = useState(false);
   const pendingJourney = useRef(false);
   const pendingDirect = useRef(false);
+  /** Bumped when the visitor closes the connect dialog / QR without connecting, so the 1¢ card goes back to idle. */
+  const [connectCancelled, setConnectCancelled] = useState(0);
+  const cancelDirect = () => { if (pendingDirect.current) { pendingDirect.current = false; setConnectCancelled((n) => n + 1); } };
   const wc = useWizardConnect({ dappName: 'AgentTab' });
   const theme = useTheme();
 
@@ -149,7 +152,8 @@ export default function App() {
   const paysOn = (tab: string) => events.filter((e) => e.type === 'pay' && e.tab === tab).length;
   const visitorTab = journeyTab ?? preferTab ?? (lastPaid && mine.has(lastPaid.tab) ? lastPaid.tab : undefined)
     ?? myTabs.find((t) => events.some((e) => e.type === 'pay' && e.tab === t.id))?.id;
-  const focusTab = visitorTab ?? events.find((e) => e.type === 'pay' && e.tag !== 'attack')?.tab;
+  const focusTab = visitorTab ?? events.find((e) => e.type === 'pay' && e.tag !== 'attack')?.tab
+    ?? events.find((e) => e.type === 'settle' && e.tag !== 'attack')?.tab;
   const journeyCalls = journeyTab ? Math.max(journey.calls, paysOn(journeyTab)) : journey.calls;
   const local: LocalPaid | undefined = focusTab && lastPaid?.tab === focusTab
     ? { tab: focusTab, calls: focusTab === journeyTab ? journeyCalls : 0, cumulative: BigInt(lastPaid.cumulativeSats), price: BigInt(lastPaid.priceSats) }
@@ -362,7 +366,7 @@ export default function App() {
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
         tab={focusTab} tabIsMine={!!visitorTab} local={local} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
-        direct={<DirectPay wallet={wallet} net={net} info={info} waking={waking} onConnect={() => { pendingDirect.current = true; setShowConnect(true); }} />}
+        direct={<DirectPay wallet={wallet} net={net} info={info} waking={waking} connectCancelled={connectCancelled} onConnect={() => { pendingDirect.current = true; setShowConnect(true); }} />}
         timeline={<TabTimeline events={events} net={net} tab={focusTab} mine={!!visitorTab} minCalls={focusTab && focusTab === journeyTab ? journeyCalls : 0} />}
         journey={{ ...journey, calls: journeyCalls }} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
         apiDown={!info} apiError={!!infoErr} waking={waking} wakeLong={wakeLong} queued={queued} lastSeen={lastSeen} stale={stale} />
@@ -400,12 +404,12 @@ export default function App() {
       </footer>
 
       {showConnect && (
-        <ConnectDialog net={net} purpose={pendingDirect.current ? 'direct' : undefined} onClose={() => { setShowConnect(false); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
+        <ConnectDialog net={net} purpose={pendingDirect.current ? 'direct' : undefined} onClose={() => { setShowConnect(false); cancelDirect(); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
           onBurner={() => { loadWallet().then(({ burnerWallet }) => setWallet(burnerWallet())); setShowConnect(false); }}
           onWizard={() => { setShowConnect(false); wc.connect(); setShowQr(true); }} />
       )}
       {showQr && wc.uri && wc.qrUri && wc.state !== 'connected' && (
-        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); if (pendingJourney.current) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
+        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); cancelDirect(); if (pendingJourney.current) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
           title="Connect with WizardConnect" subtitle={pendingDirect.current ? 'Scan with Paytaca to pay 1¢ for an oracle answer' : "Scan with Paytaca to fund your agent's tab"}
           theme={theme.resolved === 'dark'
             ? { dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35', titleColor: '#e8f3ef', subtitleColor: '#a3b8b1', uriRowBackground: '#131c19', uriTextColor: '#a3b8b1' }

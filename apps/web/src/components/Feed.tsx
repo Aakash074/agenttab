@@ -30,7 +30,7 @@ export function describe(e: FeedEvent, mine = false) {
     case 'cancel': return <>Provider waived the tab: the whole budget went back to {mine ? 'you' : 'the owner'}{e.auto ? ' (auto, before timeout)' : ''}</>;
     case 'expired': return <>Tab reached its timeout with nothing to settle</>;
     case 'closed': return <>{mine ? 'You' : 'Owner'} reclaimed the tab after timeout</>;
-    case 'direct': return <>A visitor paid <b className="text-fg">{sats(e.amount)} sats</b> on-chain for one <code className="font-mono text-fg">{e.route}</code> answer · 1¢ direct pay, no tab</>;
+    case 'direct': return <>A visitor paid <b className="text-fg">{sats(e.amount)} sats</b> on-chain for live BCH price data · one payment, no tab</>;
   }
 }
 

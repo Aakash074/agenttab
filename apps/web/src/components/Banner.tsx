@@ -13,7 +13,7 @@ export function Banner() {
     <div className="border-b border-line bg-panel-2 text-[13px] font-medium text-muted">
       <div className="mx-auto flex max-w-6xl items-center gap-x-4 gap-y-1.5 overflow-x-auto whitespace-nowrap px-4 py-2 [scrollbar-width:none] sm:flex-wrap sm:gap-x-5 sm:overflow-visible sm:whitespace-normal">
         <span className="shrink-0 font-semibold text-fg"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-bch align-middle" />{BANNER.event} entry</span>
-        <Item href={BANNER.deckUrl}>Widget Factory deck</Item>
+        {BANNER.deckUrl && <Item href={BANNER.deckUrl}>Widget Factory deck</Item>}
         <Item href={BANNER.repoUrl}>Source code</Item>
         <Item href={BANNER.prototypeUrl}>Pre-hackathon prototype (disclosure)</Item>
         <span className="flex shrink-0 items-center gap-2 sm:min-w-0 sm:max-w-full sm:shrink sm:ml-auto">
