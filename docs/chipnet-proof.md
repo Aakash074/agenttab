@@ -146,3 +146,9 @@ One-button journey (browser test wallet, faucet drip from the hosted server):
 ## Note: chipnet faster blocks (2026-11-15)
 Chipnet activated the faster-blocks upgrade (CHIP-2025-03) at height 332451 (measured): blocks now arrive about every minute, but height-based nLockTime still counts 10-minute units: lock height = 332451 + floor((h − 332451) / 10). AgentTab now compares tab timeouts with this "lock tip" everywhere (`lockTip` in packages/covenant/src/index.ts); mainnet is unchanged. Found when an owner refund at raw height 332649 (timeout 332642) was rejected as non-final; the refund for tab de3828…18d0 runs once the lock tip reaches 332642.
 - Owner refund after the timeout with the lock-tip fix (2026-11-15): tab `87d7713cb06a72bab258732a117490708fd21de8b96777329cac174cbfeb8d94` (timeout 332481) refunded at lock tip 332481: `2ff91cfcb6568d007e23c0060ce4bce08793f31711c5102fa232700f34e0021d`
+
+## 1¢ direct pay (2026-11-16)
+The simplest human path: one plain payment from your own wallet for one oracle answer, no tab and no covenant. Run as the web app's WizardConnect wallet does it, against a local server on chipnet: `AGENTTAB_API=http://127.0.0.1:<port> node packages/covenant/scripts/direct-pay-e2e.ts`. The headless WizardConnect test wallet paired over the real relay, signed `buildDirectPay` (P2PKH input with placeholder unlocker, VM verify OK), and the server checked the payment and broadcast it.
+- Invoice `e7696db607fe69ebbc175150`: 4,781 sats (about 1 US cent at $209/BCH) to the provider `bchtest:qzhyn0j9r7e5rsnkae4a5dej3nhtgn4f8vqj3v8xcc`, `OP_RETURN "AGENTTAB" "e7696db607fe69ebbc175150"`
+- Payment tx (263 bytes, accepted at 0-conf): `8cd9f1dc8b2d845ae20965ba4c8af22bd22cc1a7f6a335b3c307ff64df12866e`
+- Server answered `200` with the oracle answer and emitted a `direct` feed event. The same txid sent for a new invoice got `409 txid_used`.

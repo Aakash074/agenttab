@@ -13,6 +13,8 @@ Paying for each call on-chain costs one transaction per call. AgentTab is a paym
 
 ## Verify it in 5 minutes (chipnet)
 
+**Try it in 30 seconds: pay 1¢.** Type a question in the first card, press **Ask the oracle — 1¢**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the card, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
+
 | # | Do this | You should see |
 |---|---|---|
 | 1 | Open the app and press **"Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back."** and pick *Chipnet test wallet* | The stepper fetches free test coins (no signup), then opens the tab: **one transaction** (explorer link). |
@@ -135,6 +137,8 @@ node packages/mcp/scripts/mcp-demo.ts http://localhost:8402 3   # an MCP client 
 | `POST /demo/call` `{tab?}` | The hosted demo agent makes one real paid call through the 402 flow. It uses the visitor's tab for the demo agent if given, else its own tab. Rate-limited. A cron also calls every `DEMO_CRON_SECONDS`. |
 | `GET /demo` | Demo agent status. |
 | `POST /faucet/drip` `{address}` | **Chipnet only.** Sends `DRIP_SATS` to a `bchtest:` P2PKH test wallet. Limited to once per address per day, 2 per IP per hour, 30 per hour in total. |
+| `POST /direct` `{q}` | 1¢ direct pay: creates an invoice `{invoiceId, payTo, amountSats, opReturn, expiresAt}` (15 min). Rate-limited. |
+| `POST /direct/:id/pay` `{rawTx}` or `{txid}` | Checks the tx pays at least `amountSats` to `payTo` and carries `OP_RETURN "AGENTTAB" <invoiceId>`, broadcasts `rawTx`, accepts 0-conf and returns the oracle answer. Each invoice and each txid pays once. Also advertised as an `exact` option in the oracle's 402 `accepts[]`. |
 | `GET /contract` | `AgentTab.cash` source. |
 
 Server config is read from `.env` or the environment:
@@ -151,6 +155,7 @@ Server config is read from `.env` or the environment:
 | `DEMO_AGENT_WIF` | Key for the hosted demo agent. `DEMO_CRON_SECONDS` defaults to 60 (0 turns it off); `DEMO_BUDGET_SATS` defaults to 20000. Off on mainnet unless `DEMO_ON_MAINNET=1`. |
 | `FAUCET_WIF` | Key for the chipnet drip. `DRIP_SATS` defaults to 25000. Never enabled on mainnet. |
 | `MAX_TAB_BUDGET_SATS` | Largest tab the server accepts. Default 100000 on mainnet, unlimited on chipnet. |
+| `DIRECT_PRICE_SATS` | Price of a 1¢ direct-pay answer. Default: about 1 US cent at the live BCH price (2000 if unknown), never below dust. |
 | `TRUST_PROXY=1` | Use X-Forwarded-For for rate limits when behind a reverse proxy. |
 
 ### Mainnet
