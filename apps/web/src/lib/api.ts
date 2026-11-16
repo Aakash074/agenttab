@@ -24,7 +24,7 @@ export interface FeedEvent {
 
 export interface Stats {
   tabs: number; openTabs: number; paidCalls: number; vouchedSats: string; tip: number;
-  onchainTxs?: number; feeSats?: number; perCallTxs?: number; perCallFeeSats?: number; restoredTabs?: number;
+  onchainTxs?: number; feeSats?: number; perCallTxs?: number; perCallFeeSats?: number; restoredTabs?: number; restoring?: boolean;
 }
 
 export interface AttackResult { id: string; title: string; attempt: string; layer: string; outcome: 'rejected' | 'ACCEPTED'; message: string; attemptedTxid?: string }

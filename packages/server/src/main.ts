@@ -119,9 +119,11 @@ app.listen(port, () => {
   if (demo) demo.startCron(Number(env.DEMO_CRON_SECONDS ?? 60));
   // Disk wiped on restart (free hosting)? Rebuild settled tabs from the provider address's chain history.
   if (env.REPLAY_FROM_CHAIN !== '0') {
+    ledger.restoring = true;
     replayFromChain(ledger, electrumSource(provider), { maxPrice: price, tagOwners, limit: Number(env.REPLAY_LIMIT ?? 300) })
       .then((n) => n && console.log(`replayed ${n} settled tab(s) from chain`))
-      .catch((e) => console.error('chain replay failed', (e as Error).message));
+      .catch((e) => console.error('chain replay failed', (e as Error).message))
+      .finally(() => { ledger.restoring = false; });
   }
   console.log(`demo agent: ${demo ? 'on' : 'off'}  faucet drip: ${features.faucet ? 'on' : 'off'}  max tab: ${maxBudget ?? 'none'}`);
 });

@@ -84,6 +84,8 @@ export class TabLedger extends EventEmitter {
   tabs = new Map<string, TabRecord>();
   events: FeedEvent[] = [];
   tip = 0;
+  /** True while the boot-time chain replay runs (free hosting wipes disk), so the UI can say "loading history" instead of showing zeros. */
+  restoring = false;
   /** Live SSE viewers (the demo cron runs faster while someone is watching). */
   viewers = 0;
   /** Set by the demo module so feed events can flag demo-agent activity. */
@@ -342,7 +344,7 @@ export class TabLedger extends EventEmitter {
     // Baseline: paying per call on-chain = one ~226-byte P2PKH payment per call.
     const perCallFeeSats = paidCalls * 226;
     const directPayments = this.events.filter((e) => e.type === 'direct').length;
-    return { directPayments, tabs: this.tabs.size, openTabs: open, paidCalls, restoredTabs: [...this.tabs.values()].filter((t) => t.restored).length, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
+    return { restoring: this.restoring, directPayments, tabs: this.tabs.size, openTabs: open, paidCalls, restoredTabs: [...this.tabs.values()].filter((t) => t.restored).length, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
   }
 
   providerPubHex() { return binToHex(this.providerPub); }

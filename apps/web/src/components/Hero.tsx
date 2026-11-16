@@ -149,6 +149,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
           <p className="mb-5 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-dim">
             <span className={`h-1.5 w-1.5 rounded-full ${waking ? 'bg-dim' : 'bg-bch'} pulse-dot`} /> {waking ? `waking the ${net} server` : `live on ${net}`}
           </p>
+          {stats?.restoring && <p className="-mt-3 mb-4 text-xs text-dim">Server just restarted: loading past payments from the {net} chain…</p>}
           {stats && stats.paidCalls >= HEADLINE_MIN_CALLS ? (
             <h1 className="break-words text-[32px] font-extrabold leading-[1.08] tracking-tight sm:text-[38px] md:text-[46px]">
               <span className="underline decoration-bch decoration-[5px] underline-offset-[6px]">{plural(stats.paidCalls, 'API call')}</span> paid by AI agents in {plural(stats.onchainTxs ?? 0, 'transaction')}.
