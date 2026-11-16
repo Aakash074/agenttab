@@ -144,7 +144,7 @@ One-button journey (browser test wallet, faucet drip from the hosted server):
 - Honest settle accepted: `5a0cb526798085132840aac6244a774100e8f2ce79de338f4d787d712bc5a1ab`
 
 ## Note: chipnet faster blocks (2026-11-15)
-Chipnet activated the faster-blocks upgrade (CHIP-2025-03) at height 332451 (measured): blocks now arrive about every minute, but height-based nLockTime still counts 10-minute units: lock height = 332451 + floor((h − 332451) / 10). AgentTab now compares tab timeouts with this "lock tip" everywhere (`lockTip` in packages/covenant/src/index.ts); mainnet is unchanged. Found when an owner refund at raw height 332649 (timeout 332642) was rejected as non-final; the refund for tab de3828…18d0 runs once the lock tip reaches 332642.
+Chipnet activated the faster-blocks upgrade (CHIP-2025-03) at height 332451 (measured): blocks now arrive about every minute, but height-based nLockTime still counts 10-minute units: lock height = 332451 + floor((h − 332451) / 10). AgentTab now compares tab timeouts with this "lock tip" everywhere (`lockTip` in packages/covenant/src/index.ts); mainnet is unchanged. Found when an owner refund at raw height 332649 (timeout 332642) was rejected as non-final; the refund for tab de3828…18d0 ran once the lock tip reached 332642: `de636f3c89b509c604db0414648a45721d1bde445edf6006e34634cd901af504` (2026-11-17, 49 conf).
 - Owner refund after the timeout with the lock-tip fix (2026-11-15): tab `87d7713cb06a72bab258732a117490708fd21de8b96777329cac174cbfeb8d94` (timeout 332481) refunded at lock tip 332481: `2ff91cfcb6568d007e23c0060ce4bce08793f31711c5102fa232700f34e0021d`
 
 ## 1¢ direct pay (2026-11-16)
@@ -155,3 +155,4 @@ The simplest human path: one plain payment from your own wallet for one oracle a
 - Hosted run (https://agenttab-api-chipnet.onrender.com, 2026-11-16 ~04:50 UTC, same script with `AGENTTAB_API` set to the hosted API): two payments, both `200` with the answer, both shown as "1¢ DIRECT PAY" in the hosted feed, and both txid replays refused with `409 txid_used`:
   - 4,793 sats: `d2d6e1f93b7a69c502e18a959db202942715a5ad1e40f2f6a4e8263b5286032d`
   - 4,791 sats: `72ad98aa07e0e235c68587c91b1c81618cd0af59c3963f6b05f13060f640b909`
+- Server-side expiry of a registered tab (2026-11-17): tab `462850dc46eeef4663cdc9b4c47b68d133d7fed178a88f56ccbb0d6742fcd758` (timeout 332642, no calls) was closed by the provider's expiry tick at lock height 332639 in `adeaa976864e7d7ee695a8535c411afe2e61e8cbd25f0a1ddafa3f3d85e8899d` (one output, 4,559 sats back after fee), before the owner refund ran; the owner refund then correctly found the coin already spent.
