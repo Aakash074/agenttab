@@ -3,7 +3,8 @@ import { SERVERS, type Net } from '../config';
 export interface FeedEvent {
   id: number;
   at: string;
-  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed';
+  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed' | 'direct';
+  /** Tab id, or `direct:<invoiceId>` for a 1¢ direct payment. */
   tab: string;
   txid?: string;
   amount?: string;
@@ -54,6 +55,7 @@ export interface ServerInfo {
     demo?: { agentPub: string; cronSeconds: number };
     faucet?: { dripSats: string; address: string };
     attacks?: boolean;
+    direct?: { path: string; payTo: string; priceSats: string };
   };
 }
 
@@ -64,6 +66,9 @@ export class ApiError extends Error {
   body: Record<string, unknown>;
   constructor(status: number, body: Record<string, unknown>, msg: string) { super(msg); this.status = status; this.body = body; }
 }
+
+export interface DirectInvoice { invoiceId: string; q: string; payTo: string; amountSats: string; network: string; opReturn: string[]; expiresAt: string }
+export interface DirectAnswer { invoiceId: string; txid: string; amountSats: string; answer?: string; q?: string; repeat?: boolean }
 
 export interface DemoCall { tab: string; priceSats: string; cumulativeSats: string; remainingSats: string; answer?: string }
 
@@ -90,5 +95,7 @@ export const api = {
   attacks: () => j<{ last: AttackRun | null; running: boolean }>('/attacks'),
   runAttacks: () => j<{ last: AttackRun | null; running?: boolean; cached?: boolean; retryInMs?: number }>('/attacks/run', { method: 'POST' }),
   closeTab: (id: string) => j<{ txid: string; action: 'settle' | 'cancel'; settledSats: string; returnedSats: string }>(`/tabs/${id}/close`, { method: 'POST' }),
+  directInvoice: (q: string) => j<DirectInvoice>('/direct', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ q }), signal: AbortSignal.timeout(60_000) }),
+  directPay: (id: string, rawTx: string) => j<DirectAnswer>(`/direct/${id}/pay`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rawTx }), signal: AbortSignal.timeout(60_000) }),
   drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };

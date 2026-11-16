@@ -10,6 +10,7 @@ const KIND: Record<FeedEvent['type'], { label: string; tone: string }> = {
   cancel: { label: 'WAIVED', tone: 'text-info bg-info/10 ring-info/25' },
   expired: { label: 'EXPIRED', tone: 'text-muted bg-subtle ring-line' },
   closed: { label: 'REFUNDED', tone: 'text-muted bg-subtle ring-line' },
+  direct: { label: '1¢ DIRECT PAY', tone: 'text-fg bg-panel-2 ring-line-2' },
 };
 
 export function useNow(ms = 5000) {
@@ -29,6 +30,7 @@ export function describe(e: FeedEvent, mine = false) {
     case 'cancel': return <>Provider waived the tab: the whole budget went back to {mine ? 'you' : 'the owner'}{e.auto ? ' (auto, before timeout)' : ''}</>;
     case 'expired': return <>Tab reached its timeout with nothing to settle</>;
     case 'closed': return <>{mine ? 'You' : 'Owner'} reclaimed the tab after timeout</>;
+    case 'direct': return <>A visitor paid <b className="text-fg">{sats(e.amount)} sats</b> on-chain for one <code className="font-mono text-fg">{e.route}</code> answer · 1¢ direct pay, no tab</>;
   }
 }
 
@@ -61,11 +63,14 @@ export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[];
                 <div className="min-w-0 text-muted">
                   <div>{describe(e, !!mine?.has(e.tab))}{mine?.has(e.tab) && <span className="ml-1.5 rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] text-bch-2">your tab</span>}</div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[11px] text-dim">
-                    {e.contract
+                    {e.type === 'direct'
+                      ? <span className="tap">invoice {short(e.tab.slice(7), 4)}</span>
+                      : e.contract
                       ? <a className="tap hover:text-bch-2" href={explorerAddr(net, e.contract)} target="_blank" rel="noreferrer" title="Covenant (P2SH32) address holding this tab">covenant {short(e.contract.split(':')[1] ?? e.contract, 5)}</a>
                       : <span className="tap">tab {short(e.tab.split(':')[0])}</span>}
                     {e.txid && <a className="tap text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 6)} ↗</a>}
                     {e.type === 'pay' && <span className="tap">off-chain voucher · no tx, no fee</span>}
+                    {e.type === 'direct' && <span className="tap">1 on-chain tx · 0-conf</span>}
                   </div>
                 </div>
                 <time className="col-start-2 whitespace-nowrap text-xs text-dim sm:col-start-auto">{ago(e.at, now)}</time>

@@ -127,13 +127,15 @@ function FeeBox({ stats, bchUsd }: { stats: Stats; bchUsd?: number }) {
   );
 }
 
-export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, tabIsMine, local, run, onRun, onFund, journey, onStartJourney, onResetJourney, hasOpenTab, timeline, apiDown, apiError, waking, wakeLong, queued, lastSeen, stale }: {
+export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, tabIsMine, local, run, onRun, onFund, journey, onStartJourney, onResetJourney, hasOpenTab, timeline, direct, apiDown, apiError, waking, wakeLong, queued, lastSeen, stale }: {
   events: FeedEvent[]; stats: Stats | null; net: Net; bchUsd?: number; demoEnabled: boolean; demoIssue?: string;
   /** The one tab the receipt (and the timeline under it) shows. */
   tab?: string; tabIsMine?: boolean; local?: LocalPaid;
   run: DemoRun; onRun: () => void; onFund: () => void;
   journey: JourneyState; onStartJourney: () => void; onResetJourney: () => void;
   hasOpenTab?: boolean; timeline?: React.ReactNode;
+  /** The 1¢ direct-pay card: the first thing a visitor can do. */
+  direct?: React.ReactNode;
   apiDown?: boolean; apiError?: boolean; waking?: boolean; wakeLong?: boolean; queued?: boolean; lastSeen?: number | null; stale?: boolean;
 }) {
   const now = useNow(5000);
@@ -161,6 +163,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
           {stale && !waking && lastSeen && <p className="mt-2 text-right text-[11px] text-warn">last seen {ago(new Date(lastSeen).toISOString(), now)} · reconnecting</p>}
         </div>
         <div className="order-2 min-w-0 md:order-none md:col-start-1 md:row-start-2">
+          {direct && <div className="mb-7">{direct}</div>}
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
             Like a bar tab for software: you put a few cents behind the bar in <b className="text-fg">one transaction</b>, the AI agent pays per API call
             instantly and for free, and when you close the tab you get your change back. Bitcoin Cash script makes sure nobody can take more than was spent.

@@ -11,7 +11,7 @@ import {
 } from '@bitauth/libauth';
 import type { DappConnectionManager } from '@wizardconnect/dapp';
 import {
-  buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, tabContract,
+  buildDirectPay, buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, tabContract,
 } from '@agenttab/covenant';
 import type { Net } from '../config';
 
@@ -29,6 +29,8 @@ export interface Wallet {
   balance(): Promise<bigint>;
   openTab(p: { agentPub: Uint8Array; providerPub: Uint8Array; timeout: bigint; budget: bigint }): Promise<string>;
   refund(p: { agentPub: Uint8Array; providerPub: Uint8Array; timeout: bigint; txid: string; vout: number }): Promise<string>;
+  /** 1¢ direct pay: signs (does not broadcast) `amount` to `payTo` + OP_RETURN <invoiceId>; returns the raw tx hex. */
+  payDirect(p: { payTo: string; amount: bigint; invoiceId: string }): Promise<string>;
 }
 
 const lbHex = (address: string) => {
@@ -80,8 +82,15 @@ export function burnerWallet(): Wallet {
       const tx = await buildRefund({ provider: chain(net), contract, tabUtxo: utxo, ownerPriv: priv, timeout: p.timeout, network: net }).send();
       return tx.txid;
     },
+    async payDirect(p) {
+      const fundingUtxos = (await chain(net).getUtxos(address)).filter((u) => !u.token);
+      return buildDirectPay({ provider: chain(net), ...p, fundingUtxos, changeAddress: address, payerPriv: priv }).builder.build();
+    },
   };
 }
+
+/** The wallet refused (or the user rejected) a signing request. */
+export class WalletDeclined extends Error { override name = 'WalletDeclined'; }
 
 // ---------- WizardConnect ----------
 const RECEIVE = 0, CHANGE = 1;
@@ -107,14 +116,16 @@ export function wizardWallet(manager: DappConnectionManager, net: Net, name: str
     const pathByLb = new Map(addrs.map((a) => [lbHex(a.address), a]));
     return { utxos: lists.flat().filter((u) => !u.token), pathByLb };
   };
-  const signAndSend = async (builder: TransactionBuilder, inputPaths: [number, string, number][], prompt: string) => {
+  const sign = async (builder: TransactionBuilder, inputPaths: [number, string, number][], prompt: string) => {
     const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: prompt });
     // The relay JSON-encodes messages; libauth's stringify turns bigint/Uint8Array into the
     // "<bigint: Nn>" / "<Uint8Array: 0x..>" forms wallets parse (plain JSON.stringify throws on bigint).
     const res = await manager.signTransaction({ transaction: JSON.parse(stringify(wc)), inputPaths });
-    if (res.error || !res.signedTransaction) throw new Error(res.error ?? 'Wallet declined to sign.');
-    return chain(net).sendRawTransaction(res.signedTransaction);
+    if (res.error || !res.signedTransaction) throw new WalletDeclined(res.error ?? 'Wallet declined to sign.');
+    return res.signedTransaction;
   };
+  const signAndSend = async (builder: TransactionBuilder, inputPaths: [number, string, number][], prompt: string) =>
+    chain(net).sendRawTransaction(await sign(builder, inputPaths, prompt));
   return {
     kind: 'wizard', label: name || 'WizardConnect wallet', net, ownerPub, address,
     async balance() { const { utxos } = await gather(); return utxos.reduce((s, u) => s + u.satoshis, 0n); },
@@ -131,6 +142,14 @@ export function wizardWallet(manager: DappConnectionManager, net: Net, name: str
       const { contract, utxo } = await findTabUtxo(net, { ownerPub, ...p });
       const builder = buildRefund({ provider: chain(net), contract, tabUtxo: utxo, ownerSig: placeholderSignature(), timeout: p.timeout, to: address, network: net });
       return signAndSend(builder, [[0, 'receive', 0]], 'Refund your AgentTab');
+    },
+    async payDirect(p) {
+      const { utxos, pathByLb } = await gather();
+      const unlockerFor = (u: SpendableUtxo) => placeholderP2PKHUnlocker(pathByLb.get(u.lockingBytecode)!.address);
+      const { builder, inputs } = buildDirectPay({ provider: chain(net), ...p, fundingUtxos: utxos, changeAddress: address, unlockerFor });
+      const inputPaths = inputs.map((u, i) => [i, ...pathByLb.get(u.lockingBytecode)!.path] as [number, string, number]);
+      // The server broadcasts after checking the payment, so a signed tx is never sent unless it buys the answer.
+      return sign(builder, inputPaths, `Pay ${p.amount} sats for one AgentTab oracle answer`);
     },
   };
 }

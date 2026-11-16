@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { TabTimeline } from './components/TabTimeline';
 import { Feed } from './components/Feed';
 import { FundTab } from './components/FundTab';
+import { DirectPay } from './components/DirectPay';
 import { MyTabs } from './components/MyTabs';
 const CheatPanel = lazy(() => import('./components/CheatPanel').then((m) => ({ default: m.CheatPanel })));
 import { DEMO_AGENT_PUB, MAINNET_ENABLED, explorerTx, type Net } from './config';
@@ -25,7 +26,7 @@ function Logo() {
   );
 }
 
-function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizard: () => void; onBurner: () => void; onClose: () => void }) {
+function ConnectDialog({ net, onWizard, onBurner, onClose, purpose }: { net: Net; onWizard: () => void; onBurner: () => void; onClose: () => void; purpose?: 'direct' }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
@@ -36,7 +37,7 @@ function ConnectDialog({ net, onWizard, onBurner, onClose }: { net: Net; onWizar
       <div className="relative w-full max-w-md rounded-2xl border border-line-2 bg-panel p-6" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-subtle hover:text-fg">✕</button>
         <h3 className="text-lg font-bold">Connect a wallet</h3>
-        <p className="mt-1 text-sm text-muted">You fund the tab and get the remainder back. Your keys never leave your wallet.</p>
+        <p className="mt-1 text-sm text-muted">{purpose === 'direct' ? 'You approve the 1¢ payment in your wallet.' : 'You fund the tab and get the remainder back.'} Your keys never leave your wallet.</p>
         <button onClick={onWizard} className="mt-5 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60">
           <span><b>WizardConnect</b><span className="block text-xs text-muted">Scan with Paytaca or another WizardConnect wallet</span></span>
           <span className="text-bch-2">→</span>
@@ -98,6 +99,7 @@ export default function App() {
   const [wakeLong, setWakeLong] = useState(false);
   const [queued, setQueued] = useState(false);
   const pendingJourney = useRef(false);
+  const pendingDirect = useRef(false);
   const wc = useWizardConnect({ dappName: 'AgentTab' });
   const theme = useTheme();
 
@@ -157,10 +159,11 @@ export default function App() {
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }, [toast]);
   const prevWallet = useRef<Wallet | null>(null);
   useEffect(() => {
-    if (wallet && !prevWallet.current && !pendingJourney.current && !journey.active) {
+    if (wallet && !prevWallet.current && !pendingJourney.current && !pendingDirect.current && !journey.active) {
       wallet.balance().then((b) => setToast(`Connected · ${sats(b)} ${net === 'chipnet' ? 'test ' : ''}sats`)).catch(() => setToast('Connected'));
       document.getElementById('tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+    if (wallet) pendingDirect.current = false;
     prevWallet.current = wallet;
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
   const demoEnabled = !!info?.features?.demo;
@@ -307,6 +310,7 @@ export default function App() {
           <Logo />
           <nav className="ml-6 hidden gap-5 text-sm text-muted md:flex">
             <a href="#feed" className="hover:text-fg">Live feed</a>
+            <a href="#direct" className="hover:text-fg">Pay 1¢</a>
             <a href="#fund" className="hover:text-fg">Fund a tab</a>
             <a href="#cheat" className="hover:text-fg">Try to cheat it</a>
             <a href="#how" className="hover:text-fg">How it works</a>
@@ -358,6 +362,7 @@ export default function App() {
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
         tab={focusTab} tabIsMine={!!visitorTab} local={local} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
+        direct={<DirectPay wallet={wallet} net={net} info={info} waking={waking} onConnect={() => { pendingDirect.current = true; setShowConnect(true); }} />}
         timeline={<TabTimeline events={events} net={net} tab={focusTab} mine={!!visitorTab} minCalls={focusTab && focusTab === journeyTab ? journeyCalls : 0} />}
         journey={{ ...journey, calls: journeyCalls }} onStartJourney={startJourney} onResetJourney={() => setJourney(IDLE_JOURNEY)}
         apiDown={!info} apiError={!!infoErr} waking={waking} wakeLong={wakeLong} queued={queued} lastSeen={lastSeen} stale={stale} />
@@ -395,13 +400,13 @@ export default function App() {
       </footer>
 
       {showConnect && (
-        <ConnectDialog net={net} onClose={() => { setShowConnect(false); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
+        <ConnectDialog net={net} purpose={pendingDirect.current ? 'direct' : undefined} onClose={() => { setShowConnect(false); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
           onBurner={() => { loadWallet().then(({ burnerWallet }) => setWallet(burnerWallet())); setShowConnect(false); }}
           onWizard={() => { setShowConnect(false); wc.connect(); setShowQr(true); }} />
       )}
       {showQr && wc.uri && wc.qrUri && wc.state !== 'connected' && (
         <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); if (pendingJourney.current) { pendingJourney.current = false; setJourney({ active: false, calls: 0 }); } }}
-          title="Connect with WizardConnect" subtitle="Scan with Paytaca to fund your agent's tab"
+          title="Connect with WizardConnect" subtitle={pendingDirect.current ? 'Scan with Paytaca to pay 1¢ for an oracle answer' : "Scan with Paytaca to fund your agent's tab"}
           theme={theme.resolved === 'dark'
             ? { dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35', titleColor: '#e8f3ef', subtitleColor: '#a3b8b1', uriRowBackground: '#131c19', uriTextColor: '#a3b8b1' }
             : { backdropColor: 'rgba(17,26,23,0.45)', dialogBackground: '#ffffff', headerBackground: '#ffffff', borderColor: '#e3ded2', titleColor: '#111a17', subtitleColor: '#44514c', uriRowBackground: '#f1eee6', uriTextColor: '#44514c', closeButtonColor: '#44514c', copyButtonColor: '#44514c', qrForeground: '#111a17' }} />
