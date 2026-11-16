@@ -152,3 +152,6 @@ The simplest human path: one plain payment from your own wallet for one oracle a
 - Invoice `e7696db607fe69ebbc175150`: 4,781 sats (about 1 US cent at $209/BCH) to the provider `bchtest:qzhyn0j9r7e5rsnkae4a5dej3nhtgn4f8vqj3v8xcc`, `OP_RETURN "AGENTTAB" "e7696db607fe69ebbc175150"`
 - Payment tx (263 bytes, accepted at 0-conf): `8cd9f1dc8b2d845ae20965ba4c8af22bd22cc1a7f6a335b3c307ff64df12866e`
 - Server answered `200` with the oracle answer and emitted a `direct` feed event. The same txid sent for a new invoice got `409 txid_used`.
+- Hosted run (https://agenttab-api-chipnet.onrender.com, 2026-11-16 ~04:50 UTC, same script with `AGENTTAB_API` set to the hosted API): two payments, both `200` with the answer, both shown as "1¢ DIRECT PAY" in the hosted feed, and both txid replays refused with `409 txid_used`:
+  - 4,793 sats: `d2d6e1f93b7a69c502e18a959db202942715a5ad1e40f2f6a4e8263b5286032d`
+  - 4,791 sats: `72ad98aa07e0e235c68587c91b1c81618cd0af59c3963f6b05f13060f640b909`

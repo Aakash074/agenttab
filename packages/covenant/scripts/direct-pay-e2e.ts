@@ -12,7 +12,7 @@ import { DappConnectionManager } from '@wizardconnect/dapp';
 import { buildDirectPay, electrumProvider, p2pkhAddress } from '../src/index.ts';
 
 const API = (process.env.AGENTTAB_API ?? 'http://127.0.0.1:8402').replace(/\/$/, '');
-const q = process.argv[2] ?? 'What is BCH trading at?';
+const q = process.argv[2] ?? 'price';
 const quiet = console.log.bind(console);
 console.log = (...a: unknown[]) => { if (typeof a[0] === 'string' && a[0].startsWith('[relay]')) return; quiet(...a); };
 
