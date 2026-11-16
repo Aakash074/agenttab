@@ -36,7 +36,8 @@ export interface TabRecord {
 export interface FeedEvent {
   id: number;
   at: string;
-  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed';
+  type: 'open' | 'pay' | 'settle' | 'cancel' | 'expired' | 'closed' | 'direct';
+  /** Tab id, or `direct:<invoiceId>` for a 1¢ direct payment. */
   tab: string;
   txid?: string;
   amount?: string; // pay: cumulative voucher; settle: settled amount; open: budget
@@ -122,6 +123,13 @@ export class TabLedger extends EventEmitter {
     const max = this.o.maxEvents ?? 500;
     if (this.events.length > max) this.events.splice(0, this.events.length - max);
     this.emit('event', ev);
+    return ev;
+  }
+
+  /** A one-off on-chain payment for one answer (see direct.ts). */
+  recordDirect(p: { invoice: string; txid: string; amount: bigint; price: bigint; route: string }) {
+    const ev = this.emitEvent({ type: 'direct', tab: `direct:${p.invoice}`, txid: p.txid, amount: p.amount.toString(), price: p.price.toString(), route: p.route });
+    this.persist();
     return ev;
   }
 
@@ -324,7 +332,8 @@ export class TabLedger extends EventEmitter {
     }
     // Baseline: paying per call on-chain = one ~226-byte P2PKH payment per call.
     const perCallFeeSats = paidCalls * 226;
-    return { tabs: this.tabs.size, openTabs: open, paidCalls, restoredTabs: [...this.tabs.values()].filter((t) => t.restored).length, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
+    const directPayments = this.events.filter((e) => e.type === 'direct').length;
+    return { directPayments, tabs: this.tabs.size, openTabs: open, paidCalls, restoredTabs: [...this.tabs.values()].filter((t) => t.restored).length, vouchedSats: earned.toString(), tip: this.tip, onchainTxs, feeSats, perCallTxs: paidCalls, perCallFeeSats };
   }
 
   providerPubHex() { return binToHex(this.providerPub); }

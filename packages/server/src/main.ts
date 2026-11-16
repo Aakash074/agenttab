@@ -1,4 +1,4 @@
-import { binToHex, electrumProvider, pubFromPriv } from '@agenttab/covenant';
+import { binToHex, electrumProvider, p2pkhAddress, pubFromPriv } from '@agenttab/covenant';
 // AgentTab paywall server.
 // Env (.env or process):
 //   NETWORK=chipnet|mainnet (mainnet needs ALLOW_MAINNET=1 and mainnet WIFs), PROVIDER_WIF, PORT (8402),
@@ -8,7 +8,8 @@ import { binToHex, electrumProvider, pubFromPriv } from '@agenttab/covenant';
 //   DEMO_ON_MAINNET=1 to allow the demo agent on mainnet (off by default);
 //   DEMO_IDLE_SECONDS (600: cron rate when nobody watches the feed);
 //   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip, FAUCET_TOPUP_BELOW_SATS (100000, from the
-//   public chipnet PoW faucet); TRUST_PROXY=1 behind a reverse proxy.
+//   public chipnet PoW faucet); TRUST_PROXY=1 behind a reverse proxy;
+//   DIRECT_PRICE_SATS (1¢ direct pay price; default ≈1 US cent at the live BCH price, never below dust).
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
 import { createApp, type ExtraHandler } from './app.ts';
@@ -18,6 +19,7 @@ import { createDemo } from './demo.ts';
 import { createFaucet } from './faucet.ts';
 import { createAttacks } from './attacks.ts';
 import { electrumSource, replayFromChain } from './replay.ts';
+import { centInSats, createDirect } from './direct.ts';
 
 const network = resolveNetwork(loadEnv());
 const env = withSeedKeys(loadEnv(), network);
@@ -81,10 +83,25 @@ if (!mainnet && attackOwner) {
   features.attacks = true;
 }
 
+// 1¢ direct pay: a human pays one on-chain tx (0-conf) for one oracle answer, no tab needed.
+const directPrice = () => {
+  const v = env.DIRECT_PRICE_SATS ? BigInt(env.DIRECT_PRICE_SATS) : centInSats(bchPriceCached());
+  return v < 546n ? 546n : v; // never below dust
+};
+const oracle = oracleHandler(provider, network);
+const direct = createDirect({
+  ledger, network, payTo: p2pkhAddress(ledger.providerPub, network), priceSats: directPrice, answer: oracle, route, trustProxy,
+  broadcast: (hex) => provider.sendRawTransaction(hex), fetchRawTx: (txid) => provider.getRawTransaction(txid),
+  file: new URL(`.data/direct-${network}.json`, repoRoot).pathname,
+});
+extra.push(direct.handler);
+features.direct = { path: '/direct', payTo: direct.payTo, get priceSats() { return directPrice().toString(); } };
+
 const app = createApp({
   ledger, network, adminToken: env.ADMIN_TOKEN, extra, features, bchUsd: async () => bchPriceCached(),
+  direct: { route, payTo: direct.payTo, priceSats: directPrice },
   routes: [
-    { path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracleHandler(provider, network) },
+    { path: route, price, description: 'BCH market oracle: live BCH/USD + chain tip, per call', handler: oracle },
     { path: '/api/fx', price: (price * 6n) / 10n, description: 'BCH in USD/EUR/INR/JPY', handler: fxHandler() },
     { path: '/api/chain/tip', price: (price * 3n) / 10n, description: 'Chain tip + block time', handler: tipHandler(provider, network) },
   ],

@@ -26,6 +26,8 @@ export interface AppOptions {
   features?: Record<string, unknown>;
   /** Optional BCH/USD spot for display (free, cached). */
   bchUsd?: () => Promise<number | undefined>;
+  /** 1¢ direct pay (direct.ts): advertised as an `exact` option on this route's 402. */
+  direct?: { route: string; payTo: string; priceSats: () => bigint };
 }
 
 export const CONTRACT_SOURCE = readFileSync(new URL('../../covenant/contracts/AgentTab.cash', import.meta.url), 'utf8');
@@ -70,7 +72,24 @@ export function paymentRequirements(o: AppOptions, route: PaidRoute, resource: s
         minTimeoutBlocks: o.ledger.safetyBlocks + 1,
         voucherSigner: 'agentPub (register with POST /tabs {txid,vout,ownerPub,agentPub,timeout})',
       },
-    }],
+    },
+    ...(o.direct && o.direct.route === route.path ? [{
+      scheme: 'exact',
+      network: `bch-${o.network}`,
+      maxAmountRequired: o.direct.priceSats().toString(),
+      resource,
+      description: `${route.description} (pay once on-chain, about 1 US cent, 0-conf)`,
+      mimeType: 'application/json',
+      payTo: o.direct.payTo,
+      asset: 'BCH',
+      maxTimeoutSeconds: 900,
+      extra: {
+        invoice: 'POST /direct {q} -> {invoiceId, payTo, amountSats, opReturn}',
+        opReturn: 'OP_RETURN <"AGENTTAB"> <invoiceId> (binds the tx to one invoice)',
+        pay: 'POST /direct/:invoiceId/pay {rawTx} (server broadcasts) or {txid}; each invoice and txid pays once',
+      },
+    }] : []),
+    ],
   };
 }
 

@@ -176,6 +176,51 @@ export function buildOpen(opts: {
   });
 }
 
+/** OP_RETURN tag carried by a direct (pay-once) payment: OP_RETURN <"AGENTTAB"> <invoiceId>. */
+export const DIRECT_TAG = 'AGENTTAB';
+
+/**
+ * Plain pay-once payment (no covenant): `amount` sats to `payTo` plus an OP_RETURN binding the tx to
+ * one invoice, change back to `changeAddress`. Picks the largest utxos first. Sign locally with
+ * `payerPriv`, or pass `unlockerFor` (placeholder P2PKH unlockers) to have a wallet sign it.
+ */
+export function buildDirectPay(opts: {
+  provider: NetworkProvider;
+  payTo: string;
+  amount: bigint;
+  invoiceId: string;
+  fundingUtxos: Utxo[];
+  changeAddress: string;
+  payerPriv?: Uint8Array;
+  unlockerFor?: (u: Utxo) => Unlocker;
+}): { builder: TransactionBuilder; inputs: Utxo[] } {
+  const { provider, payTo, amount, invoiceId, changeAddress } = opts;
+  if (amount < DUST) throw new Error(`amount must be >= ${DUST} sats`);
+  if (!/^[0-9a-z]{8,64}$/i.test(invoiceId)) throw new Error('bad invoice id');
+  const unlockerFor = opts.unlockerFor
+    ?? (() => { const u = new SignatureTemplate(opts.payerPriv!).unlockP2PKH(); return () => u; })();
+  const sorted = opts.fundingUtxos.filter((u) => !u.token).sort((a, b) => (b.satoshis > a.satoshis ? 1 : b.satoshis < a.satoshis ? -1 : 0));
+  const inputs: Utxo[] = [];
+  let total = 0n;
+  // ~150 bytes per P2PKH input + ~120 bytes of outputs/overhead, at 1 sat/byte, plus room for change.
+  for (const u of sorted) {
+    if (total >= amount + 300n + 150n * BigInt(inputs.length) + DUST) break;
+    inputs.push(u);
+    total += u.satoshis;
+  }
+  const builder = withFee((fee) => {
+    const change = total - amount - fee;
+    if (change < 0n) throw new Error(`insufficient funds: have ${total}, need ${amount + fee}`);
+    const b = new TransactionBuilder({ provider })
+      .addInputs(inputs.map((u) => ({ ...u, unlocker: unlockerFor(u) })))
+      .addOutput({ to: payTo, amount })
+      .addOpReturnOutput([DIRECT_TAG, invoiceId]);
+    if (change >= DUST) b.addOutput({ to: changeAddress, amount: change });
+    return b;
+  });
+  return { builder, inputs };
+}
+
 /** Provider settles the tab with the agent's highest voucher. Fee is paid from the provider's share. */
 export function buildSettle(opts: {
   provider: NetworkProvider;
