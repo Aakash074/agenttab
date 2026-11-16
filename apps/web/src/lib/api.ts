@@ -16,6 +16,10 @@ export interface FeedEvent {
   demo?: boolean;
   tag?: string;
   restored?: boolean;
+  /** Restored settle: calls derived from the settle tx (amount ÷ price). */
+  calls?: number;
+  /** Restored unconfirmed tx whose time is unknown. */
+  timeUnknown?: boolean;
 }
 
 export interface Stats {

@@ -2,7 +2,7 @@ import { BANNER } from '../config';
 
 const Item = ({ href, children }: { href: string; children: React.ReactNode }) =>
   href ? (
-    <a href={href} target="_blank" rel="noreferrer" className="shrink-0 text-fg underline decoration-line-2 underline-offset-2 hover:decoration-bch">{children}</a>
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-[44px] shrink-0 items-center text-fg underline decoration-line-2 underline-offset-2 hover:decoration-bch sm:min-h-0">{children}</a>
   ) : (
     <span className="shrink-0 opacity-60" title="Link added before submission">{children} (soon)</span>
   );
@@ -11,7 +11,7 @@ const Item = ({ href, children }: { href: string; children: React.ReactNode }) =
 export function Banner() {
   return (
     <div className="border-b border-line bg-panel-2 text-[13px] font-medium text-muted">
-      <div className="mx-auto flex max-w-6xl items-center gap-x-4 gap-y-1.5 overflow-x-auto whitespace-nowrap px-4 py-2 [scrollbar-width:none] sm:flex-wrap sm:gap-x-5 sm:overflow-visible sm:whitespace-normal">
+      <div className="mx-auto flex max-w-6xl items-center gap-x-4 gap-y-1.5 overflow-x-auto whitespace-nowrap px-4 py-0 [scrollbar-width:thin] sm:flex-wrap sm:py-2 sm:gap-x-5 sm:overflow-visible sm:whitespace-normal">
         <span className="shrink-0 font-semibold text-fg"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-bch align-middle" />{BANNER.event} entry</span>
         {BANNER.deckUrl && <Item href={BANNER.deckUrl}>Widget Factory deck</Item>}
         <Item href={BANNER.repoUrl}>Source code</Item>

@@ -93,7 +93,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">Be the agent: pay 1¢ for one API answer</h2>
-            <p className="mt-0.5 text-xs text-muted">Live BCH/USD, 24h change and the {net} block height. One {amount} payment{bchUsd && priceSats ? ` (${cents(BigInt(priceSats), bchUsd)})` : ''}, accepted at 0-conf.</p>
+            <p className="mt-0.5 text-xs text-muted">Live BCH/USD, 24h change and the {net} block height. One {amount} payment{bchUsd && priceSats ? ` (${cents(BigInt(priceSats), bchUsd)})` : ''}, accepted at <span className="whitespace-nowrap">0-conf</span>.</p>
           </div>
           <button type="button" onClick={start} disabled={busy}
             className="min-h-[44px] shrink-0 whitespace-nowrap rounded-lg border border-bch bg-panel px-4 text-sm font-semibold text-bch-2 transition hover:bg-bch/10 disabled:cursor-wait disabled:opacity-60">
@@ -117,7 +117,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
               <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-[11px] text-dim">
                 <span>paid {sats(st.r.amountSats)} sats{bchUsd ? ` (${cents(BigInt(st.r.amountSats), bchUsd)})` : ''}</span>
                 <a className="tap text-bch-2 hover:underline" href={explorerTx(net, st.r.txid)} target="_blank" rel="noreferrer">tx {short(st.r.txid, 6)} ↗</a>
-                <span>0-conf</span>
+                <span className="whitespace-nowrap">0-conf</span>
               </p>
             </div>
           )}

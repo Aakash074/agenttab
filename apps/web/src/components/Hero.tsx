@@ -50,7 +50,7 @@ function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[
           <div className="grid gap-1.5 px-5">
             <Row k={`GET ${pay?.route ?? '/api/oracle'}`} v={<><span className="text-warn">402</span> → <span className="text-bch-2">200 OK</span></>} />
             {(pay?.price ?? loc?.price) && <Row k="price per call" v={`${sats(pay?.price ?? loc?.price)} sats`} />}
-            <Row k="last voucher" v={calls ? `#${calls}, signed by the agent` : 'cumulative, signed by the agent'} />
+            <Row k="last voucher" v={calls ? `#${calls}, signed by the agent` : close?.calls ? `${close.calls} call${close.calls === 1 ? '' : 's'}, from the settle tx` : 'cumulative, signed by the agent'} />
             <Row k="on-chain txs for these calls" v="0" />
           </div>
           <div className="slip-tear my-3" />
@@ -89,10 +89,12 @@ function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[
 /** Headline stats are only worth leading with once there is a real body of traffic. */
 const HEADLINE_MIN_CALLS = 50;
 
-function FeeBox({ stats, bchUsd }: { stats: Stats; bchUsd?: number }) {
+function FeeBox({ stats, bchUsd, priceLoading }: { stats: Stats; bchUsd?: number; priceLoading?: boolean }) {
   const fee = stats.feeSats ?? 0, txs = stats.onchainTxs ?? 0;
   const perCallTxs = stats.perCallTxs ?? stats.paidCalls, perCallFee = stats.perCallFeeSats ?? 0;
-  const money = (v: number) => (bchUsd ? usd(BigInt(Math.round(v)), bchUsd) : `${sats(Math.round(v))} sats`);
+  // While the API (and its BCH price) is still loading, a placeholder avoids a sats → $ flash.
+  const money = (v: number): React.ReactNode => (bchUsd ? usd(BigInt(Math.round(v)), bchUsd)
+    : priceLoading ? <span className="inline-block h-[0.9em] w-12 animate-pulse rounded bg-subtle align-middle" aria-label="loading" /> : `${sats(Math.round(v))} sats`);
   const box = 'card mt-5 max-w-xl overflow-hidden rounded-xl border border-line bg-panel';
   if (fee < perCallFee) {
     return (
@@ -164,7 +166,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
         </div>
         <div className="order-2 min-w-0 md:order-none md:col-start-1 md:row-start-2">
           {direct}
-          {stats && stats.paidCalls > 0 && stats.feeSats !== undefined && stats.perCallFeeSats !== undefined && <FeeBox stats={stats} bchUsd={bchUsd} />}
+          {stats && stats.paidCalls > 0 && stats.feeSats !== undefined && stats.perCallFeeSats !== undefined && <FeeBox stats={stats} bchUsd={bchUsd} priceLoading={apiDown} />}
           <div className="mb-7" />
           <p className="max-w-xl text-[17px] leading-relaxed text-muted">
             Like a bar tab for software: you put a few cents behind the bar in <b className="text-fg">one transaction</b>, the AI agent pays per API call

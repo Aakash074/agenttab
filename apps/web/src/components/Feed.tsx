@@ -48,7 +48,7 @@ export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[];
           <h2 className="text-sm font-semibold tracking-wide">Live payment feed</h2>
           <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[11px] text-muted">{net}</span>
         </div>
-        <span className="whitespace-nowrap text-xs text-dim">{waking ? 'waking server' : events[0] && now - Date.parse(events[0].at) > 60_000 ? `idle · last ${ago(events[0].at, now)}` : live ? 'streaming' : 'polling'}</span>
+        <span className="whitespace-nowrap text-xs text-dim">{waking ? 'waking server' : events[0] && !events[0].timeUnknown && now - Date.parse(events[0].at) > 60_000 ? `idle · last ${ago(events[0].at, now)}` : live ? 'streaming' : 'polling'}</span>
       </header>
       {events.length === 0 && waking ? (
         <p className="flex items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted"><span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" />Waking the {net} server (~30 s)… It sleeps when idle; this retries on its own.</p>
@@ -70,10 +70,10 @@ export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[];
                       : <span className="tap">tab {short(e.tab.split(':')[0])}</span>}
                     {e.txid && <a className="tap text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 6)} ↗</a>}
                     {e.type === 'pay' && <span className="tap">off-chain voucher · no tx, no fee</span>}
-                    {e.type === 'direct' && <span className="tap">1 on-chain tx · 0-conf</span>}
+                    {e.type === 'direct' && <span className="tap whitespace-nowrap">1 on-chain tx · 0-conf</span>}
                   </div>
                 </div>
-                <time className="col-start-2 whitespace-nowrap text-xs text-dim sm:col-start-auto">{ago(e.at, now)}</time>
+                <time className="col-start-2 whitespace-nowrap text-xs text-dim sm:col-start-auto">{e.timeUnknown ? 'unconfirmed' : ago(e.at, now)}</time>
               </li>
             ))}
           </ol>

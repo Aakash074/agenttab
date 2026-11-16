@@ -114,7 +114,7 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
     .sort((a, b) => (b.height <= 0 ? Infinity : b.height) - (a.height <= 0 ? Infinity : a.height))
     .slice(0, o.limit ?? 300);
   const found: { p: ParsedSettle; at: string; openAt?: string }[] = [];
-  const directs: { invoice: string; txid: string; amount: string; at: string }[] = [];
+  const directs: { invoice: string; txid: string; amount: string; at: string; timeUnknown?: boolean }[] = [];
   const iso = (s?: number) => (s ? new Date(s * 1000).toISOString() : undefined);
   const queue = [...hist];
   const worker = async () => {
@@ -124,7 +124,8 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
         const p = parseSettle(h.txid, hex, ledger.providerPub);
         if (!p) {
           const d = parseDirect(h.txid, hex, ledger.providerPub);
-          if (d) directs.push({ invoice: d.invoice, txid: d.txid, amount: d.amount.toString(), at: iso(time) ?? new Date().toISOString() });
+          // Unconfirmed (no block time): keep it, but flag the time as unknown rather than claim "just now".
+          if (d) directs.push({ invoice: d.invoice, txid: d.txid, amount: d.amount.toString(), at: iso(time) ?? new Date().toISOString(), ...(time ? {} : { timeUnknown: true }) });
           continue;
         }
         if (ledger.tabs.has(p.tab)) continue;

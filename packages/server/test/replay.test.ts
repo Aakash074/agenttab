@@ -56,6 +56,7 @@ test('a wiped server rebuilds settled tabs, stats and feed from the provider add
   assert.equal(s.paidCalls, 3); // attack tab kept out of the headline
   assert.equal(s.onchainTxs, 2);
   assert.deepEqual(fresh.events.map((e) => [e.id, e.type]), [[1, 'open'], [2, 'settle'], [3, 'open'], [4, 'settle']]);
+  assert.equal(fresh.events.find((e) => e.type === 'settle' && e.tab === settled)!.calls, 3, 'calls derived from the settle tx');
   assert.notEqual(fresh.epoch, epoch);
   // Idempotent: a second pass adds nothing.
   assert.equal(await replayFromChain(fresh, src, { maxPrice: 1000n }), 0);
@@ -76,6 +77,7 @@ test('1¢ direct payments to the provider come back into the feed after a wipe',
   assert.equal(ev.txid, txid);
   assert.equal(ev.amount, '4800');
   assert.equal(ev.tab, `direct:${'ab'.repeat(12)}`);
+  assert.equal(ev.timeUnknown, true, 'unconfirmed: no block time, so the restart time is not presented as the payment time');
   await replayFromChain(fresh, src, { maxPrice: 1000n });
   assert.equal(fresh.events.filter((e) => e.type === 'direct').length, 1, 'idempotent');
 });

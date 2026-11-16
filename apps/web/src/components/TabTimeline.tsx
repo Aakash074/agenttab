@@ -9,7 +9,9 @@ export function TabTimeline({ events, net, tab, mine, minCalls = 0 }: { events: 
   const open = events.find((e) => e.type === 'open' && e.tab === tab);
   const pays = events.filter((e) => e.type === 'pay' && e.tab === tab).sort((a, b) => a.id - b.id);
   const close = events.find((e) => (e.type === 'settle' || e.type === 'cancel') && e.tab === tab);
-  const count = Math.max(pays.length, minCalls);
+  // After a server restart the per-call log is gone; the settle tx still proves how much was paid.
+  const derived = !pays.length && close?.type === 'settle' ? close.calls ?? 0 : 0;
+  const count = Math.max(pays.length, minCalls, derived);
   const budget = open?.amount ? BigInt(open.amount) : undefined;
   const settled = close?.type === 'settle' ? BigInt(close.amount ?? 0) : 0n;
   const link = (txid?: string) => txid
@@ -20,7 +22,7 @@ export function TabTimeline({ events, net, tab, mine, minCalls = 0 }: { events: 
   const voucherText = amounts.length > 4 ? `${amounts[0]} → … → ${amounts.slice(-2).join(' → ')}` : amounts.join(' → ');
   const nodes = [
     { k: 'tx 1 · open', title: budget ? `${sats(budget)} sats locked in the covenant` : 'Budget locked in the covenant', tx: link(open?.txid), onchain: true, done: !!open?.txid },
-    { k: `off-chain · ${count} voucher${count === 1 ? '' : 's'}`, title: pays.length ? `${voucherText} sats` : 'No calls yet', tx: <span className="font-mono text-xs text-dim">0 transactions · 0 fees</span>, onchain: false, done: false },
+    { k: `off-chain · ${count} voucher${count === 1 ? '' : 's'}`, title: pays.length ? `${voucherText} sats` : derived ? `${derived} call${derived === 1 ? '' : 's'} (from the settle tx; per-call log not kept after restart)` : close ? 'Per-call log not kept after restart' : 'No calls yet', tx: <span className="font-mono text-xs text-dim">0 transactions · 0 fees</span>, onchain: false, done: false },
     { k: `tx 2 · ${close?.type === 'cancel' ? 'waive' : 'settle'}`,
       title: close ? (close.type === 'settle' && budget ? `provider ${sats(settled)} · ${mine ? 'you' : 'owner'} ${sats(budget - settled)}` : (mine ? 'everything back to you' : 'everything back to the owner')) : 'when the tab closes',
       tx: link(close?.txid), onchain: true, done: !!close?.txid },
