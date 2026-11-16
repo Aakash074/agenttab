@@ -13,7 +13,7 @@ import type { ElectrumNetworkProvider } from 'cashscript';
 import {
   binToBigIntUint64LE, binToHex, decodeAuthenticationInstructions, decodeTransaction, hash160, hexToBin, vmNumberToBigInt,
 } from '@bitauth/libauth';
-import { p2pkhAddress } from '@agenttab/covenant';
+import { DIRECT_TAG, p2pkhAddress } from '@agenttab/covenant';
 import type { TabLedger, TabRecord } from './ledger.ts';
 
 export interface ChainSource {
@@ -75,6 +75,24 @@ export function parseSettle(txid: string, hex: string, providerPub: Uint8Array):
   };
 }
 
+/** A 1¢ direct payment to the provider: OP_RETURN <"AGENTTAB"> <24-hex invoice id> plus sats to the provider's P2PKH. */
+export function parseDirect(txid: string, hex: string, providerPub: Uint8Array): { invoice: string; txid: string; amount: bigint } | undefined {
+  const tx = decodeTransaction(hexToBin(hex));
+  if (typeof tx === 'string') return undefined;
+  const lock = p2pkhLock(providerPub);
+  let invoice: string | undefined;
+  let amount = 0n;
+  for (const o of tx.outputs) {
+    if (binToHex(o.lockingBytecode) === lock) amount += o.valueSatoshis;
+    if (o.lockingBytecode[0] === 0x6a) {
+      const [tag, id] = decodeAuthenticationInstructions(o.lockingBytecode.slice(1)).map(pushData);
+      const idText = id ? new TextDecoder().decode(id) : '';
+      if (tag && new TextDecoder().decode(tag) === DIRECT_TAG && /^[0-9a-f]{24}$/.test(idText)) invoice = idText;
+    }
+  }
+  return invoice && amount > 0n ? { invoice, txid, amount } : undefined;
+}
+
 export interface ReplayOptions {
   /** Highest per-call price across routes: the call count is a lower bound, ceil(amount / maxPrice). */
   maxPrice: bigint;
@@ -96,16 +114,22 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
     .sort((a, b) => (b.height <= 0 ? Infinity : b.height) - (a.height <= 0 ? Infinity : a.height))
     .slice(0, o.limit ?? 300);
   const found: { p: ParsedSettle; at: string; openAt?: string }[] = [];
+  const directs: { invoice: string; txid: string; amount: string; at: string }[] = [];
+  const iso = (s?: number) => (s ? new Date(s * 1000).toISOString() : undefined);
   const queue = [...hist];
   const worker = async () => {
     for (let h = queue.shift(); h; h = queue.shift()) {
       try {
         const { hex, time } = await src.tx(h.txid);
         const p = parseSettle(h.txid, hex, ledger.providerPub);
-        if (!p || ledger.tabs.has(p.tab)) continue;
+        if (!p) {
+          const d = parseDirect(h.txid, hex, ledger.providerPub);
+          if (d) directs.push({ invoice: d.invoice, txid: d.txid, amount: d.amount.toString(), at: iso(time) ?? new Date().toISOString() });
+          continue;
+        }
+        if (ledger.tabs.has(p.tab)) continue;
         if (ledger.contractFor(p).bytecode !== p.redeemHex) continue; // not our AgentTab covenant
         const openTime = await src.tx(p.openTxid).then((t) => t.time).catch(() => undefined);
-        const iso = (s?: number) => (s ? new Date(s * 1000).toISOString() : undefined);
         found.push({ p, at: iso(time) ?? new Date().toISOString(), openAt: iso(openTime) });
       } catch { /* skip one bad tx, keep going */ }
     }
@@ -123,6 +147,6 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
     };
     return { rec, settledAt: at };
   });
-  ledger.restore(records);
-  return records.length;
+  ledger.restore(records, directs);
+  return records.length + directs.length;
 }

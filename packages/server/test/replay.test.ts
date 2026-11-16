@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MockNetworkProvider, randomUtxo } from 'cashscript';
 import { generatePrivateKey } from '@bitauth/libauth';
-import { binToHex, buildOpen, p2pkhAddress, pubFromPriv, signVoucher, tabContract } from '@agenttab/covenant';
+import { binToHex, buildDirectPay, buildOpen, p2pkhAddress, pubFromPriv, signVoucher, tabContract } from '@agenttab/covenant';
 import { TabLedger } from '../src/ledger.ts';
 import { replayFromChain, type ChainSource } from '../src/replay.ts';
 
@@ -59,4 +59,23 @@ test('a wiped server rebuilds settled tabs, stats and feed from the provider add
   assert.notEqual(fresh.epoch, epoch);
   // Idempotent: a second pass adds nothing.
   assert.equal(await replayFromChain(fresh, src, { maxPrice: 1000n }), 0);
+});
+
+test('1¢ direct payments to the provider come back into the feed after a wipe', async () => {
+  const net = new MockNetworkProvider();
+  const providerPriv = generatePrivateKey(), payerPriv = generatePrivateKey();
+  const providerPub = pubFromPriv(providerPriv);
+  const payer = p2pkhAddress(pubFromPriv(payerPriv));
+  net.addUtxo(payer, randomUtxo({ satoshis: 50_000n }));
+  const { builder } = buildDirectPay({ provider: net, payTo: p2pkhAddress(providerPub), amount: 4_800n, invoiceId: 'ab'.repeat(12), fundingUtxos: await net.getUtxos(payer), changeAddress: payer, payerPriv });
+  const { txid } = await builder.send();
+  const src: ChainSource = { history: async () => [{ txid, height: 0 }], tx: async (t) => ({ hex: await net.getRawTransaction(t) }) };
+  const fresh = new TabLedger({ provider: net, providerPriv, network: 'mocknet' });
+  assert.equal(await replayFromChain(fresh, src, { maxPrice: 1000n }), 1);
+  const ev = fresh.events.find((e) => e.type === 'direct')!;
+  assert.equal(ev.txid, txid);
+  assert.equal(ev.amount, '4800');
+  assert.equal(ev.tab, `direct:${'ab'.repeat(12)}`);
+  await replayFromChain(fresh, src, { maxPrice: 1000n });
+  assert.equal(fresh.events.filter((e) => e.type === 'direct').length, 1, 'idempotent');
 });

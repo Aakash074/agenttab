@@ -134,10 +134,14 @@ export class TabLedger extends EventEmitter {
   }
 
   /** Adds tabs rebuilt from the chain (see replay.ts) with their open/settle events at their real times. */
-  restore(items: { rec: TabRecord; settledAt: string }[]) {
+  restore(items: { rec: TabRecord; settledAt: string }[], directs: { invoice: string; txid: string; amount: string; at: string; route?: string }[] = []) {
     const add = items.filter((i) => !this.tabs.has(i.rec.id));
-    if (!add.length) return;
-    const restored: FeedEvent[] = [];
+    const seen = new Set(this.events.filter((e) => e.type === 'direct').map((e) => e.txid));
+    const addDirect = directs.filter((d) => !seen.has(d.txid));
+    if (!add.length && !addDirect.length) return;
+    const restored: FeedEvent[] = addDirect.map((d) => ({
+      id: 0, at: d.at, type: 'direct' as const, tab: `direct:${d.invoice}`, txid: d.txid, amount: d.amount, price: d.amount, route: d.route ?? '/api/oracle', restored: true,
+    }));
     for (const { rec, settledAt } of add) {
       this.tabs.set(rec.id, rec);
       const base = { tab: rec.id, contract: rec.contractAddress, agent: rec.agentPub, demo: this.demoAgentPub !== undefined && rec.agentPub === this.demoAgentPub, restored: true, ...(rec.tag ? { tag: rec.tag } : {}) };
