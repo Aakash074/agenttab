@@ -45,10 +45,13 @@ Prior art and credit:
 | Approach | On-chain txs for 100 paid calls | Who can take the unspent budget | Per-call latency |
 |---|---|---|---|
 | Per-call payment (x402 `exact`, agent spend-limit wallets) | 100 | No one, but every call waits for a broadcast | one tx broadcast |
+| Capped covenant vault, one payment tx per call (e.g. Satchel, also in this hackathon) | 100 | No one: per-period cap + payee allowlist, owner can withdraw any time | one tx broadcast + 0-conf check |
 | Facilitator batch settlement (e.g. Coinbase x402 batch, PSF batch debit) | a few, settled later | The facilitator holds the funds in the meantime | none (an off-chain IOU) |
 | **AgentTab `bch-credit`** | **2** (open + settle) | **No one.** The covenant only pays the provider what the agent signed for; the rest returns to the owner, or the owner refunds after the timeout | none (a signed voucher, checked locally) |
 
 The settle is one transaction with exactly two outputs, so the provider claims all 100 calls in that single transaction.
+
+A capped vault is the better fit when an agent pays **many different providers** with no expiry. A tab is the better fit when an agent makes **many calls to one API**: the calls cost no on-chain fee and wait for no broadcast, and the provider is still guaranteed every voucher the agent signed.
 
 **Prior art, named honestly.** The mechanism is a one-way payment channel, the same family as Spilman channels, Streamium (BCH, 2017) and, in this hackathon, CashCast (pay-per-second music). What AgentTab adds is what an *AI agent* needs and a human listener does not:
 - the agent holds a key that can **only sign vouchers**: it cannot move the deposit, only the owner can;

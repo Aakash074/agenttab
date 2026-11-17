@@ -53,6 +53,7 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 - It adds one scheme, **`bch-credit`**: a non-custodial, covenant-backed tab instead of a per-request transaction or custodial batch debit.
 - Credit: **Permissionless Software Foundation** (`x402-bch`, `x402-bch-express`) and **OPTN Labs** (`x402-bch`). `bch-credit` is designed to sit next to their schemes in the same `accepts[]`.
 - An **MCP server** lets Claude or any MCP agent pay on its own: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps.
+- Closest rival in this hackathon: Satchel (capped covenant vault, payee allowlist, one on-chain tx per call). Say: "Vault = many payees, a tx per call. Tab = one API, thousands of calls, 2 txs." Credit them; don't knock them.
 - Neighbour in this hackathon (say it if asked): LaunchDesk = a human pays an AI per job (escrow per order); AgentTab = an AI agent pays any API per call (one tab, many calls, 2 txs).
 - Comparison table (copy from README "How it compares"): per-call payment = 100 txs per 100 calls; facilitator batch (Coinbase x402 batch, PSF batch debit) = few txs but the facilitator holds funds; `bch-credit` = 2 txs and no one can take the unspent budget. Line to say: "x402 batch settlement, trust-minimised on BCH L1: the covenant enforces the refund, no facilitator."
 
