@@ -217,6 +217,20 @@ describe('cancel path and mainnet demo mode', () => {
     assert.equal(l.events.at(-1)!.type, 'cancel');
   });
 
+  test('closeAllOpen (shutdown) settles a paid tab and cancels an unpaid one, so nothing is stranded by a disk wipe', async () => {
+    const n = new MockNetworkProvider();
+    const pPriv = generatePrivateKey(), aPriv = generatePrivateKey();
+    const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+    const paid = await tabFor(l, n, pubFromPriv(aPriv), pPriv);
+    const idle = await tabFor(l, n, pubFromPriv(aPriv), pPriv);
+    l.charge({ tab: paid.id, amount: 3_000n, sig: signVoucher(aPriv, paid.op, 3_000n).sig }, 3_000n);
+    const txids = await l.closeAllOpen();
+    assert.equal(txids.length, 2);
+    assert.equal(l.tabs.get(paid.id)!.status, 'settled');
+    assert.equal(l.tabs.get(idle.id)!.status, 'cancelled');
+    assert.deepEqual(await l.closeAllOpen(), []);
+  });
+
   test('tick auto-cancels a tab inside the safety window when nothing settle-worthy is owed', async () => {
     const n = new MockNetworkProvider();
     const pPriv = generatePrivateKey(), aPriv = generatePrivateKey();

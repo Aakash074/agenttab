@@ -56,6 +56,8 @@ The settle is one transaction with exactly two outputs, so the provider claims a
 - an **MCP server**, so Claude and other agents use it as a tool with no wallet code;
 - a **provider `cancel()`** and a live panel that replays **7 attacks** against the covenant on chipnet.
 
+Also in this hackathon, **LaunchDesk** uses a per-order CashScript escrow so a *human pays an AI* for one finished job, released on delivery. AgentTab is the other direction: an *AI agent pays any API* per call, many calls on one budget, 2 transactions in total.
+
 ## Build timeline
 
 - **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.

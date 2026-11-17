@@ -309,6 +309,20 @@ export class TabLedger extends EventEmitter {
     return { txid: await this.cancel(id), action: 'cancel' };
   }
 
+  /**
+   * Shutdown: close every open tab now (settle what was signed, or cancel = full refund).
+   * Free hosting wipes the disk on restart, so a tab left open would be forgotten and its budget
+   * stuck until the owner's timeout refund. Stops starting new closes after `budgetMs`.
+   */
+  async closeAllOpen(budgetMs = 20_000): Promise<string[]> {
+    const until = Date.now() + budgetMs, done: string[] = [];
+    for (const rec of [...this.tabs.values()]) {
+      if (rec.status !== 'open' || Date.now() > until) continue;
+      try { done.push((await this.close(rec.id)).txid); } catch (e) { console.error('shutdown close failed', rec.id, (e as Error).message); }
+    }
+    return done;
+  }
+
   /** Periodic job: refresh tip; auto-settle (or expire) tabs inside the safety window. */
   async tick(): Promise<{ settled: string[]; expired: string[] }> {
     await this.refreshTip();

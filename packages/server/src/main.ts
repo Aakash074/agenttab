@@ -114,6 +114,19 @@ const tick = async () => {
   } catch (e) { console.error('tick failed', (e as Error).message); }
 };
 setInterval(tick, Number(env.TICK_SECONDS ?? 30) * 1000);
+// Render (free tier) sends SIGTERM before it spins the service down and wipes the disk:
+// close open tabs first so no budget is left locked until its timeout.
+let stopping = false;
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`${sig}: closing open tabs before exit`);
+    ledger.closeAllOpen(Number(env.SHUTDOWN_CLOSE_MS ?? 20_000))
+      .then((t) => t.length && console.log(`closed ${t.length} open tab(s) on shutdown`))
+      .finally(() => process.exit(0));
+  });
+}
 app.listen(port, () => {
   console.log(`AgentTab paywall [${network}] http://localhost:${port}  tip ${ledger.tip}  provider ${ledger.providerPubHex()}  price ${price}`);
   if (demo) demo.startCron(Number(env.DEMO_CRON_SECONDS ?? 60));
