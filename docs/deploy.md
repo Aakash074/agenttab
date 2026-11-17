@@ -47,3 +47,6 @@ The API sends `access-control-allow-origin: *`, and the live feed uses SSE, whic
 2. Press the one-button journey, choose **WizardConnect**, and scan with Paytaca.
 3. Approve the open-tab transaction (about 5¢). The demo agent pays 3 calls (600 sats each) from the tab, then the tab is closed and the change comes back.
 4. Record the open and settle txids in `docs/mainnet-proof.md`.
+
+## Restarts on the free tier
+Render wipes the disk on every deploy and spin-down. On SIGTERM the server closes every open tab first (settle what was signed, or cancel = full refund to the owner; `SHUTDOWN_CLOSE_MS`, default 20 s), so no budget stays locked until its timeout. Settled tabs and direct payments are then rebuilt from chain history at boot.
