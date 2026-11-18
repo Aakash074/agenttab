@@ -47,6 +47,7 @@ Prior art and credit:
 | Per-call payment (x402 `exact`, agent spend-limit wallets) | 100 | No one, but every call waits for a broadcast | one tx broadcast |
 | Capped covenant vault, one payment tx per call (e.g. Satchel, also in this hackathon) | 100 | No one: per-period cap + payee allowlist, owner can withdraw any time | one tx broadcast + 0-conf check |
 | Facilitator batch settlement (e.g. Coinbase x402 batch, PSF batch debit) | a few, settled later | The facilitator holds the funds in the meantime | none (an off-chain IOU) |
+| Custodial prepaid tab (e.g. x402-bch v2.2 "tab" with batched debits) | 1 (the prepay) | The server: you prepay it and trust its ledger for what each call cost | none (server-side debit) |
 | **AgentTab `bch-credit`** | **2** (open + settle) | **No one.** The covenant only pays the provider what the agent signed for; the rest returns to the owner, or the owner refunds after the timeout | none (a signed voucher, checked locally) |
 
 The settle is one transaction with exactly two outputs, so the provider claims all 100 calls in that single transaction.
