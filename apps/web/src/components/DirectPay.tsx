@@ -23,8 +23,10 @@ function signError(e: unknown): string {
 }
 
 /** "1¢ direct pay": the simplest human path. One on-chain payment from your own wallet, one oracle answer. */
-export function DirectPay({ wallet, net, info, waking, onConnect, connectCancelled = 0 }: {
+export function DirectPay({ wallet, net, info, waking, onConnect, connectCancelled = 0, hero = false }: {
   wallet: Wallet | null; net: Net; info: ServerInfo | null; waking?: boolean; onConnect: () => void;
+  /** Hero: the page's one filled button (mainnet). Otherwise a quieter card (inside "How it works"). */
+  hero?: boolean;
   /** Changes when the visitor closed the connect dialog without connecting. */
   connectCancelled?: number;
 }) {
@@ -85,44 +87,58 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
     void run(wallet);
   }
 
-  const amount = priceSats ? `${sats(priceSats)}-sat` : '1¢';
-  return (
-    <div id="direct" className="scroll-mt-24 sm:max-w-xl" aria-live="polite">
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-dim">Quick: one 1¢ payment</p>
-      <div className="card rounded-2xl border border-line bg-panel p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold">Be the agent: pay 1¢ for one API answer</h2>
-            <p className="mt-0.5 text-xs text-muted">Live BCH/USD, 24h change and the {net} block height. One {amount} payment{bchUsd && priceSats ? ` (${cents(BigInt(priceSats), bchUsd)})` : ''}, accepted at <span className="whitespace-nowrap">0-conf</span>.</p>
-          </div>
-          <button type="button" onClick={start} disabled={busy}
-            className="min-h-[44px] shrink-0 whitespace-nowrap rounded-lg border border-bch bg-panel px-4 text-sm font-semibold text-bch-2 transition hover:bg-bch/10 disabled:cursor-wait disabled:opacity-60">
-            Get BCH price — 1¢
-          </button>
+  const c = bchUsd && priceSats ? Math.round((Number(priceSats) / 1e8) * bchUsd * 100) : 1;
+  const price = c >= 1 && c < 100 ? `${c}¢` : '1¢';
+  const status = (
+    <div className="mt-2 min-h-[24px] text-sm" aria-live="polite">
+      {st.s === 'idle' && (
+        <p className="text-muted">{waking ? <span className="flex items-center gap-2"><span aria-hidden className="spin inline-block h-3 w-3 rounded-full border-2 border-current border-r-transparent" />Waking the {net} server (about 20 s). You can press now.</span>
+          : `One on-chain payment from Paytaca or any WizardConnect wallet${net === 'chipnet' ? ', or a free test wallet' : ''}.`}</p>
+      )}
+      {st.s === 'connecting' && (
+        <p className="text-muted">Connect a wallet to pay. <button type="button" className="tap font-medium text-bch-2 hover:underline" onClick={() => { pending.current = false; setSt({ s: 'idle' }); }}>Cancel</button></p>
+      )}
+      {st.s === 'busy' && <p className="flex items-center gap-2 text-muted"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-bch pulse-dot" />{st.msg}</p>}
+      {st.s === 'error' && (
+        <p className="text-warn">{st.msg} <button type="button" className="tap ml-1 font-medium text-bch-2 hover:underline" onClick={() => setSt({ s: 'idle' })}>Dismiss</button></p>
+      )}
+      {st.s === 'done' && (
+        <div className="slide-in mt-1 rounded-lg border border-line bg-panel px-3 py-2.5">
+          <p className="text-fg">{st.r.answer ?? 'Paid.'}</p>
+          <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-[11.5px] text-dim">
+            <span>paid {sats(st.r.amountSats)} sats{bchUsd ? ` (${cents(BigInt(st.r.amountSats), bchUsd)})` : ''}</span>
+            <a className="tap text-bch-2 hover:underline" href={explorerTx(net, st.r.txid)} target="_blank" rel="noreferrer">tx {short(st.r.txid, 6)} ↗</a>
+            <span className="whitespace-nowrap">0-conf</span>
+          </p>
         </div>
-        <div className="mt-2 min-h-[40px] text-sm">
-          {st.s === 'idle' && (
-            <p className="text-muted">{waking ? `Waking the ${net} server (~30 s)… You can press the button now.` : net === 'chipnet' ? 'Pay with Paytaca (WizardConnect). No BCH wallet? Use a free chipnet test wallet, one click.' : 'Pay with Paytaca or any WizardConnect wallet.'}</p>
-          )}
-          {st.s === 'connecting' && (
-            <p className="text-muted">Connect a wallet to pay. <button type="button" className="tap font-medium text-bch-2 hover:underline" onClick={() => { pending.current = false; setSt({ s: 'idle' }); }}>Cancel</button></p>
-          )}
-          {st.s === 'busy' && <p className="flex items-center gap-2 text-muted"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-bch pulse-dot" />{st.msg}</p>}
-          {st.s === 'error' && (
-            <p className="text-warn">{st.msg} <button type="button" className="tap ml-1 font-medium text-bch-2 hover:underline" onClick={() => setSt({ s: 'idle' })}>Dismiss</button></p>
-          )}
-          {st.s === 'done' && (
-            <div className="slide-in mt-1 rounded-lg border border-line bg-panel-2 px-3 py-2.5">
-              <p className="text-fg">{st.r.answer ?? 'Paid.'}</p>
-              <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-[11px] text-dim">
-                <span>paid {sats(st.r.amountSats)} sats{bchUsd ? ` (${cents(BigInt(st.r.amountSats), bchUsd)})` : ''}</span>
-                <a className="tap text-bch-2 hover:underline" href={explorerTx(net, st.r.txid)} target="_blank" rel="noreferrer">tx {short(st.r.txid, 6)} ↗</a>
-                <span className="whitespace-nowrap">0-conf</span>
-              </p>
-            </div>
-          )}
-        </div>
+      )}
+    </div>
+  );
+  if (hero) {
+    return (
+      <div id="direct" className="scroll-mt-24 sm:max-w-lg">
+        <button type="button" onClick={start} disabled={busy}
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
+          {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
+          Pay {price} for a live BCH price
+        </button>
+        {status}
       </div>
+    );
+  }
+  return (
+    <div id="direct" className="scroll-mt-24 rounded-2xl border border-line bg-panel p-5 card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="font-semibold">No tab: pay once</h3>
+          <p className="mt-0.5 text-sm text-muted">Be the agent. One {priceSats ? `${sats(priceSats)}-sat` : '1¢'} payment buys one live BCH price.</p>
+        </div>
+        <button type="button" onClick={start} disabled={busy}
+          className="min-h-[44px] shrink-0 whitespace-nowrap rounded-lg border border-line-2 bg-panel px-4 text-sm font-semibold transition hover:bg-subtle disabled:cursor-wait disabled:opacity-60">
+          Pay {price}
+        </button>
+      </div>
+      {status}
     </div>
   );
 }

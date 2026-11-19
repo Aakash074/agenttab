@@ -50,7 +50,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
     <li className="rounded-xl border border-line bg-ink/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${STATUS[t.status]}`}>{t.status === 'cancelled' ? 'waived' : t.status}</span>
+          <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${STATUS[t.status]}`}>{t.status === 'cancelled' ? 'waived' : t.status}</span>
           <a className="tap font-mono text-xs text-muted hover:text-bch-2" href={explorerTx(net, t.outpoint.txid)} target="_blank" rel="noreferrer">opened in {short(t.outpoint.txid, 6)} ↗</a>
         </div>
         <span className="font-mono text-xs text-dim">agent {short(t.agentPub, 4)}{demoAgentPub && t.agentPub === demoAgentPub.toLowerCase() ? ' (demo)' : ''}</span>
@@ -121,8 +121,8 @@ export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, on
   useEffect(() => { setTabs([]); load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load, refreshKey]);
 
   return (
-    <section id="tabs" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-6">
-      <h2 className="text-xl font-bold">Your tabs</h2>
+    <section id="tabs" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-5 sm:p-6">
+      <h3 className="text-lg font-semibold">Your tabs</h3>
       {!wallet ? (
         <p className="mt-2 text-sm text-muted">Connect a wallet to see the tabs you funded.</p>
       ) : tabs.length === 0 ? (

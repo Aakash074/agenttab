@@ -89,6 +89,7 @@ async function j<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   info: () => j<ServerInfo>('/.well-known/agenttab', { signal: AbortSignal.timeout(45_000) }),
   feed: (since = 0) => j<{ network: string; epoch?: string; stats: Stats; events: FeedEvent[] }>(`/feed?since=${since}&limit=60`, { signal: AbortSignal.timeout(45_000) }),
+  tab: (id: string) => j<TabRecord>(`/tabs/${id}`, { signal: AbortSignal.timeout(20_000) }),
   tabsByOwner: (owner: string) => j<{ tip: number; tabs: TabRecord[] }>(`/tabs?owner=${owner}`),
   register: (b: { txid: string; vout: number; ownerPub: string; agentPub: string; timeout: number }) =>
     j<TabRecord>('/tabs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }),
@@ -103,3 +104,15 @@ export const api = {
   directPay: (id: string, rawTx: string) => j<DirectAnswer>(`/direct/${id}/pay`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rawTx }), signal: AbortSignal.timeout(60_000) }),
   drip: (address: string) => j<{ txid: string; sats: string }>('/faucet/drip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) }),
 };
+
+/** A network hiccup (server asleep, restarting or briefly unreachable) rather than a real refusal. */
+export const isTransient = (e: unknown, allow429 = false) =>
+  e instanceof TypeError || (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError'
+  || (e instanceof ApiError && (e.status >= 500 || (allow429 && e.status === 429)));
+
+/** Plain-language message for an error that reaches the visitor (never a raw "Failed to fetch"). */
+export function humanError(e: unknown): string {
+  if (isTransient(e)) return 'The demo server is not answering right now (it may be restarting).';
+  const m = (e as Error)?.message ?? String(e);
+  return m.length > 160 ? `${m.slice(0, 157)}…` : m;
+}

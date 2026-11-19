@@ -90,11 +90,10 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
   const choice = (on: boolean) => `rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-bch bg-bch/10' : 'border-line-2 hover:bg-subtle'}`;
 
   return (
-    <section id="fund" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-5 sm:p-6">
+    <section id="fund" className="scroll-mt-24 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Fund your agent's tab</h2>
-          <p className="mt-1 text-sm text-muted">You stay the owner. The agent can spend up to the budget but can never withdraw it. Unused sats come back to you.</p>
+          <p className="text-sm text-muted">You stay the owner. The agent can spend up to the budget but can never withdraw it. Unused sats come back to you.</p>
         </div>
         <span className={`shrink-0 rounded-full border px-2.5 py-1 font-mono text-[11px] ${net === 'mainnet' ? 'border-warn/50 text-warn' : 'border-line-2 text-muted'}`}>{net}</span>
       </div>
@@ -102,7 +101,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
       <div className="mt-6 grid gap-5">
         {step.state !== 'done' && <>
         <label className="grid gap-1.5">
-          <span className="flex flex-wrap items-center justify-between gap-1 text-xs font-medium uppercase tracking-wider text-dim">
+          <span className="flex flex-wrap items-center justify-between gap-1 text-sm font-medium text-fg">
             Agent public key
             {isDemo && <span className="rounded bg-bch/15 px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-bch-2">Demo agent (runs on this server)</span>}
           </span>
@@ -116,7 +115,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
         </label>
 
         <div className="grid gap-1.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-dim">Budget</span>
+          <span className="text-sm font-medium text-fg">Budget</span>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {budgets.map((b) => (
               <button key={String(b)} onClick={() => setBudget(b)} className={choice(budget === b)}>
@@ -140,7 +139,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
         </div>
 
         <div className="grid gap-1.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-dim">Refundable after</span>
+          <span className="text-sm font-medium text-fg">Refundable after</span>
           <div className={`grid grid-cols-1 gap-2 ${net === 'mainnet' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
             {DURATIONS.filter((d) => net !== 'mainnet' || d.blocks <= 144).map((d) => (
               <button key={d.blocks} onClick={() => setDuration(d.blocks)} className={choice(duration === d.blocks)}>
