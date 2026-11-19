@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api, humanError, isTransient, type AttackRun } from '../lib/api';
 import { ago, short } from '../lib/format';
-import { useCountUp } from '../lib/motion';
+import { reducedMotion, useCountUp } from '../lib/motion';
 import { explorerAddr, explorerTx, type Net } from '../config';
 
 const PLANNED = [
   'Replay an old voucher', 'Provider overclaims', 'Provider rewrites the voucher amount', 'Send the remainder elsewhere',
   'Owner pulls the money early', 'Agent tries to withdraw', 'Provider "cancels" into its own wallet',
 ];
-const STAGGER = 220;
+const STAGGER = 120; // ms between attack rows flipping to their verdict (off under reduced motion)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** "Try to cheat it": real cheating transactions sent at a fresh chipnet tab; the node's verbatim rejection per row. */
@@ -43,7 +43,7 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
         catch (e) { if (!isTransient(e) || i >= 3) throw e; setNote('The chipnet server hiccuped. Retrying…'); await sleep(3000 * (i + 1)); }
       }
       setNote(null);
-      if (r.last) { setRun(r.last); onResult?.(r.last); if (!r.cached) setShown(0); }
+      if (r.last) { setRun(r.last); onResult?.(r.last); setShown(reducedMotion() ? 99 : 0); }
       if (r.cached) setNote(`Showing the run from ${ago(r.last!.at)}. A fresh one is available in ${Math.ceil((r.retryInMs ?? 0) / 1000)} s.`);
       if (r.running) setNote('Another visitor is running the attacks right now. Results appear here.');
     } catch (e) { setNote(`${humanError(e)} Try again in a moment.`); }
@@ -65,7 +65,7 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
         <button onClick={go} disabled={busy}
           className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-fg px-5 font-semibold text-fg transition hover:bg-fg hover:text-panel disabled:cursor-wait disabled:opacity-60 sm:w-auto">
           {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
-          {busy ? 'Attacking chipnet (about 30 s)' : run ? 'Run the 7 attacks again' : 'Run the 7 attacks'}
+          {busy ? 'Attacking chipnet (about 15 s)' : run ? 'Run the 7 attacks again' : 'Run the 7 attacks'}
         </button>
       </div>
       <p className="mt-2 max-w-2xl text-sm text-muted">Each run sends real cheating transactions at a fresh chipnet tab. Open a row for the node's reply.</p>

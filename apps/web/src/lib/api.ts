@@ -108,7 +108,10 @@ export const api = {
 /** A network hiccup (server asleep, restarting or briefly unreachable) rather than a real refusal. */
 export const isTransient = (e: unknown, allow429 = false) =>
   e instanceof TypeError || (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError'
-  || (e instanceof ApiError && (e.status >= 500 || (allow429 && e.status === 429)));
+  || (e instanceof ApiError && e.body?.retryable !== false && (e.status >= 500 || (allow429 && e.status === 429)));
+
+/** The free test-coin faucet can't help right now (empty, or this visitor's limit is used up): don't retry it. */
+export const faucetOut = (e: unknown) => e instanceof ApiError && (e.body?.error === 'faucet_empty' || e.status === 429);
 
 /** Plain-language message for an error that reaches the visitor (never a raw "Failed to fetch"). */
 export function humanError(e: unknown): string {

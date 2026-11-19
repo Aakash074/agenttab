@@ -7,8 +7,8 @@ import { binToHex, electrumProvider, p2pkhAddress, pubFromPriv } from '@agenttab
 //   DEMO_AGENT_WIF (or AGENT_WIF) to host the demo agent; DEMO_CRON_SECONDS (60; 0 = off); DEMO_BUDGET_SATS (20000);
 //   DEMO_ON_MAINNET=1 to allow the demo agent on mainnet (off by default);
 //   DEMO_IDLE_SECONDS (600: cron rate when nobody watches the feed);
-//   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip, FAUCET_TOPUP_BELOW_SATS (100000, from the
-//   public chipnet PoW faucet); TRUST_PROXY=1 behind a reverse proxy;
+//   FAUCET_WIF + DRIP_SATS (25000) for the chipnet-only test-wallet drip, FAUCET_TOPUP_BELOW_SATS (4 drips at least,
+//   from the public chipnet PoW faucet; 0 = off); TRUST_PROXY=1 behind a reverse proxy;
 //   DIRECT_PRICE_SATS (1¢ direct pay price; default ≈1 US cent at the live BCH price, never below dust).
 import { ElectrumNetworkProvider } from 'cashscript';
 import { TabLedger } from './ledger.ts';
@@ -63,7 +63,9 @@ if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
 if (!mainnet && env.FAUCET_WIF) {
   const faucet = createFaucet({
     network, provider, faucetPriv: networkKey(env.FAUCET_WIF, 'FAUCET_WIF', network), dripSats: BigInt(env.DRIP_SATS ?? 25_000), trustProxy,
-    topUpBelowSats: BigInt(env.FAUCET_TOPUP_BELOW_SATS ?? 100_000),
+    topUpBelowSats: env.FAUCET_TOPUP_BELOW_SATS !== undefined ? BigInt(env.FAUCET_TOPUP_BELOW_SATS) : undefined,
+    // Public-faucet top-ups land only in chipnet.bch.ninja's mempool (it does not relay): read it too and relay them.
+    mirror: new ElectrumNetworkProvider('chipnet', { hostname: env.FAUCET_MIRROR_HOST ?? 'chipnet.bch.ninja' }),
   });
   extra.push(faucet.handler);
   faucet.maybeTopUp().catch(() => {});

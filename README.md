@@ -169,7 +169,7 @@ Server config is read from `.env` or the environment:
 | `TICK_SECONDS` | `30` |
 | `ADMIN_TOKEN` | Optional; protects the settle endpoint. |
 | `DEMO_AGENT_WIF` | Key for the hosted demo agent. `DEMO_CRON_SECONDS` defaults to 60 (0 turns it off); `DEMO_BUDGET_SATS` defaults to 20000. Off on mainnet unless `DEMO_ON_MAINNET=1`. |
-| `FAUCET_WIF` | Key for the chipnet drip. `DRIP_SATS` defaults to 25000. Never enabled on mainnet. |
+| `FAUCET_WIF` | Key for the chipnet drip. `DRIP_SATS` defaults to 25000. Auto top-up from the public chipnet faucet below `FAUCET_TOPUP_BELOW_SATS` (never less than 4 drips; 0 = off). Top-ups seen only on `chipnet.bch.ninja` are relayed to the primary server before they are spent. Never enabled on mainnet. |
 | `MAX_TAB_BUDGET_SATS` | Largest tab the server accepts. Default 100000 on mainnet, unlimited on chipnet. |
 | `DIRECT_PRICE_SATS` | Price of a 1¢ direct-pay answer. Default: about 1 US cent at the live BCH price (2000 if unknown), never below dust. |
 | `TRUST_PROXY=1` | Use X-Forwarded-For for rate limits when behind a reverse proxy. |

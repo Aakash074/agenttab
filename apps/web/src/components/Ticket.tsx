@@ -135,7 +135,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
 
   const status = inJourney ? (
     j.error ? <span className="text-bad">{j.error}{j.openTxid ? ' Your tab is safe in the covenant.' : ''}</span>
-    : j.hiccup ? <span className="flex items-center gap-2 text-warn"><Spinner />Server hiccup, retrying. Your 5¢ is safe in the covenant.</span>
+    : j.hiccup ? <span className="flex items-center gap-2 text-warn"><Spinner />{j.openTxid ? 'Server hiccup, retrying. Your 5¢ is safe in the covenant.' : 'Getting free test coins… the server is slow, retrying.'}</span>
     : v.status === 'waiting' ? <span className="flex items-center gap-2"><Spinner />{j.note ?? 'Getting a wallet ready…'}</span>
     : v.status === 'opening' ? <span className="flex items-center gap-2"><Spinner />{j.note ?? 'Opening the tab: 1 transaction'}</span>
     : v.status === 'open' ? <span className="flex items-center gap-2"><Spinner />{j.calls < 3 ? `Agent paying call ${j.calls + 1} of 3 · no transaction` : 'Calls done'}</span>

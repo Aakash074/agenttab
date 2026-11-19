@@ -25,6 +25,10 @@ export interface JourneyState {
   note?: string;
   /** The server stopped answering; the run is retrying on its own. */
   hiccup?: boolean;
+  /** The free test-coin faucet is empty or rate-limited: offer the house agent's run (no coins needed) instead. */
+  faucetOut?: boolean;
+  /** When a rate-limited visitor may try the faucet again (ms epoch). */
+  retryAt?: number;
 }
 
 export const IDLE_JOURNEY: JourneyState = { active: false, calls: 0 };

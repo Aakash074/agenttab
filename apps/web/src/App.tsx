@@ -13,7 +13,7 @@ import { HowItWorks } from './components/HowItWorks';
 import { Sections, type SectionId } from './components/Sections';
 const CheatPanel = lazy(() => import('./components/CheatPanel').then((m) => ({ default: m.CheatPanel })));
 import { BANNER, DEMO_AGENT_PUB, MAINNET_ENABLED, SERVERS, type Net } from './config';
-import { ApiError, api, humanError, isTransient, selectServer, type AttackRun, type ServerInfo, type Stats, type TabRecord } from './lib/api';
+import { ApiError, api, humanError, isTransient, faucetOut, selectServer, type AttackRun, type ServerInfo, type Stats, type TabRecord } from './lib/api';
 import { useFeed } from './hooks/useFeed';
 import { useTheme } from './hooks/useTheme';
 import type { Wallet } from './lib/wallet';
@@ -308,7 +308,12 @@ export default function App() {
           const t0 = Date.now();
           upd({ note: 'Getting free test coins…' });
           try { await retrying(() => api.drip(w.address)); } catch (e) {
-            if (e instanceof ApiError && e.status === 429) throw new Error(`${e.message} Meanwhile, watch the house agent in the live feed.`);
+            if (faucetOut(e)) {
+              const wait = Number((e as ApiError).body?.retryInMs ?? 0);
+              upd({ faucetOut: true, retryAt: wait ? Date.now() + wait : undefined });
+              throw new Error((e as ApiError).status === 429 ? `${(e as ApiError).message} Meanwhile, the house agent can pay with its own tab.`
+                : 'Free test coins are refilling. Watch the house agent open and settle a tab instead.');
+            }
             if (!(e instanceof ApiError && e.status === 409)) throw e;
           }
           for (let i = 0; i < 16 && !plan.enough; i++) {
@@ -495,7 +500,8 @@ export default function App() {
         <section className="mx-auto grid max-w-6xl gap-x-14 gap-y-7 px-4 pb-12 pt-9 md:grid-cols-[1fr_minmax(0,430px)] md:grid-rows-[auto_1fr] md:pt-16">
           <div className="min-w-0 md:col-start-1 md:row-start-1">
             <Hero net={net} waking={waking} apiDown={!info} queued={queued} journey={journey} demoHere={!demoElsewhere}
-              direct={direct(true)} onStart={journey.done || journey.error ? restartJourney : startJourney} onResume={() => void resumeJourney()} onTryChipnet={() => tryChipnet()} />
+              direct={direct(true)} onStart={journey.done || journey.error ? restartJourney : startJourney} onResume={() => void resumeJourney()} onTryChipnet={() => tryChipnet()}
+              houseBusy={run.busy} onHouse={demoEnabled ? () => { setJourney({ ...IDLE_JOURNEY, faucetOut: true, retryAt: journey.retryAt }); void runDemo(); } : undefined} />
           </div>
           <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1">
             <Ticket events={events} net={net} bchUsd={info?.bchUsd} journey={journey} inJourney={inJourney} tab={focusTab} mine={!!visitorTab && focusTab === visitorTab}
