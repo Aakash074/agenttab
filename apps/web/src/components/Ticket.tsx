@@ -1,4 +1,5 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { emitLanded } from './Backdrop';
 import type { FeedEvent } from '../lib/api';
 import { ago, sats, short, usd } from '../lib/format';
 import { useCountUp } from '../lib/motion';
@@ -105,6 +106,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
     c.label = v.label; c.calls = v.calls;
   }
   const landed = seen.current.landed;
+  useEffect(() => { if (landed) emitLanded(); }, [landed]);
   const backN = useCountUp(Number(v?.back ?? (v?.budget !== undefined ? v.budget - v.spent : 0n)));
 
   if (!v) {
@@ -201,7 +203,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
               </span>
             )}
           </span>
-          <span className="text-right"><span key={`land-${landed}`} className={`relative text-2xl font-bold tabular-nums text-fg ${landed ? 'land' : ''}`}>{spentN.toLocaleString('en-US')}{landed > 0 && <Burst reach={26} />}</span> <span className="text-muted">sats</span>
+          <span className="text-right"><span key={`land-${landed}`} data-stream-dst className={`relative text-2xl font-bold tabular-nums text-fg ${landed ? 'land' : ''}`}>{spentN.toLocaleString('en-US')}{landed > 0 && <Burst delay={520} reach={26} />}</span> <span className="text-muted">sats</span>
             {bchUsd ? <span className="block text-[11.5px] text-dim">{usd(BigInt(spentN), bchUsd)}</span> : null}</span>
         </div>
         {(v.budget !== undefined) && (

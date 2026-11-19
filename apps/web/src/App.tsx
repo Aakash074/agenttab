@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Backdrop, PaymentStream } from './components/Backdrop';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
 import { Hero, ProofStrip, type DemoRun } from './components/Hero';
@@ -446,9 +447,10 @@ export default function App() {
 
   return (
     <div className="relative isolate min-h-screen overflow-x-clip">
-      <div aria-hidden className="backdrop" />
+      <Backdrop />
+      <PaymentStream />
       <Banner />
-      <header className="sticky top-0 z-40 border-b border-line bg-ink">
+      <header className="sticky top-0 z-40 border-b border-line bg-ink/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
           <Logo />
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">

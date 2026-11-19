@@ -2,10 +2,11 @@
 
 The deck, the video and the site all draw from this file. The code source is
 [`apps/web/src/styles/tokens.css`](apps/web/src/styles/tokens.css); the background recipe and motion live in
-[`apps/web/src/index.css`](apps/web/src/index.css).
+[`apps/web/src/index.css`](apps/web/src/index.css) and the moving parts in
+[`apps/web/src/components/Backdrop.tsx`](apps/web/src/components/Backdrop.tsx).
 
-The look is light, warm paper with one deep-teal accent and a receipt as the hero object. It is not neon, has no
-gradients on text and uses no emoji. Light is the default; dark is opt-in.
+The look is light, warm paper with one deep-teal accent, a slow teal aurora and a receipt as the hero object. It is not
+neon, has no gradients on text and uses no emoji. Light is the default; dark is opt-in.
 
 ## Colour
 
@@ -18,17 +19,19 @@ gradients on text and uses no emoji. Light is the default; dark is opt-in.
 | `line-2` | `#CDC6B6` | `#2A3A35` | Control borders, receipt perforations |
 | `fg` | `#111A17` | `#E8F3EF` | Primary text |
 | `muted` | `#44514C` | `#A3B8B1` | Body copy |
-| `dim` | `#5C6964` | `#8AA098` | Captions, labels |
+| `dim` | `#55625D` | `#8AA098` | Captions, labels |
 | `bch` (accent) | `#0E6B60` | `#4CC3B0` | Primary button, bars, coin, dots |
 | `bch-hover` | `#0A564D` | `#7AD8C9` | Primary button hover |
 | `on-bch` | `#FFFFFF` | `#04201C` | Text on the accent |
-| `bch-2` (accent as text) | `#0E6B60` | `#6FD3C3` | Links, `200`, SETTLED stamp |
+| `bch-2` (accent as text) | `#0B5D54` | `#6FD3C3` | Links, `200`, SETTLED stamp |
 | `warn` | `#8A5300` | `#F5B84B` | Reconnecting, hiccups |
 | `bad` | `#B42318` | `#F2716B` | Errors, cheats that got through |
 | `gold` | `#7A5200` | `#F3CF6A` | Second coin-burst colour |
 
-Contrast on paper `#F6F4EE` (WCAG): fg 16.1:1, muted 7.6:1, dim 5.2:1, accent text 5.8:1, white on the accent 6.4:1.
+Contrast on paper `#F6F4EE` (WCAG): fg 16.1:1, muted 7.6:1, dim 5.8:1, accent text 7.0:1, white on the accent 6.4:1.
 In dark, fg is 17.4:1, muted 9.5:1, dim 7.1:1 and accent text 11.1:1. Every text pair passes AA.
+`dim` and accent text were darkened so they keep AA over the aurora tint. Measured on the live hero over the whole
+animation cycle, the worst text against its background is 4.9:1 in light (desktop and phone) and 6.4:1 in dark.
 
 ## Type
 
@@ -58,28 +61,65 @@ Both families come from Google Fonts.
 - **Radii:** 8px for controls and small buttons, 10px for the receipt, 12px for the primary button and wells, 16px for cards, and pills are fully round.
 - **Layout:** content is at most 1152px wide (`max-w-6xl`) with 16px side gutters. The hero is two columns, copy and a 430px receipt with a 56px gap, and stacks on a phone.
 - **Card shadow:** `0 1px 2px rgb(17 26 23 / .06), 0 1px 1px rgb(17 26 23 / .04)`.
-- **Receipt lift** (light), four stacked layers, the last tinted with the accent:
-  `0 1px 1px rgb(17 26 23/.04), 0 2px 4px -1px rgb(17 26 23/.05), 0 10px 20px -6px rgb(17 26 23/.08), 0 28px 56px -16px rgb(14 107 96/.22)`.
+- **Receipt lift** (light): an inner top highlight, a hairline, a contact shadow, two ambient layers and two accent-tinted layers:
+  `inset 0 1px 0 rgb(255 255 255/.7), 0 0 0 1px rgb(17 26 23/.02), 0 1px 1px rgb(17 26 23/.06), 0 3px 6px -2px rgb(17 26 23/.08), 0 12px 24px -8px rgb(17 26 23/.10), 0 30px 50px -16px rgb(14 107 96/.22), 0 60px 100px -30px rgb(14 107 96/.32)`.
+  In dark: `inset 0 1px 0 rgb(255 255 255/.05), 0 0 0 1px rgb(255 255 255/.03), 0 2px 4px rgb(0 0 0/.4), 0 16px 32px -10px rgb(0 0 0/.65), 0 40px 80px -24px rgb(76 195 176/.26)`.
 - **Primary hover:** the button rises 1px over `0 6px 16px -6px rgb(14 107 96/.45)` and presses to 98%.
 
 ## Background recipe
 
-There are four layers, back to front. Only the glow moves, and nothing moves under `prefers-reduced-motion`.
+There are six layers, back to front. The look must read at a glance (a judge should see teal light and a grid, not
+plain beige) while text keeps AA. Nothing moves under `prefers-reduced-motion`; everything pauses when the tab is hidden
+or the hero is off screen.
 
 1. **Paper:** the `ink` colour on `html`.
-2. **Grain:** a 160px SVG `feTurbulence` tile (fractalNoise, baseFrequency 0.8, 3 octaves, grayscale), fixed to the viewport. In light it is a pale tile (`.6·noise + .17`) multiplied at 40%, which reads as paper tooth. In dark it is a mid-grey tile (`.6·noise − .4`) soft-lit at 60%.
-3. **Teal glow:** radial gradients on the hero, drifting over 38s (ease-in-out, alternate, at most ±2.5% translate and 4% scale).
-   - Teal `rgb(14 107 96 / .13)` centred behind the receipt (72% / 36%).
-   - Warm `rgb(196 150 60 / .07)` at the top left.
-   - A fainter teal under the headline.
-   - In dark the glow is `rgb(76 195 176 / .11)`.
-4. **Dot grid:** 1px dots on a 22px grid (`rgb(17 26 23 / .11)`; dark `rgb(232 243 239 / .075)`), masked by an ellipse so it fades out towards the edges and below the hero.
+2. **Grain:** a 160px SVG `feTurbulence` tile (fractalNoise, baseFrequency 0.8, 3 octaves, grayscale), fixed to the
+   viewport. In light it is a pale tile (`.6·noise + .17`) multiplied at 40%, which reads as paper tooth. In dark it is a
+   mid-grey tile (`.6·noise − .4`) soft-lit at 60%.
+3. **Aurora mesh:** four soft radial blobs on one canvas drawn at 1/8 resolution, upscaled by CSS and redrawn at 30 Hz.
+   Each blob drifts on its own 43–89s sine loops (about ±35% of its radius, ±10% scale). The mesh fades out over the
+   bottom 40% of the hero.
+
+   | Blob | Light | Dark | Where |
+   |---|---|---|---|
+   | 1 deep teal | `rgb(14 107 96 / .30)` | `rgb(76 195 176 / .20)` | behind the receipt, top right |
+   | 2 mint | `rgb(64 178 160 / .30)` | `rgb(30 140 125 / .30)` | lower right |
+   | 3 warm | `rgb(196 150 60 / .16)` | `rgb(243 207 106 / .07)` | top left |
+   | 4 blue-teal | `rgb(20 120 132 / .10)` | `rgb(60 150 190 / .12)` | under the headline, kept low because text sits on it |
+
+   Gradient stops are the colour at 0, 45% of its alpha at 55%, and transparent at 100%.
+4. **Grid:** 1px lines on a 44px grid (light `rgb(14 107 96 / .085)`, dark `rgb(111 211 195 / .065)`) with a 1.2px dot on
+   every intersection (light `rgb(17 26 23 / .18)`, dark `rgb(232 243 239 / .16)`). An ellipse mask
+   (72% × 56% at 60% / 32%) fades it out towards the edges and below the hero.
+5. **Cursor spotlight** (fine pointer, 768px and wider): a 520px soft disc that follows the cursor over the hero. It
+   holds a light tint (light `rgb(14 107 96 / .08)`, dark `rgb(76 195 176 / .10)`) and a brighter copy of the grid
+   (`.22` alpha), aligned exactly to the base grid, so the grid lights up under the pointer.
+6. **Drifting coins:** six small sats coins (11–22px, three on phones), each a teal-tinted disc with a struck inner rim
+   at 80% opacity. They drift about 56px up and turn 300° over 23–34s, ping-ponging.
+
+**Parallax:** the layers move at different depths. With the pointer at −1…1 across the viewport and `sy` as the scroll
+offset, the aurora moves `18px·mx, 14px·my + .3·sy`, the grid `−10px·mx, −8px·my + .18·sy` and the coins
+`−26px·mx, −18px·my − .12·sy`. The aurora and coins ease over 900 and 700ms; the grid tracks directly so the
+spotlight's grid stays aligned with it.
+
+**Payment stream:** when a payment lands, 22 sats (12 on phones; teal, with every fourth one gold) fly from the hero
+button to the receipt total. They follow a shallow arc that sags below the line between the two, so it never crosses
+the headline. Each takes 520–700ms with three trailing ghosts and an 8ms stagger. The total's burst and nudge wait
+520ms so they fire on arrival. This is one fixed canvas whose loop runs only while sats are in flight.
+
+**Phones:** three blobs, a 36px grid with a wider mask, three coins, no spotlight and no pointer parallax (scroll parallax
+stays).
+
+**Deck and video:** to reuse the look as a still, use paper + grain + the four blobs at the positions above + the grid.
+For motion, loop the blob drift and the coin drift; the spotlight and stream are interaction-only.
 
 ## The receipt-ticket motif
 
 The receipt is the product's hero object: a paper slip in mono type that fills in live.
 
 - **Shape:** a white slip with a 10px radius and a 1px `line` border, lifted by the receipt shadow.
+- **Paper:** a 180px fibre texture over the panel colour: horizontally stretched noise (baseFrequency `.75 .22`, 3 octaves). In light it is dark specks at alpha `.2·noise − .075`; in dark it is pale specks at `.12·noise − .045`. Receipt text stays above 5.5:1.
+- **Punched notches** are filled with the page colour tinted 16% toward the accent (12% in dark), so they match the aurora behind the slip.
 - **Perforations:** three tear lines, each a 2px dashed `line-2` rule inset 14px. Each tear line has a punched half-circle notch (16px) at both ends, filled with the page colour.
 - **Rows:** in order, header (`AGENTTAB` · `TAB #ABCD`), status, `locked in tab`, up to three `/api/oracle 402 → 200  +1,000` rows, `on-chain txs for these calls  0`, then **Total** with a spend bar (accent for provider, `fg/25` for change back), and the open/settle txids.
 - **Motion:**
@@ -91,6 +131,8 @@ The receipt is the product's hero object: a paper slip in mono type that fills i
 
 ## Motion rules
 
-- **Durations:** 150–400ms with ease-out (`cubic-bezier(.2,.7,.3,1)`). The exceptions are the 700ms burst and the 38s ambient drift.
+- **Durations:** 150–400ms with ease-out (`cubic-bezier(.2,.7,.3,1)`). The exceptions are the 700ms burst, the 520–700ms payment stream and the ambient background (aurora and coins on 23–89s loops).
+- **Performance:** the background uses transforms, opacity and two small canvases only. It runs at 60 fps on a GPU, and at 60 fps idle under software rendering.
 - **Micro-interactions:** buttons press to 98%. Header controls darken their border and fill on hover. Inactive tabs get a `subtle` fill on hover, and the tab indicator slides in 250ms.
-- **Reduced motion:** `prefers-reduced-motion: reduce` disables every animation and transition and hides the burst.
+- **Reduced motion:** `prefers-reduced-motion: reduce` disables every animation and transition and hides the burst. The aurora and coins are drawn once and stay still. The spotlight, the parallax and the payment stream are off.
+- **Header:** sticky at 80% `ink` with a 12px backdrop blur, so the aurora shows through as the page scrolls.

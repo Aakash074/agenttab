@@ -17,12 +17,12 @@
   /* text */
   --color-fg: #111a17;         /* 16.1:1 on paper */
   --color-muted: #44514c;      /* 7.6:1 on paper */
-  --color-dim: #5c6964;        /* 5.2:1 on paper */
+  --color-dim: #55625d;        /* 5.8:1 on paper; keeps AA over the aurora tint */
   /* brand */
   --color-bch: #0e6b60;        /* the one accent (deep teal): fills, bars, primary button */
   --color-bch-hover: #0a564d;
   --color-on-bch: #ffffff;     /* text on the accent (6.4:1) */
-  --color-bch-2: #0e6b60;      /* accent used as TEXT (links): 5.8:1 on paper */
+  --color-bch-2: #0b5d54;      /* accent used as TEXT (links): 7.0:1 on paper; keeps AA over the aurora tint */
   /* status */
   --color-warn: #8a5300;
   --color-bad: #b42318;
@@ -40,24 +40,35 @@
   --radius-card: 16px;
   --control-h: 40px;
 
-  /* the receipt lifts off the page: four stacked shadows, the last one tinted with the accent */
+  /* the receipt lifts off the page: a hairline, a contact shadow, two ambient layers and two accent-tinted layers */
   --shadow-slip:
-    0 1px 1px rgb(17 26 23 / 0.04),
-    0 2px 4px -1px rgb(17 26 23 / 0.05),
-    0 10px 20px -6px rgb(17 26 23 / 0.08),
-    0 28px 56px -16px rgb(14 107 96 / 0.22);
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 0 0 1px rgb(17 26 23 / 0.02),
+    0 1px 1px rgb(17 26 23 / 0.06),
+    0 3px 6px -2px rgb(17 26 23 / 0.08),
+    0 12px 24px -8px rgb(17 26 23 / 0.10),
+    0 30px 50px -16px rgb(14 107 96 / 0.22),
+    0 60px 100px -30px rgb(14 107 96 / 0.32);
   --shadow-btn-hover: 0 6px 16px -6px rgb(14 107 96 / 0.45), 0 2px 4px -1px rgb(17 26 23 / 0.08);
   --shadow-control-hover: 0 1px 2px rgb(17 26 23 / 0.08);
 
-  /* background recipe: paper + grain + teal glow + fading dot grid */
-  --bg-glow: rgb(14 107 96 / 0.13);       /* teal glow behind the hero and receipt */
-  --bg-glow-warm: rgb(196 150 60 / 0.07); /* faint warm counter-glow, top left */
-  --bg-dot: rgb(17 26 23 / 0.11);         /* 1px dots on a 22px grid */
+  /* background recipe (DESIGN.md): paper + grain + aurora mesh + line/dot grid + cursor spotlight + drifting coins */
+  --bg-aurora-1: rgb(14 107 96 / 0.30);   /* deep teal, behind the receipt */
+  --bg-aurora-2: rgb(64 178 160 / 0.30);  /* mint teal, lower right */
+  --bg-aurora-3: rgb(196 150 60 / 0.16);  /* warm counter-glow, top left */
+  --bg-aurora-4: rgb(20 120 132 / 0.10);  /* blue-teal under the headline (kept low: text sits on it) */
+  --bg-grid-line: rgb(14 107 96 / 0.085); /* 1px lines on a 44px grid */
+  --bg-grid-dot: rgb(17 26 23 / 0.18);    /* a dot on every intersection */
+  --bg-grid-hi: rgb(14 107 96 / 0.22);    /* grid lines inside the cursor spotlight */
+  --bg-spot: rgb(14 107 96 / 0.08);       /* the spotlight tint */
+  --bg-coin: #0e6b60;
+  /* receipt paper: horizontally stretched noise as dark specks with alpha, layered over the panel colour */
+  --slip-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75 .22' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .07 0 0 0 0 .1 0 0 0 0 .09 .2 0 0 0 -.075'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
   /* grain: a 160px feTurbulence tile; light = pale tile multiplied, dark = mid-grey tile soft-lit */
   --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 .17 .6 .6 .6 0 .17 .6 .6 .6 0 .17 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --bg-grain-blend: multiply;
   --bg-grain-opacity: 0.4;
-  --notch: var(--color-ink);              /* punched holes in the receipt show the page */
+  --notch: color-mix(in oklab, var(--color-ink) 84%, var(--color-bch)); /* punched holes show the (teal-tinted) page */
 }
 
 @layer base {
@@ -80,12 +91,20 @@
     --color-info: #7cc8f5;
     --color-gold: #f3cf6a;
     --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
-    --shadow-slip: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 24px -8px rgb(0 0 0 / 0.6), 0 30px 60px -18px rgb(76 195 176 / 0.18);
+    --shadow-slip: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.03), 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 32px -10px rgb(0 0 0 / 0.65), 0 40px 80px -24px rgb(76 195 176 / 0.26);
     --shadow-btn-hover: 0 6px 18px -6px rgb(76 195 176 / 0.45);
     --shadow-control-hover: 0 0 0 1px rgb(255 255 255 / 0.03);
-    --bg-glow: rgb(76 195 176 / 0.11);
-    --bg-glow-warm: rgb(243 207 106 / 0.04);
-    --bg-dot: rgb(232 243 239 / 0.075);
+    --bg-aurora-1: rgb(76 195 176 / 0.20);
+    --bg-aurora-2: rgb(30 140 125 / 0.30);
+    --bg-aurora-3: rgb(243 207 106 / 0.07);
+    --bg-aurora-4: rgb(60 150 190 / 0.12);
+    --bg-grid-line: rgb(111 211 195 / 0.065);
+    --bg-grid-dot: rgb(232 243 239 / 0.16);
+    --bg-grid-hi: rgb(111 211 195 / 0.22);
+    --bg-spot: rgb(76 195 176 / 0.10);
+    --bg-coin: #4cc3b0;
+    --notch: color-mix(in oklab, var(--color-ink) 88%, var(--color-bch));
+    --slip-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75 .22' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .85 0 0 0 0 .95 0 0 0 0 .92 .12 0 0 0 -.045'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
     --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 -.4 .6 .6 .6 0 -.4 .6 .6 .6 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     --bg-grain-blend: soft-light;
     --bg-grain-opacity: 0.6;
@@ -110,12 +129,20 @@
       --color-info: #7cc8f5;
       --color-gold: #f3cf6a;
       --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
-      --shadow-slip: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 24px -8px rgb(0 0 0 / 0.6), 0 30px 60px -18px rgb(76 195 176 / 0.18);
+      --shadow-slip: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.03), 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 32px -10px rgb(0 0 0 / 0.65), 0 40px 80px -24px rgb(76 195 176 / 0.26);
       --shadow-btn-hover: 0 6px 18px -6px rgb(76 195 176 / 0.45);
       --shadow-control-hover: 0 0 0 1px rgb(255 255 255 / 0.03);
-      --bg-glow: rgb(76 195 176 / 0.11);
-      --bg-glow-warm: rgb(243 207 106 / 0.04);
-      --bg-dot: rgb(232 243 239 / 0.075);
+      --bg-aurora-1: rgb(76 195 176 / 0.20);
+      --bg-aurora-2: rgb(30 140 125 / 0.30);
+      --bg-aurora-3: rgb(243 207 106 / 0.07);
+      --bg-aurora-4: rgb(60 150 190 / 0.12);
+      --bg-grid-line: rgb(111 211 195 / 0.065);
+      --bg-grid-dot: rgb(232 243 239 / 0.16);
+      --bg-grid-hi: rgb(111 211 195 / 0.22);
+      --bg-spot: rgb(76 195 176 / 0.10);
+      --bg-coin: #4cc3b0;
+      --notch: color-mix(in oklab, var(--color-ink) 88%, var(--color-bch));
+      --slip-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75 .22' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .85 0 0 0 0 .95 0 0 0 0 .92 .12 0 0 0 -.045'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
       --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 -.4 .6 .6 .6 0 -.4 .6 .6 .6 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       --bg-grain-blend: soft-light;
       --bg-grain-opacity: 0.6;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { emitLanded } from './Backdrop';
 import { explorerTx, type Net } from '../config';
 import { ApiError, api, type DirectAnswer, type ServerInfo } from '../lib/api';
 import { sats, short, usd } from '../lib/format';
@@ -71,6 +72,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
       step = 'pay';
       say('Broadcasting and checking the payment (0-conf)…');
       setSt({ s: 'done', r: await api.directPay(inv.invoiceId, rawTx) });
+      emitLanded();
     } catch (e) {
       let msg: string;
       if (step === 'sign') msg = signError(e);
@@ -117,7 +119,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
   if (hero) {
     return (
       <div id="direct" className="scroll-mt-24 sm:max-w-lg">
-        <button type="button" onClick={start} disabled={busy}
+        <button type="button" data-stream-src onClick={start} disabled={busy}
           className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
           {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
           Pay {price} for a live BCH price

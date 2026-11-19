@@ -8,7 +8,9 @@ html { background: var(--color-ink); color-scheme: light; }
 /* body stays transparent so the fixed grain layer (z -1) shows over the html paper colour */
 body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); -webkit-font-smoothing: antialiased; }
 
-/* ---- Background recipe: paper + grain + teal glow + fading dot grid. Static layers; only the glow drifts. ---- */
+/* ---- Background recipe (DESIGN.md): paper + grain + aurora mesh + grid + spotlight + drifting coins. ----
+   Everything moves with transform/opacity only. JS (components/Backdrop.tsx) writes --gx/--gy (grid parallax),
+   --mx/--my (pointer, -1..1), --sy (scroll px) and the spotlight's --cx/--cy/--ox/--oy once per frame. */
 /* 1. Grain: a 160px feTurbulence tile (tokens.css), multiplied on paper and soft-lit in dark. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -16,34 +18,60 @@ body::before {
   background-image: var(--bg-grain-image);
   background-size: 160px 160px;
 }
-/* 2 + 3. Glow and dots live in .backdrop, the first child of the app root (which is isolate, so z -1 sits under content). */
-.backdrop { position: absolute; inset: 0 0 auto 0; height: min(1100px, 100%); z-index: -1; pointer-events: none; overflow: hidden; }
-.backdrop::before {   /* dot grid, fading out towards the edges and below the hero */
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, var(--bg-dot) 1px, transparent 1.4px);
-  background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(ellipse 75% 62% at 62% 30%, #000 25%, transparent 78%);
-  mask-image: radial-gradient(ellipse 75% 62% at 62% 30%, #000 25%, transparent 78%);
-}
-.backdrop::after {    /* soft teal glow behind the receipt, a fainter one behind the headline; drifts very slowly */
-  content: ""; position: absolute; inset: -10% -10% 0 -10%;
-  background:
-    radial-gradient(38% 46% at 72% 36%, var(--bg-glow), transparent 70%),
-    radial-gradient(30% 34% at 22% 24%, var(--bg-glow-warm), transparent 72%),
-    radial-gradient(26% 30% at 34% 52%, color-mix(in oklab, var(--bg-glow) 40%, transparent), transparent 75%);
-  animation: glow-drift 38s ease-in-out infinite alternate;
-  will-change: transform;
-}
+/* .backdrop is the first child of the app root (isolate), so z -1 sits under the content. */
+.backdrop { position: absolute; inset: 0 0 auto 0; height: min(1100px, 100%); z-index: -1; pointer-events: none; overflow: hidden; contain: strict; }
+.backdrop.is-paused * { animation-play-state: paused !important; }
+.bg-layer { position: absolute; will-change: transform; }
+
+/* 2. Aurora mesh: four soft blobs on one 1/8-resolution canvas (Backdrop.tsx), upscaled here; the wrapper adds a
+   slow pointer/scroll parallax. */
+.bg-aurora-wrap { inset: -8% -8% 0 -8%;
+  transform: translate3d(calc(var(--mx, 0) * 18px), calc(var(--my, 0) * 14px + var(--sy, 0) * 0.3px), 0);
+  transition: transform 900ms cubic-bezier(.2,.7,.3,1); }
+.aurora-canvas { display: block; width: 100%; height: 100%; }
+
+/* 3. Grid: 1px lines on 44px with a dot on every intersection, faded by an ellipse around the hero. */
+.bg-grid { inset: -60px; transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0);
+  background-image:
+    radial-gradient(circle at 0.5px 0.5px, var(--bg-grid-dot) 1.2px, transparent 1.8px),
+    linear-gradient(to right, var(--bg-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bg-grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 72% 56% at 60% 32%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse 72% 56% at 60% 32%, #000 30%, transparent 80%); }
+
+/* 4. Spotlight (fine pointer, >=768px): a 520px masked window at the cursor with a tint and a brighter grid copy. */
+.bg-spot { position: absolute; left: 0; top: 0; width: 520px; height: 520px; overflow: hidden; opacity: 0; will-change: transform, opacity;
+  transform: translate3d(var(--cx, -999px), var(--cy, -999px), 0); transition: opacity 500ms ease-out;
+  background: radial-gradient(closest-side, var(--bg-spot), transparent);
+  -webkit-mask-image: radial-gradient(closest-side, #000, rgb(0 0 0 / .5) 45%, transparent); mask-image: radial-gradient(closest-side, #000, rgb(0 0 0 / .5) 45%, transparent); }
+.spot-on .bg-spot { opacity: 1; }
+.bg-spot-grid { position: absolute; left: 0; top: 0; width: 564px; height: 564px; will-change: transform;
+  transform: translate3d(var(--ox, 0px), var(--oy, 0px), 0);
+  background-image:
+    radial-gradient(circle at 0.5px 0.5px, var(--bg-grid-hi) 1.4px, transparent 2px),
+    linear-gradient(to right, var(--bg-grid-hi) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bg-grid-hi) 1px, transparent 1px);
+  background-size: 44px 44px; }
+
+/* 5. Drifting sats coins: the nearest layer, so the strongest parallax. Their drift is set from the aurora tick. */
+.bg-coins { inset: 0; transform: translate3d(calc(var(--mx, 0) * -26px), calc(var(--my, 0) * -18px + var(--sy, 0) * -0.12px), 0);
+  transition: transform 700ms cubic-bezier(.2,.7,.3,1); }
+.coin-float { position: absolute; border-radius: 9999px; opacity: .8; will-change: transform;
+  background: radial-gradient(circle at 34% 28%, color-mix(in oklab, var(--bg-coin) 22%, var(--color-panel)), color-mix(in oklab, var(--bg-coin) 62%, var(--color-panel)) 80%);
+  border: 1px solid color-mix(in oklab, var(--bg-coin) 70%, transparent);
+  box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--bg-coin) 60%, transparent); }
+.coin-float::after { content: ""; position: absolute; inset: 22%; border-radius: inherit; /* the struck inner rim */
+  border: 1px solid color-mix(in oklab, var(--color-panel) 65%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--bg-coin) 35%, transparent); }
+
+/* The payment stream canvas (components/Backdrop.tsx): fixed over the page, idle unless sats are in flight. */
+.stream-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; opacity: 0; }
+
+/* Phones: three blobs, a tighter grid, three coins, no spotlight, no pointer parallax. */
 @media (max-width: 767px) {
-  .backdrop::after { background:
-    radial-gradient(70% 26% at 50% 66%, var(--bg-glow), transparent 72%),
-    radial-gradient(60% 22% at 20% 18%, var(--bg-glow-warm), transparent 72%); }
-  .backdrop::before { -webkit-mask-image: radial-gradient(ellipse 90% 55% at 50% 30%, #000 20%, transparent 80%); mask-image: radial-gradient(ellipse 90% 55% at 50% 30%, #000 20%, transparent 80%); }
-}
-@keyframes glow-drift {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-2.5%, 1.5%, 0) scale(1.04); }
-  100% { transform: translate3d(2%, -1%, 0) scale(1.02); }
+  .coin-desk, .bg-spot { display: none; }
+  .bg-grid { background-size: 36px 36px;
+    -webkit-mask-image: radial-gradient(ellipse 95% 55% at 50% 30%, #000 25%, transparent 82%); mask-image: radial-gradient(ellipse 95% 55% at 50% 30%, #000 25%, transparent 82%); }
 }
 
 /* Utilities must be able to override everything below, so component rules live in @layer components
@@ -53,7 +81,7 @@ body::before {
   .card { box-shadow: var(--shadow-card); }
 
   /* The receipt is a paper slip: perforated tear lines with punched notches at both ends. */
-  .slip { position: relative; background: var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-slip); box-shadow: var(--shadow-slip); }
+  .slip { position: relative; background: var(--slip-texture) 0 0 / 180px 180px, var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-slip); box-shadow: var(--shadow-slip); }
   .slip-tear { position: relative; height: 0; border-top: 2px dashed var(--color-line-2); margin-inline: 14px; }
   .slip-tear::before, .slip-tear::after {
     content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 9999px;
@@ -132,10 +160,11 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
   100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(.3); }
 }
 @keyframes land { 0% { transform: none; } 40% { transform: translateY(1px) scale(1.06); } 100% { transform: none; } }
-.land { animation: land 360ms cubic-bezier(.2,.7,.3,1) both; display: inline-block; }
+.land { animation: land 360ms cubic-bezier(.2,.7,.3,1) 520ms both; display: inline-block; } /* waits for the sats stream */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .burst { display: none; }
-  .backdrop::after { will-change: auto; }
+  .bg-layer, .coin-float, .bg-spot, .bg-spot-grid { will-change: auto; }
+  .bg-spot, .stream-canvas { display: none; }
   button:active, .control:active, .btn-primary:hover, .btn-primary:active { transform: none !important; }
 }

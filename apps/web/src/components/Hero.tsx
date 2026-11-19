@@ -63,7 +63,7 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
           <div className="sm:max-w-lg">
             {house ? (
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <button type="button" onClick={onHouse} disabled={houseBusy}
+                <button type="button" data-stream-src onClick={onHouse} disabled={houseBusy}
                   className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-80 sm:w-auto">
                   {houseBusy && <Spinner />}{houseBusy ? 'The house agent is paying…' : 'Make the house agent pay now'}
                 </button>
@@ -73,7 +73,7 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
                 </button>
               </div>
             ) : (
-            <button type="button" onClick={j.error && j.openTxid ? onResume : onStart} disabled={running || queued}
+            <button type="button" data-stream-src onClick={j.error && j.openTxid ? onResume : onStart} disabled={running || queued}
               className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-80 sm:w-auto">
               {(running || queued) && <Spinner />}{label}
             </button>
