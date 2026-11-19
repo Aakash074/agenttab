@@ -156,3 +156,11 @@ The simplest human path: one plain payment from your own wallet for one oracle a
   - 4,793 sats: `d2d6e1f93b7a69c502e18a959db202942715a5ad1e40f2f6a4e8263b5286032d`
   - 4,791 sats: `72ad98aa07e0e235c68587c91b1c81618cd0af59c3963f6b05f13060f640b909`
 - Provider cancel of a registered tab (2026-11-17): tab `462850dc46eeef4663cdc9b4c47b68d133d7fed178a88f56ccbb0d6742fcd758` (timeout 332642, no calls) was cancelled by the provider (`cancel()`, nLockTime 0, mined at height 332639) in `adeaa976864e7d7ee695a8535c411afe2e61e8cbd25f0a1ddafa3f3d85e8899d`: one output, 4,559 sats to the owner address `bchtest:qzxawz6q…qc5m`, before the owner refund ran; the owner refund then correctly found the coin already spent.
+
+## Real Paytaca wallet over WizardConnect (2026-11-19)
+
+The first payment signed by a real third-party wallet (Paytaca on Chipnet, connected over WizardConnect) on the hosted site, after fix `cb20e47` (sign requests now carry the unsigned transaction as hex).
+
+| Step | Txid | Link |
+|---|---|---|
+| 1¢ direct pay (4,802 sats, one plain payment bound to the invoice by `OP_RETURN`) | `910eb34bcd42d7589db665accb3141d591274f2727c8c5e104b6b0fc7edcba16` | [view](https://chipnet.imaginary.cash/tx/910eb34bcd42d7589db665accb3141d591274f2727c8c5e104b6b0fc7edcba16) |
