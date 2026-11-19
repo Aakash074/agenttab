@@ -1,6 +1,6 @@
 # DoraHacks BUIDL text (draft — paste after the author edits)
 
-Two variants are marked below: **[TESTNET-ONLY]** if no mainnet payment exists by submission, **[MAINNET]** if H11 is done. Delete the variant you don't use. Everything marked [Author to write] must be written by the author, in their own words.
+Mainnet variant (H11 done 2026-11-19). Everything marked [Author to write] must be written by the author, in their own words.
 
 ---
 
@@ -34,9 +34,8 @@ One button opens a fresh tab and fires 7 real attacks at it: voucher replay, ove
 An MCP server gives Claude or any MCP client four tools: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps.
 
 ## On-chain proof
-**[TESTNET-ONLY]** Everything runs on chipnet (BCH testnet); txids for open, settle, cancel, refund-after-timeout and all 7 rejected attacks are in `docs/chipnet-proof.md`. Mainnet is deploy-ready: `mainnet-dryrun.ts` builds the unsigned WizardConnect open transaction against live mainnet UTXOs, and the server enforces a budget cap and mainnet guards. [Author to write: one honest line on why mainnet isn't live yet]
 
-**[MAINNET]** Mainnet: open [txid], 3 paid calls, settle [txid] (two outputs: provider's share and the owner's exact remainder). 1¢ direct pay: [txid]. Chipnet history in `docs/chipnet-proof.md`.
+**Live on BCH mainnet:** a real Paytaca wallet paid 1¢ for an oracle answer over WizardConnect, one plain payment accepted at 0-conf: `33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3` (https://explorer.bch.ninja/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3). Hosted mainnet API: https://agenttab-api-mainnet.onrender.com. The covenant tab (open, vouchers, settle, cancel, refund-after-timeout) and all 7 rejected attacks are proven on chipnet, with txids in `docs/chipnet-proof.md`; the same tab flow is enabled on mainnet (max tab 100k sats).
 
 ## How it compares
 | Approach | On-chain txs for N calls | Who can take unspent money |
@@ -59,7 +58,6 @@ Credit: PSF `x402-bch` / `x402-bch-express` and OPTN Labs `x402-bch` (same HTTP 
 
 ## Roadmap
 - Propose `bch-credit` to the x402-bch maintainers.
-- [TESTNET-ONLY] Mainnet launch with Paytaca over WizardConnect.
 - [Author to confirm] Top-ups, multi-provider tabs, PUSD-denominated tabs.
 
 ## Why I built this
