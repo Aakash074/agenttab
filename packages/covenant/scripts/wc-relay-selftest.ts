@@ -9,10 +9,10 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { MockNetworkProvider, placeholderP2PKHUnlocker, placeholderSignature, randomUtxo } from 'cashscript';
-import { createVirtualMachineBch, decodeTransaction, generatePrivateKey, hexToBin, stringify } from '@bitauth/libauth';
+import { createVirtualMachineBch, decodeTransaction, generatePrivateKey, hexToBin } from '@bitauth/libauth';
 import { initiateDappRelay } from '@wizardconnect/core';
 import { DappConnectionManager } from '@wizardconnect/dapp';
-import { buildOpen, buildRefund, p2pkhAddress, pubFromPriv, tabContract } from '../src/index.ts';
+import { buildOpen, buildRefund, p2pkhAddress, pubFromPriv, tabContract, wizardConnectSignRequest } from '../src/index.ts';
 import { decodeWcTransaction, hdWallet } from './lib/wc-signer.ts';
 
 const quietRelay = console.log.bind(console);
@@ -48,11 +48,11 @@ const k = () => pubFromPriv(generatePrivateKey());
 const timeout = 332_700n;
 const contract = tabContract({ ownerPub: ownerPub!, agentPub: k(), providerPub: k(), timeout }, provider);
 const vm = createVirtualMachineBch(true);
-async function roundTrip(label: string, wc: unknown, inputPaths: [number, string, number][]) {
-  const res = await manager.signTransaction({ transaction: JSON.parse(stringify(wc)), inputPaths });
+async function roundTrip(label: string, wc: ReturnType<typeof wizardConnectSignRequest>, inputPaths: [number, string, number][]) {
+  const res = await manager.signTransaction({ transaction: wc as any, inputPaths });
   const tx = decodeTransaction(hexToBin(res.signedTransaction));
   if (typeof tx === 'string') return fail(`${label}: bad tx hex: ${tx}`);
-  const { sourceOutputs } = decodeWcTransaction(JSON.parse(stringify(wc)));
+  const { sourceOutputs } = decodeWcTransaction(wc);
   const ok = vm.verify({ transaction: tx, sourceOutputs });
   console.log(`${label}: wallet returned ${res.signedTransaction.length / 2} bytes, VM verify ${ok === true ? 'OK' : `FAILED ${ok}`}`);
   if (ok !== true) fail(label);
@@ -62,13 +62,13 @@ async function roundTrip(label: string, wc: unknown, inputPaths: [number, string
 provider.addUtxo(seen, randomUtxo({ satoshis: 30_000n }));
 const funding = await provider.getUtxos(seen);
 const open = buildOpen({ provider, contract, fundingUtxos: funding, budget: 10_000n, changeAddress: seen, unlockerFor: () => placeholderP2PKHUnlocker(seen) });
-await roundTrip('openTab', open.generateWcTransactionObject({ broadcast: false, userPrompt: 'Open an AgentTab with 10000 sats' }), funding.map((_, i) => [i, 'receive', 0]));
+await roundTrip('openTab', wizardConnectSignRequest(open, { broadcast: false, userPrompt: 'Open an AgentTab with 10000 sats' }), funding.map((_, i) => [i, 'receive', 0]));
 
 // refund: contract input with placeholderSignature(), signed with receive/0 (wizardWallet().refund)
 provider.addUtxo(contract.address, randomUtxo({ satoshis: 10_000n }));
 const [tab] = await contract.getUtxos();
 const refund = buildRefund({ provider, contract, tabUtxo: tab, ownerSig: placeholderSignature(), timeout, to: seen });
-await roundTrip('refund', refund.generateWcTransactionObject({ broadcast: false, userPrompt: 'Refund your AgentTab' }), [[0, 'receive', 0]]);
+await roundTrip('refund', wizardConnectSignRequest(refund, { broadcast: false, userPrompt: 'Refund your AgentTab' }), [[0, 'receive', 0]]);
 
 console.log('PASS: pairing, xpub address derivation, openTab + refund signing over the WizardConnect relay');
 done(0);

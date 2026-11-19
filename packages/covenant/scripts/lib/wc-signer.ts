@@ -89,25 +89,12 @@ export interface SourceOutputLike extends Input, Output { contract?: { redeemScr
 
 export function decodeWcTransaction(wc: any): { transaction: Transaction; sourceOutputs: SourceOutputLike[]; userPrompt?: string; broadcast?: boolean } {
   if (!wc || typeof wc !== 'object') throw new Error('transaction field missing');
-  let transaction: Transaction;
-  if (typeof wc.transaction === 'string') {
-    const t = decodeTransaction(bytes(wc.transaction));
-    if (typeof t === 'string') throw new Error(`bad transaction hex: ${t}`);
-    transaction = t;
-  } else {
-    const t = wc.transaction;
-    transaction = {
-      version: Number(t.version),
-      locktime: Number(t.locktime),
-      inputs: t.inputs.map((i: any) => ({
-        outpointTransactionHash: bytes(i.outpointTransactionHash), outpointIndex: Number(i.outpointIndex),
-        sequenceNumber: Number(i.sequenceNumber), unlockingBytecode: bytes(i.unlockingBytecode ?? ''),
-      })),
-      outputs: t.outputs.map((o: any) => ({
-        lockingBytecode: bytes(o.lockingBytecode), valueSatoshis: big(o.valueSatoshis), ...(o.token ? { token: token(o.token) } : {}),
-      })),
-    };
-  }
+  // Strict like Paytaca (src/wallet/wizardconnect/service.js signRequest): `transaction` must be the
+  // encoded unsigned tx as hex; it runs decodeTransaction(hexToBin(request.transaction.transaction)).
+  // A libauth Transaction object there fails in Paytaca with "Error reading Uint32LE: requires 4 bytes".
+  if (typeof wc.transaction !== 'string') throw new Error(`Failed to decode transaction: expected hex string, got ${typeof wc.transaction}`);
+  const transaction = decodeTransaction(hexToBin(wc.transaction));
+  if (typeof transaction === 'string') throw new Error(`Failed to decode transaction: ${transaction}`);
   const sourceOutputs: SourceOutputLike[] = (wc.sourceOutputs ?? []).map((s: any, i: number) => ({
     outpointTransactionHash: bytes(s.outpointTransactionHash ?? transaction.inputs[i].outpointTransactionHash),
     outpointIndex: Number(s.outpointIndex ?? transaction.inputs[i].outpointIndex),

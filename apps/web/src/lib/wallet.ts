@@ -7,11 +7,11 @@ import {
   type SpendableUtxo, type TransactionBuilder,
 } from 'cashscript';
 import {
-  binToHex, cashAddressToLockingBytecode, decodePrivateKeyWif, encodePrivateKeyWif, generatePrivateKey, hexToBin, stringify,
+  binToHex, cashAddressToLockingBytecode, decodePrivateKeyWif, encodePrivateKeyWif, generatePrivateKey, hexToBin,
 } from '@bitauth/libauth';
 import type { DappConnectionManager } from '@wizardconnect/dapp';
 import {
-  buildDirectPay, buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, tabContract,
+  buildDirectPay, buildOpen, buildRefund, chainLockTip, p2pkhAddress, pubFromPriv, tabContract, wizardConnectSignRequest,
 } from '@agenttab/covenant';
 import type { Net } from '../config';
 
@@ -117,10 +117,9 @@ export function wizardWallet(manager: DappConnectionManager, net: Net, name: str
     return { utxos: lists.flat().filter((u) => !u.token), pathByLb };
   };
   const sign = async (builder: TransactionBuilder, inputPaths: [number, string, number][], prompt: string) => {
-    const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: prompt });
-    // The relay JSON-encodes messages; libauth's stringify turns bigint/Uint8Array into the
-    // "<bigint: Nn>" / "<Uint8Array: 0x..>" forms wallets parse (plain JSON.stringify throws on bigint).
-    const res = await manager.signTransaction({ transaction: JSON.parse(stringify(wc)), inputPaths });
+    // Wallets (Paytaca) decode `transaction` as the unsigned tx HEX; see wizardConnectSignRequest.
+    const transaction = wizardConnectSignRequest(builder, { broadcast: false, userPrompt: prompt });
+    const res = await manager.signTransaction({ transaction: transaction as unknown as Parameters<typeof manager.signTransaction>[0]["transaction"], inputPaths });
     if (res.error || !res.signedTransaction) throw new WalletDeclined(res.error ?? 'Wallet declined to sign.');
     return res.signedTransaction;
   };

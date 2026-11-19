@@ -11,6 +11,7 @@ import {
 import {
   bigIntToBinUint64LE,
   binToHex,
+  encodeTransaction,
   encodeCashAddress,
   hash160,
   hexToBin,
@@ -136,6 +137,18 @@ export function verifyVoucher(agentPub: Uint8Array, v: Voucher): boolean {
 
 /** Largest voucher the covenant can ever settle for a given budget. */
 export const maxSpendable = (budget: bigint) => budget - DUST;
+
+/** The WizardConnect (hdwalletv1) sign_transaction_request `transaction` field for a builder that
+ *  uses placeholder unlockers, in the wire format wallets decode (Paytaca: decodeTransaction(hexToBin(
+ *  request.transaction.transaction))): `transaction` is the encoded unsigned tx as HEX (not
+ *  cashscript's libauth object), bytes in sourceOutputs are plain hex and bigints are "<bigint: Nn>",
+ *  matching @wizardconnect/core's sourceOutputToRelay. The result is plain JSON (relay-safe). */
+export function wizardConnectSignRequest(builder: TransactionBuilder, opts: { broadcast?: boolean; userPrompt?: string } = {}) {
+  const wc = builder.generateWcTransactionObject({ broadcast: false, ...opts });
+  const json = JSON.stringify({ ...wc, transaction: binToHex(encodeTransaction(wc.transaction)) }, (_k, v) =>
+    typeof v === 'bigint' ? `<bigint: ${v}n>` : v instanceof Uint8Array ? binToHex(v) : v);
+  return JSON.parse(json) as { transaction: string; sourceOutputs: Record<string, unknown>[]; broadcast?: boolean; userPrompt?: string };
+}
 
 /** Builds a tx twice: once with a placeholder fee to measure size, then with the real fee.
  *  Works with wallet placeholder unlockers too (size counted as if signed). */

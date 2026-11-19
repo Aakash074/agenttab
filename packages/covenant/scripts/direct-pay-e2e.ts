@@ -6,10 +6,10 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { placeholderP2PKHUnlocker } from 'cashscript';
-import { binToHex, cashAddressToLockingBytecode, stringify } from '@bitauth/libauth';
+import { binToHex, cashAddressToLockingBytecode } from '@bitauth/libauth';
 import { initiateDappRelay } from '@wizardconnect/core';
 import { DappConnectionManager } from '@wizardconnect/dapp';
-import { buildDirectPay, electrumProvider, p2pkhAddress } from '../src/index.ts';
+import { buildDirectPay, electrumProvider, p2pkhAddress, wizardConnectSignRequest } from '../src/index.ts';
 
 const API = (process.env.AGENTTAB_API ?? 'http://127.0.0.1:8402').replace(/\/$/, '');
 const q = process.argv[2] ?? 'price';
@@ -43,9 +43,9 @@ const { builder, inputs } = buildDirectPay({
   provider: chain, payTo: inv.payTo, amount: BigInt(inv.amountSats), invoiceId: inv.invoiceId, fundingUtxos: utxos,
   changeAddress: addrs[0].address, unlockerFor: (u) => placeholderP2PKHUnlocker(byLb.get(u.lockingBytecode)!.address),
 });
-const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: `Pay ${inv.amountSats} sats for one AgentTab oracle answer` });
+const wc = wizardConnectSignRequest(builder, { broadcast: false, userPrompt: `Pay ${inv.amountSats} sats for one AgentTab oracle answer` });
 const inputPaths = inputs.map((u, i) => [i, ...byLb.get(u.lockingBytecode)!.path] as [number, string, number]);
-const res = await manager.signTransaction({ transaction: JSON.parse(stringify(wc)), inputPaths });
+const res = await manager.signTransaction({ transaction: wc as any, inputPaths });
 if (res.error || !res.signedTransaction) { console.error(`FAIL: wallet did not sign: ${res.error}`); done(1); }
 console.log(`wallet signed ${res.signedTransaction.length / 2} bytes`);
 const r = await fetch(`${API}/direct/${inv.invoiceId}/pay`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rawTx: res.signedTransaction }) });

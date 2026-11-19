@@ -8,13 +8,19 @@ import {
   MockNetworkProvider, placeholderP2PKHUnlocker, placeholderSignature, randomUtxo,
 } from 'cashscript';
 import {
-  decodeHdPublicKey, deriveHdPublicNodeChild, generateBip39Mnemonic, generatePrivateKey, stringify,
+  decodeHdPublicKey, decodeTransaction, deriveHdPublicNodeChild, generateBip39Mnemonic, generatePrivateKey, hexToBin, stringify,
 } from '@bitauth/libauth';
-import { buildOpen, buildRefund, p2pkhAddress, pubFromPriv, tabContract } from '../src/index.ts';
+import { buildDirectPay, buildOpen, buildRefund, p2pkhAddress, pubFromPriv, tabContract, wizardConnectSignRequest } from '../src/index.ts';
 import { hdWallet, signWcRequest } from '../scripts/lib/wc-signer.ts';
 
-/** What the relay does to the dapp's request: dapp-side stringify, JSON over the wire, JSON.parse. */
-const overRelay = (wc: unknown) => JSON.parse(JSON.stringify(JSON.parse(stringify(wc))));
+/** What the relay does to the dapp's request: JSON over the wire, JSON.parse. */
+const overRelay = (req: unknown) => JSON.parse(JSON.stringify(req));
+/** Paytaca's first step on a sign_transaction_request (paytaca-app src/wallet/wizardconnect/service.js). */
+const paytacaDecode = (req: any) => {
+  const t = decodeTransaction(hexToBin(req.transaction));
+  if (typeof t === 'string') throw new Error('Failed to decode transaction: ' + t);
+  return t;
+};
 
 function setup() {
   const provider = new MockNetworkProvider();
@@ -66,7 +72,7 @@ test('wallet signs a dapp-built openTab (P2PKH inputs on receive + change paths)
     provider, contract, fundingUtxos: utxos, budget: 12_000n, changeAddress: a0,
     unlockerFor: (u) => placeholderP2PKHUnlocker(byLb.get(u.lockingBytecode)!.address),
   });
-  const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: 'Open an AgentTab' });
+  const wc = wizardConnectSignRequest(builder, { broadcast: false, userPrompt: 'Open an AgentTab' });
   const inputPaths = utxos.map((u, i) => [i, ...byLb.get(u.lockingBytecode)!.path] as [number, string, number]);
   const r = signWcRequest(overRelay(wc), inputPaths, wallet.key);
   assert.equal(r.vmVerify, true, String(r.vmVerify));
@@ -79,7 +85,13 @@ test('wallet signs a dapp-built refund: contract input with placeholder sig on r
   return contract.getUtxos().then(([tab]) => {
     const to = p2pkhAddress(owner.pub);
     const builder = buildRefund({ provider, contract, tabUtxo: tab, ownerSig: placeholderSignature(), timeout, to });
-    const wc = builder.generateWcTransactionObject({ broadcast: false, userPrompt: 'Refund your AgentTab' });
+    const wc = wizardConnectSignRequest(builder, { broadcast: false, userPrompt: 'Refund your AgentTab' });
+    // Paytaca's contract-input path needs contract.artifact.contractName, contract.redeemScript and the
+    // 65-zero-byte placeholder push ("41" + 00*65) in sourceOutputs[i].unlockingBytecode.
+    const so = overRelay(wc).sourceOutputs[0];
+    assert.ok(so.contract?.artifact?.contractName && so.contract.abiFunction?.name === 'refund');
+    assert.match(so.contract.redeemScript, /^[0-9a-f]+$/);
+    assert.ok(so.unlockingBytecode.includes('41' + '00'.repeat(65)));
     const r = signWcRequest(overRelay(wc), [[0, 'receive', 0]], wallet.key);
     assert.equal(r.vmVerify, true, String(r.vmVerify));
     assert.ok(r.notes.some((n) => /replaced 1 placeholder sig/.test(n)), r.notes.join('\n'));
@@ -88,4 +100,42 @@ test('wallet signs a dapp-built refund: contract input with placeholder sig on r
     const bad = signWcRequest(overRelay(wc), [[0, 'receive', 1]], wallet.key);
     assert.notEqual(bad.vmVerify, true);
   });
+});
+
+test('regression: old request (stringified cashscript object) is what Paytaca rejected with "Uint32LE"', async () => {
+  const { provider, wallet } = setup();
+  const a0 = p2pkhAddress(wallet.key('receive', 0).pub);
+  provider.addUtxo(a0, randomUtxo({ satoshis: 20_000n }));
+  const { builder } = buildDirectPay({
+    provider, payTo: p2pkhAddress(pubFromPriv(generatePrivateKey())), amount: 1_000n, invoiceId: 'abcdef0123456789',
+    fundingUtxos: await provider.getUtxos(a0), changeAddress: a0, unlockerFor: () => placeholderP2PKHUnlocker(a0),
+  });
+  const old = overRelay(JSON.parse(stringify(builder.generateWcTransactionObject({ broadcast: false }))));
+  assert.throws(() => paytacaDecode(old), /Error reading Uint32LE: requires 4 bytes\. Remaining bytes: 0/);
+  assert.throws(() => signWcRequest(old, [[0, 'receive', 0]], wallet.key), /expected hex string/);
+});
+
+test('direct pay request is in Paytaca wire format (hex tx, hex bytes, <bigint>) and signs; VM accepts', async () => {
+  const { provider, wallet } = setup();
+  const a0 = p2pkhAddress(wallet.key('receive', 0).pub);
+  provider.addUtxo(a0, randomUtxo({ satoshis: 20_000n }));
+  const { builder, inputs } = buildDirectPay({
+    provider, payTo: p2pkhAddress(pubFromPriv(generatePrivateKey())), amount: 1_000n, invoiceId: 'abcdef0123456789',
+    fundingUtxos: await provider.getUtxos(a0), changeAddress: a0, unlockerFor: () => placeholderP2PKHUnlocker(a0),
+  });
+  const req = overRelay(wizardConnectSignRequest(builder, { broadcast: false, userPrompt: 'Pay' }));
+  assert.equal(typeof req.transaction, 'string');
+  assert.equal(req.transaction, builder.build(), 'transaction = encoded unsigned tx hex');
+  const tx = paytacaDecode(req);
+  assert.equal(tx.inputs.length, inputs.length);
+  assert.equal(tx.inputs.length, req.sourceOutputs.length);
+  for (const so of req.sourceOutputs) {
+    assert.match(so.lockingBytecode, /^[0-9a-f]+$/);
+    assert.match(so.outpointTransactionHash, /^[0-9a-f]{64}$/);
+    assert.match(so.valueSatoshis, /^<bigint: \d+n>$/);
+    assert.equal(so.unlockingBytecode, '', 'P2PKH placeholder: empty, so the wallet signs it');
+  }
+  assert.equal(req.broadcast, false);
+  const r = signWcRequest(req, [[0, 'receive', 0]], wallet.key);
+  assert.equal(r.vmVerify, true, String(r.vmVerify));
 });
