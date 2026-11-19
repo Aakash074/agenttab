@@ -60,3 +60,27 @@ services:
         value: https://github.com/Aakash074/agenttab-prototype
       - key: VITE_DONATION_ZADDR
         value: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul
+  - type: web
+    name: agenttab-bch
+    runtime: static
+    buildCommand: npm ci && npm run build -w @agenttab/web
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: VITE_SERVER_URL_CHIPNET
+        value: https://agenttab-api-chipnet.onrender.com
+      - key: VITE_SERVER_URL_MAINNET
+        value: https://agenttab-api-mainnet.onrender.com
+      - key: VITE_DECK_URL
+        value: https://docs.google.com/presentation/d/1HWXYkITgDgsd3Xc6NcHcST592q_E5ljSumN9d2bI-l4/edit?usp=sharing
+      - key: VITE_REPO_URL
+        value: https://github.com/Aakash074/agenttab
+      - key: VITE_PROTOTYPE_URL
+        value: https://github.com/Aakash074/agenttab-prototype
+      - key: VITE_DONATION_ZADDR
+        value: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul
