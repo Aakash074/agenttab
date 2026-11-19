@@ -50,6 +50,8 @@ services:
         value: "24"
       - key: VITE_SERVER_URL_CHIPNET
         value: https://agenttab-api-chipnet.onrender.com
+      - key: VITE_SERVER_URL_MAINNET
+        value: https://agenttab-api-mainnet.onrender.com
       - key: VITE_REPO_URL
         value: https://github.com/Aakash074/agenttab
       - key: VITE_PROTOTYPE_URL
