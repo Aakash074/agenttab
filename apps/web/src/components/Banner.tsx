@@ -40,7 +40,7 @@ function Vote() {
 /** Top-of-page banner required by the BCH BLAZE rules: entry, source, disclosure, vote address. */
 export function Banner() {
   return (
-    <div className="border-b border-line bg-panel-2 text-[12.5px] text-muted">
+    <div className="site-banner text-[12.5px] text-muted">
       <div className="mx-auto flex max-w-6xl items-center gap-x-4 px-4">
         <span className="shrink-0 font-medium text-fg"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-bch align-middle" />BCH BLAZE 2026<span className="hidden sm:inline"> entry</span></span>
         {BANNER.deckUrl && <Item href={BANNER.deckUrl}>Deck</Item>}

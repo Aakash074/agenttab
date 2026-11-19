@@ -5,10 +5,24 @@ import { reducedMotion } from '../lib/motion';
 export const LANDED = 'agenttab:landed';
 export const emitLanded = () => window.dispatchEvent(new CustomEvent(LANDED));
 
-// Drifting sats coins: [left %, top %, size px, drift seconds, delay seconds]. The last three are desktop only.
-const COINS: [number, number, number, number, number][] = [
-  [4, 12, 18, 26, -4], [93, 18, 22, 31, -12], [52, 6, 12, 23, -7], [96, 62, 14, 28, -18], [47, 78, 16, 34, -9], [30, 90, 11, 25, -15],
+// Drifting BCH coins: [side, inset from that side in px, top px, size px, drift seconds, delay seconds, desktop only].
+// They live only in the page margins (never under text, the receipt or the header) and are hidden when the margin is
+// too narrow to hold them (see .coin-float in index.css).
+const COINS: ['l' | 'r', number, number, number, number, number, boolean][] = [
+  ['l', 34, 214, 30, 26, -4, true], ['l', 70, 560, 22, 31, -12, true], ['r', 40, 168, 28, 23, -7, false],
+  ['r', 76, 470, 20, 28, -18, true], ['r', 30, 700, 24, 34, -9, true],
 ];
+
+/** A coin face: teal disc, milled rim and a tilted ₿ (the Bitcoin Cash mark), drawn as SVG so it never depends on fonts. */
+const CoinFace = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <circle cx="16" cy="16" r="15" className="coin-disc" />
+    <circle cx="16" cy="16" r="12.2" className="coin-rim" />
+    <g transform="rotate(-14 16 16)" className="coin-glyph">
+      <path d="M12.2 10.2h4.6a2.7 2.7 0 0 1 0 5.4h-4.6m0 0h5.2a2.8 2.8 0 0 1 0 5.6h-5.2zm0-11v11M14.4 8.1v2.1m2.6-2.1v2.1m-2.6 11v2.1m2.6-2.1v2.1" />
+    </g>
+  </svg>
+);
 
 /**
  * The hero background: aurora mesh (one low-res canvas), a line-and-dot grid with a radial fade, a cursor spotlight and a few drifting
@@ -80,16 +94,16 @@ export function Backdrop() {
       <div className="bg-layer bg-grid" />
       <div className="bg-spot"><div className="bg-spot-grid" /></div>
       <div className="bg-layer bg-coins">
-        {COINS.map(([l, t, s, d, delay], i) => (
-          <span key={i} className={`coin-float${i > 2 ? ' coin-desk' : ''}`} data-drift={d} data-delay={delay}
-            style={{ left: `${l}%`, top: `${t}%`, width: s, height: s }} />
+        {COINS.map(([side, inset, top, size, d, delay, desk], i) => (
+          <span key={i} className={`coin-float${desk ? ' coin-desk' : ''}`} data-drift={d} data-delay={delay}
+            style={{ [side === 'l' ? 'left' : 'right']: inset, top, width: size, height: size }}><CoinFace /></span>
         ))}
       </div>
     </div>
   );
 }
 
-// Aurora blobs: colour token, centre (x, y as a fraction of the canvas), radius as a fraction of the width
+// Aurora blobs (five; phones skip blob 4): colour token, centre (x, y as a fraction of the canvas), radius as a fraction of the width
 // (desktop, phone), aspect, drift amplitude (fraction of radius) and periods in seconds. Phones skip blob 4.
 type Blob = { c: string; x: number; y: number; r: number; mx: number; my: number; mr: number; asp: number; amp: number; tx: number; ty: number; ts: number; phone?: boolean };
 const BLOBS: Blob[] = [
@@ -97,6 +111,8 @@ const BLOBS: Blob[] = [
   { c: '--bg-aurora-2', x: 0.86, y: 0.56, r: 0.2, mx: 0.3, my: 0.78, mr: 0.6, asp: 1, amp: 0.4, tx: 73, ty: 59, ts: 67 },
   { c: '--bg-aurora-3', x: 0.12, y: 0.08, r: 0.24, mx: 0.05, my: 0.12, mr: 0.6, asp: 0.77, amp: 0.3, tx: 89, ty: 71, ts: 79 },
   { c: '--bg-aurora-4', x: 0.24, y: 0.62, r: 0.21, mx: 0, my: 0, mr: 0, asp: 0.7, amp: 0.35, tx: 52, ty: 43, ts: 61, phone: false },
+  // left counterweight to the receipt glow, mostly in the left margin so the copy keeps its contrast
+  { c: '--bg-aurora-5', x: 0.02, y: 0.42, r: 0.17, mx: -0.1, my: 0.45, mr: 0.4, asp: 1.5, amp: 0.25, tx: 67, ty: 53, ts: 71 },
 ];
 // Any CSS colour (the build minifies tokens to #rrggbbaa) -> [r, g, b, a], normalised by the canvas itself.
 const rgba = (ctx: CanvasRenderingContext2D, v: string) => {
@@ -109,8 +125,8 @@ const rgba = (ctx: CanvasRenderingContext2D, v: string) => {
 
 /**
  * The aurora mesh: four soft radial blobs drawn at 1/8 resolution and upscaled by CSS (the blobs are pure blur, so
- * nothing is lost), redrawn at 30 Hz, and the drifting coins moved on the same tick (transform only). One small
- * canvas composites far cheaper than four large animated layers, and one tick means one background frame per 33 ms.
+ * nothing is lost), redrawn at 20 Hz, and the drifting coins moved on the same tick (transform only). One small
+ * canvas composites far cheaper than four large animated layers, and one tick means one background frame per 50 ms.
  * Stops when the tab is hidden or the hero is off screen; drawn once, static, under prefers-reduced-motion.
  */
 function Aurora() {
@@ -160,14 +176,14 @@ function Aurora() {
       // the coins drift on the same tick, so the whole background renders one frame per tick
       coins.forEach((c) => {
         const u = (1 - Math.cos((Math.PI * (s + c.delay)) / c.d)) / 2; // eased ping-pong over d seconds
-        c.el.style.transform = `translate3d(${(16 * Math.sin(Math.PI * u) - 12 * u * u).toFixed(1)}px, ${(-56 * u).toFixed(1)}px, 0) rotate(${(300 * u).toFixed(0)}deg)`;
+        c.el.style.transform = `translate3d(${(6 * Math.sin(Math.PI * 2 * u)).toFixed(1)}px, ${(-22 * u).toFixed(1)}px, 0) rotate(${(-10 + 20 * u).toFixed(1)}deg)`;
       });
     };
     const still = reducedMotion();
     if (still) coins.length = 0;
     const tick = (t: number) => {
       raf = 0;
-      if (t - last >= 33) { last = t; draw(t); }
+      if (t - last >= 50) { last = t; draw(t); }
       if (!still && onScreen && !document.hidden) raf = requestAnimationFrame(tick);
     };
     const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
@@ -186,6 +202,14 @@ function Aurora() {
     return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); theme.disconnect(); os.removeEventListener('change', osChange); document.removeEventListener('visibilitychange', vis); };
   }, []);
   return <canvas ref={ref} className="aurora-canvas" />;
+}
+
+/**
+ * Below the hero: the grid continues faintly down the page, with soft static glows that alternate left and right
+ * behind the tabs, cards and footer. Static (no animation), so it costs one paint.
+ */
+export function PageGlow() {
+  return <div aria-hidden className="page-glow"><div className="page-grid" /></div>;
 }
 
 type P = { t0: number; dur: number; r: number; c: string; wob: number };

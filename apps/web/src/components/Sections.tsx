@@ -33,7 +33,7 @@ export function Sections({ active, onChange, panels }: {
   };
   return (
     <div id="sections" className="scroll-mt-20">
-      <div role="tablist" aria-label="More about AgentTab" className="relative flex w-full rounded-xl border border-line bg-panel-2 p-1 sm:w-fit">
+      <div role="tablist" aria-label="More about AgentTab" className="glass relative flex w-full rounded-xl border border-line p-1 shadow-[var(--shadow-card)] sm:w-fit">
         {ind && <span aria-hidden className="tab-indicator absolute bottom-1 top-1 left-0 rounded-lg bg-panel shadow-[0_1px_2px_rgb(17_26_23/0.12)] ring-1 ring-line"
           style={{ transform: `translateX(${ind.x}px)`, width: ind.w }} />}
         {SECTIONS.map((s, i) => (

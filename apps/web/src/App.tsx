@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Backdrop, PaymentStream } from './components/Backdrop';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
+import { Footer } from './components/Footer';
+import { PageGlow } from './components/Backdrop';
 import { Hero, ProofStrip, type DemoRun } from './components/Hero';
 import { IDLE_JOURNEY, type JourneyState } from './components/Journey';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -104,7 +106,7 @@ const hashSection = (): SectionId | undefined => HASH_SECTION[window.location.ha
 /** Mainnet stand-in for the attack panel: the attacks spend coins, so they run on chipnet against the same covenant. */
 function CheatOnChipnet({ onSwitch }: { onSwitch: () => void }) {
   return (
-    <div id="cheat" className="card rounded-2xl border border-line bg-panel p-5 sm:p-6">
+    <div id="cheat" className="card card-lift rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <h3 className="text-lg font-semibold">Seven real cheating transactions, all rejected by the node</h3>
       <p className="mt-1.5 max-w-2xl text-sm text-muted">They spend coins, so they run on Chipnet, against the same compiled covenant as Mainnet.</p>
       <button onClick={onSwitch} className="mt-4 min-h-[44px] w-full rounded-xl border border-fg px-5 font-semibold text-fg transition hover:bg-fg hover:text-panel sm:w-auto">
@@ -445,23 +447,32 @@ export default function App() {
     </span>
   ) : undefined;
 
+  // The glass header gains a soft shadow once the page scrolls under it.
+  useEffect(() => {
+    const h = document.querySelector('.site-header');
+    const f = () => h?.classList.toggle('is-scrolled', window.scrollY > 4);
+    f(); window.addEventListener('scroll', f, { passive: true });
+    return () => window.removeEventListener('scroll', f);
+  }, []);
+
   return (
     <div className="relative isolate min-h-screen overflow-x-clip">
+      <PageGlow />
       <Backdrop />
       <PaymentStream />
+      {/* One sticky glass header: the BLAZE banner and the nav move together, so the banner is never half-clipped. */}
+      <div className="site-header sticky top-0 z-40">
       <Banner />
-      <header className="sticky top-0 z-40 border-b border-line bg-ink/80 backdrop-blur-md">
+      <header>
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
           <Logo />
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
-            <button onClick={theme.next} aria-label={`Theme: ${theme.choice === 'system' ? 'auto' : theme.choice}. Switch theme`} title="Switch theme (light / dark / auto)"
+            <button onClick={theme.next} aria-label={theme.resolved === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} title={theme.resolved === 'dark' ? 'Light theme' : 'Dark theme'}
               className="hidden h-10 w-10 place-items-center rounded-lg text-muted transition-colors hover:bg-subtle hover:text-fg sm:grid">
-              {theme.choice === 'light' ? (
+              {theme.resolved === 'dark' ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
-              ) : theme.choice === 'dark' ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
               )}
             </button>
             <span className="select-wrap relative inline-flex shrink-0">
@@ -493,6 +504,7 @@ export default function App() {
           </div>
         </div>
       </header>
+      </div>
 
       {(infoErr || error) && !waking && (
         <div role="status" className="border-b border-warn/30 bg-warn/10 px-4 py-2 text-center text-sm text-warn">Reconnecting to the {net} server…</div>
@@ -527,7 +539,7 @@ export default function App() {
             advanced={<FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
               openTabs={wallet ? openTabs : undefined} />} />,
           agent: (
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid items-start gap-5 lg:grid-cols-2">
               <McpSection />
               <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
                 onRunOnTab={demoEnabled ? (t) => runDemo3(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
@@ -540,15 +552,7 @@ export default function App() {
         <div role="status" className="slide-in fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line-2 bg-panel px-4 py-2.5 text-sm shadow-xl">{toast}</div>
       )}
 
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-5 text-xs text-dim">
-          <span>Built for BCH BLAZE 2026 · CashScript covenant · WizardConnect</span>
-          <span className="flex items-center gap-3">
-            {BANNER.donationZAddress && <span className="hidden font-mono md:inline" title="Vote with EMBER2026">{short(BANNER.donationZAddress.split(':')[1] ?? '', 6)}</span>}
-            <button onClick={theme.next} className="tap underline decoration-line-2 underline-offset-2 hover:text-fg sm:hidden">Theme: {theme.choice === 'system' ? 'auto' : theme.choice}</button>
-          </span>
-        </div>
-      </footer>
+      <Footer themeLabel={theme.resolved === 'dark' ? 'Light theme' : 'Dark theme'} onTheme={theme.next} />
 
       {showConnect && (
         <ConnectDialog net={net} purpose={pendingDirect.current ? 'direct' : undefined} onClose={() => { setShowConnect(false); cancelDirect(); if (pendingJourney.current && !wallet) { pendingJourney.current = false; setJourney(IDLE_JOURNEY); } }}
