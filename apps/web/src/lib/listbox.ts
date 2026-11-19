@@ -41,7 +41,7 @@ export function listboxReducer(options: ListboxOption[], s: ListboxState, a: Lis
 }
 
 /** What a key does. On the closed trigger: Enter/Space/ArrowDown/ArrowUp open. In the open list: arrows, Home/End
- *  move; Enter/Space pick the active option; Escape and Tab close. Returns null for keys the listbox ignores. */
+ *  move; Enter/Space pick the active option; Escape and Tab close (both hand focus back to the trigger). Returns null for keys the listbox ignores. */
 export type KeyResult = { action?: ListboxAction; pick?: boolean; refocus?: boolean } | null;
 export function keyToAction(key: string, open: boolean, selected: number): KeyResult {
   if (!open) {
@@ -55,7 +55,7 @@ export function keyToAction(key: string, open: boolean, selected: number): KeyRe
     case 'End': return { action: { type: 'last' } };
     case 'Enter': case ' ': return { pick: true, action: { type: 'close' }, refocus: true };
     case 'Escape': return { action: { type: 'close' }, refocus: true };
-    case 'Tab': return { action: { type: 'close' } };
+    case 'Tab': return { action: { type: 'close' }, refocus: true }; // panel is portalled: park focus on the trigger, Tab then moves on
     default: return null;
   }
 }

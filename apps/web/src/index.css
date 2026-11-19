@@ -95,13 +95,17 @@ body::before {
     background: linear-gradient(90deg, transparent, var(--hdr-edge) 18%, var(--hdr-edge-hi) 50%, var(--hdr-edge) 82%, transparent); }
   .site-header.is-scrolled { background: linear-gradient(180deg, var(--hdr-shine), transparent 70%), var(--hdr-bg-scrolled);
     -webkit-backdrop-filter: blur(14px) saturate(1.8); backdrop-filter: blur(14px) saturate(1.8); box-shadow: inset 0 1px 0 var(--hdr-inner), var(--shadow-header); }
-  .site-banner { border-bottom: 1px solid var(--hdr-divider); }
+  .site-banner { border-bottom: 1px solid var(--hdr-divider);
+    /* local scrim behind the BLAZE links (faded at the ends), so they hold AA even where no blur is drawn */
+    background: linear-gradient(90deg, transparent, var(--hdr-scrim) 14%, var(--hdr-scrim) 86%, transparent); }
+  /* A soft halo in the page colour behind header text: AA holds even where a renderer draws no blur. */
+  .site-banner, .site-header > header .tap { text-shadow: 0 0 1px var(--hdr-halo), 0 0 2px var(--hdr-halo), 0 0 4px var(--hdr-halo), 0 0 8px var(--hdr-halo), 0 0 14px var(--hdr-halo); }
   .site-header > .site-banner { z-index: 2; } /* the Vote popover opens over the nav */
   .hdr-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
-  .hdr-sheen { position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%; will-change: transform;
-    background: linear-gradient(100deg, transparent, var(--hdr-sheen) 50%, transparent);
-    transform: translate3d(-140%, 0, 0) skewX(-18deg); animation: hdr-sheen 11s cubic-bezier(.45,0,.25,1) 1.2s infinite; }
-  @keyframes hdr-sheen { 0% { transform: translate3d(-140%, 0, 0) skewX(-18deg); } 22%, 100% { transform: translate3d(420%, 0, 0) skewX(-18deg); } }
+  .hdr-sheen { position: absolute; top: -20%; bottom: -20%; left: 0; width: 40%; will-change: transform; mix-blend-mode: var(--hdr-sheen-blend);
+    background: var(--hdr-sheen-grad);
+    transform: translate3d(-140%, 0, 0) skewX(-18deg); animation: hdr-sheen 8s cubic-bezier(.45,0,.25,1) 0.6s infinite; }
+  @keyframes hdr-sheen { 0% { transform: translate3d(-140%, 0, 0) skewX(-18deg); } 30%, 100% { transform: translate3d(360%, 0, 0) skewX(-18deg); } }
   .hdr-glint { position: absolute; left: 0; bottom: 0; height: 1px; width: 26%; will-change: transform;
     background: linear-gradient(90deg, transparent, var(--hdr-glint), transparent);
     transform: translate3d(-110%, 0, 0); animation: hdr-glint 9s linear infinite; }
@@ -110,10 +114,16 @@ body::before {
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .site-header { background: linear-gradient(180deg, color-mix(in oklab, var(--color-ink) 94%, transparent), color-mix(in oklab, var(--color-ink) 86%, transparent)); }
     .glass, .chip, .footer-glass { background: color-mix(in oklab, var(--color-ink) 92%, transparent); }
+    .net-panel { background: var(--color-panel); }
   }
   /* Phones: once the page scrolls, the banner slides up under the top edge and only the nav stays (no layout shift). */
   @media (max-width: 639px) {
     .site-header.is-scrolled { transform: translateY(-45px); }
+    /* Once the header slides up, part of the blurred box is above the viewport and Chromium blurs the visible nav
+       only weakly; so the glass moves onto the nav itself. */
+    .site-header.is-scrolled { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .site-header.is-scrolled > header { background: linear-gradient(180deg, var(--hdr-shine), transparent 70%), var(--hdr-bg-scrolled-m);
+      -webkit-backdrop-filter: blur(14px) saturate(1.8); backdrop-filter: blur(14px) saturate(1.8); }
   }
   /* Selected tab: a raised pill with a visible ring in both themes. */
   .tab-pill { background: var(--tab-active); box-shadow: 0 1px 2px rgb(17 26 23 / 0.12), inset 0 0 0 1px var(--color-line-2); }
@@ -207,11 +217,13 @@ body::before {
      to a 1.5px ring. Used on the primary buttons and Connect. */
   .btn-primary, .ring-sweep { position: relative; isolation: isolate; overflow: hidden; }
   .btn-primary::before, .ring-sweep::before { content: ""; position: absolute; z-index: -2; left: 50%; top: 50%; width: max(170%, 140px); aspect-ratio: 1;
-    background: conic-gradient(from 0deg, transparent 0 58%, var(--sweep) 76%, transparent 90%);
+    background: conic-gradient(from 0deg, var(--ring-rest) 0 50%, var(--sweep) 74%, var(--ring-rest) 94%);
     transform: translate(-50%, -50%) rotate(0deg); animation: ring-sweep 4.8s linear infinite; will-change: transform; pointer-events: none; }
   .btn-primary::after, .ring-sweep::after { content: ""; position: absolute; z-index: -1; inset: 1.5px; border-radius: inherit; background: inherit; pointer-events: none; }
-  .btn-primary { --sweep: var(--sweep-on-accent); }
-  .ring-sweep { --sweep: var(--color-bch); }
+  .btn-primary { --sweep: var(--sweep-on-accent); --ring-rest: transparent; }
+  /* Connect: a full resting ring (it replaces the border) with the moving arc as a highlight on it. */
+  .ring-sweep { --sweep: var(--color-bch); --ring-rest: color-mix(in oklab, var(--color-bch) 30%, var(--color-line-2)); }
+  .control.ring-sweep { border-width: 0; }
   @keyframes ring-sweep { to { transform: translate(-50%, -50%) rotate(360deg); } }
   .btn-primary:not(:disabled):hover { box-shadow: var(--shadow-btn-hover); transform: translateY(-1px); }
   .btn-primary:not(:disabled):active { box-shadow: none; transform: translateY(0) scale(0.98); }

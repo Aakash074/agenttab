@@ -37,9 +37,9 @@ test('keyboard selection: ArrowDown + Enter picks Chipnet; arrows wrap; Space al
   assert.deepEqual(press(['Enter', 'ArrowDown', 'ArrowDown', ' '], 0).picks, [0]); // wraps back to Mainnet
   assert.deepEqual(press([' ', 'End', 'Enter'], 0).picks, [1]);
   assert.deepEqual(press(['ArrowUp', 'Home', 'Enter'], 1).picks, [0]);
-  // Tab closes without picking; letters are ignored
+  // Tab closes without picking and hands focus back to the trigger (not to <body>); letters are ignored
   const t = press(['Enter', 'x', 'Tab'], 0);
-  assert.equal(t.s.open, false); assert.deepEqual(t.picks, []);
+  assert.equal(t.s.open, false); assert.deepEqual(t.picks, []); assert.equal(t.refocused, 1);
 });
 
 test('disabled options are skipped', () => {

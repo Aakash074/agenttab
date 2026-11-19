@@ -6,10 +6,10 @@ export const LANDED = 'agenttab:landed';
 export const emitLanded = () => window.dispatchEvent(new CustomEvent(LANDED));
 
 // Drifting BCH coins: [side, inset from that side in px, top px, size px, drift seconds, delay seconds, desktop only].
-// They live only in the page margins (never under text or the receipt; two drift under the glass header) and are hidden when the margin is
+// They live only in the page margins (never under text or the receipt); they pass under the glass header on scroll and are hidden when the margin is
 // too narrow to hold them (see .coin-float in index.css).
 const COINS: ['l' | 'r', number, number, number, number, number, boolean][] = [
-  ['l', 96, 22, 24, 29, -6, true], ['r', 112, 56, 20, 33, -14, true], // these two sit under the glass header
+  ['l', 96, 118, 24, 29, -6, true], ['r', 112, 132, 20, 33, -14, true], // just below the header; they pass under the glass on scroll
   ['l', 34, 214, 30, 26, -4, true], ['l', 70, 560, 22, 31, -12, true], ['r', 40, 168, 28, 23, -7, false],
   ['r', 76, 470, 20, 28, -18, true], ['r', 30, 700, 24, 34, -9, true],
 ];

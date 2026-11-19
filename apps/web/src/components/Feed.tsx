@@ -56,7 +56,7 @@ function Row({ e, net, now, mine, budget, fresh }: { e: FeedEvent; net: Net; now
     <li title={e.restored ? 'Recovered from the chain after a server restart' : undefined}
       className={`flex items-center gap-3 px-4 py-2.5 text-[14px] sm:px-5 ${fresh ? 'row-new' : ''} ${mine ? 'shadow-[inset_3px_0_0_var(--color-bch)]' : ''}`}>
       <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${DOT[e.type]}`} />
-      <span className="min-w-0 flex-1 truncate text-muted">{describe(e, mine, budget)}</span>
+      <span className="min-w-0 flex-1 text-muted line-clamp-2 sm:line-clamp-none sm:truncate">{describe(e, mine, budget)}</span>
       <span className="hidden shrink-0 whitespace-nowrap text-xs text-dim sm:inline">
         {e.txid ? <a className="text-bch-2 hover:underline" href={explorerTx(net, e.txid)} target="_blank" rel="noreferrer">tx {short(e.txid, 3)} ↗</a> : e.type === 'pay' ? <span className="chip-tx is-zero !h-5">0 tx · 0 fee</span> : ''}
       </span>

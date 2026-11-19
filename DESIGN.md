@@ -74,17 +74,20 @@ Both families come from Google Fonts.
   - Light: `ink` at 36% (54% once scrolled) under a 20% white top shine. Dark: `ink` at 34% (58% scrolled).
   - Backdrop blur is 10px with 1.8 saturation (14px once scrolled), plus a 1px inner top highlight.
   - There is no hard border. Instead there is a 1px gradient hairline (transparent → `line` → accent at 45% → transparent), with a 26%-wide accent glint that runs along it every 9s.
-  - A soft white sheen (42% light, 7% dark), skewed −18°, crosses the glass in about 2.4s every 11s.
+  - A sheen crosses the glass every 8s (the pass takes about 2.4s, and the first comes 0.6s after load). It is skewed −18° and 40% wide.
+    - Light: a white core with faint teal fringes (13%). Plain white is invisible on near-white glass.
+    - Dark: `rgb(160 235 220 / .18)`.
   - Once scrolled, the header gains a `0 10px 28px -14px` shadow. Header text stays at least 5.1:1 against whatever passes underneath (measured over scroll offsets, sheen and aurora phases, both themes).
   - Where blur is unsupported, `@supports not (backdrop-filter)` uses a 94→86% `ink` gradient instead.
-  - On phones, once the page scrolls, the banner slides up out of view (translateY −45px, no layout shift), leaving the 64px nav. Banner links are 44px tall on phones.
+  - On phones, once the page scrolls, the banner slides up out of view (translateY −45px, no layout shift), leaving the 64px nav. The glass then moves onto the nav itself: `ink` at 66% (dark 70%), 14px blur. Blur on a box that is partly off-screen is drawn too weakly. Banner links are 44px tall on phones.
+  - **Legibility without blur:** the banner row carries a local scrim (`ink` at 55%, faded over the outer 14% at each end), and the banner and nav text get an opaque page-colour halo (stacked 1–14px text-shadows). Banner links hold at least 5.4:1 even when no blur is drawn (headless WebKit).
 - **Network switch:** a custom listbox, not a native `<select>`.
   - The trigger is a `control` with a status dot (accent with an accent halo for Mainnet, gold for Chipnet), the name, and a chevron that turns 180° when open.
-  - The panel is a 320px glass popover: white at 82% (dark: `panel` at 86%), 18px blur, 14px radius, layered menu shadow. It is portalled to `<body>`, because a backdrop blur nested inside the glass header could only see the header.
+  - The panel is a 320px glass popover: white at 94% (dark: `panel` at 95%; solid `panel` where blur is unsupported), 18px blur, 14px radius, layered menu shadow. It is portalled to `<body>`, because a backdrop blur nested inside the glass header could only see the header.
   - Each option shows a dot, the name, a one-line description and a check on the current network. The active option gets a `subtle` fill with a hairline ring, the selected one an accent tint, and keyboard focus a 2px accent ring.
   - It opens with a 150ms fade and scale from 97%, anchored top right.
   - On phones it is a bottom sheet (rounded top, grab handle, scrim, safe-area padding).
-  - Keyboard: Enter, Space or the arrows open it; the arrows, Home and End move; Enter or Space picks; Esc closes; focus returns to the trigger. It uses `aria-activedescendant` and closes on outside click or resize.
+  - Keyboard: Enter, Space or the arrows open it; the arrows, Home and End move; Enter or Space picks; Esc or Tab closes; focus returns to the trigger. It uses `aria-activedescendant` and closes on outside click or resize.
 - **Other glass:** the tab bar and the link chips sit on `ink` at 72% with a 10px blur.
 - **Footer:** a glass panel floating on the continuing background: 20px radius, white at 50% (dark: `panel` at 50%), 16px blur, a hairline border, a gradient top glint and the card shadow. It holds a short description, a mono stack line and pill chips for Deck, Source, Prototype (disclosure) and Vote. The Vote chip copies the z-address. On phones a theme chip is added.
 - **Receipt lift** (light): an inner top highlight, a hairline, a contact shadow, two ambient layers and two accent-tinted layers:
@@ -121,7 +124,7 @@ or the hero is off screen.
 5. **Cursor spotlight** (fine pointer, 768px and wider): a 520px soft disc that follows the cursor anywhere on the page. It
    holds a light tint (light `rgb(14 107 96 / .08)`, dark `rgb(76 195 176 / .10)`) and a brighter copy of the grid
    (`.22` alpha), aligned exactly to the base grid, so the grid lights up under the pointer.
-6. **Drifting coins:** seven BCH coins (20–30px). Two of them drift under the glass header. Each is an accent disc with a dashed milled rim and a ₿ tilted −14°, drawn
+6. **Drifting coins:** seven BCH coins (20–30px). Two sit just below the header and pass under the glass on scroll. Each is an accent disc with a dashed milled rim and a ₿ tilted −14°, drawn
    as SVG in `on-bch`, with a soft accent glow. They sit only in the page margins, below the header and never under text
    or the receipt. They drift 22px up and sway ±10° over 23–34s, ping-ponging. The two nearest the content are hidden
    below 1440px, and all of them below 1240px (phones get none).
@@ -168,5 +171,5 @@ The receipt is the product's hero object: a paper slip in mono type that fills i
 - **Micro-interactions:** buttons press to 98%. Header controls darken their border and fill on hover. Inactive tabs get a `subtle` fill on hover, and the tab indicator slides in 250ms.
 - **Reduced motion:** `prefers-reduced-motion: reduce` disables every animation and transition and hides the burst. The aurora and coins are drawn once and stay still. The spotlight, the parallax and the payment stream are off.
 - **Header:** the BLAZE banner and the nav form one sticky glass header, so the banner is never half-clipped.
-- **Animated chrome:** the header sheen and glint, plus a sweeping gradient border on the primary buttons and Connect: a conic highlight rotates every 4.8s behind a 1.5px inner fill (transform only; white on the accent, accent on Connect). All CSS animations pause while the tab is hidden (`html.tab-hidden`), and they are removed under reduced motion.
+- **Animated chrome:** the header sheen and glint, plus a sweeping gradient border on the primary buttons and Connect: a conic highlight rotates every 4.8s behind a 1.5px inner fill (transform only; white on the accent). On Connect the ring replaces the border: a resting ring (accent 30% into `line-2`) with the accent arc as a highlight travelling around it. All CSS animations pause while the tab is hidden (`html.tab-hidden`), and they are removed under reduced motion.
 - **Theme:** the header button is a two-state light/dark switch that always flips what is on screen. It is not a light/dark/auto cycle, because auto looked like a no-op on a light OS. Dark tokens are unlayered CSS so they override the unlayered light `:root` tokens.
