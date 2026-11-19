@@ -1,5 +1,30 @@
 # AgentTab: Widget Factory deck content (slide by slide)
 
+Deck: https://docs.google.com/presentation/d/1HWXYkITgDgsd3Xc6NcHcST592q_E5ljSumN9d2bI-l4/edit
+
+## Slide order (as built, 2026-11-19 redesign)
+
+The deck follows the BLAZE template's order (Title, Name/one-liner, Story, Benefits, BCH Usage, Vision, Thank you)
+in the site's dark tokens (`DESIGN.md`). Sections below are the source text; this is where each one lands.
+
+| # | Slide | Source section |
+|---|---|---|
+| 1 | Title: AgentTab, tagline, "Aakash Kumar · solo", live receipt ticket (dark), 3 link chips (fire glow) | §1 |
+| 2 | 100 paid API calls. 2 transactions. (per call vs AgentTab, dot grids) | §3 |
+| 3 | The Story of AgentTab (pull quote + "Why I built this", verbatim) | §9, §2 |
+| 4 | Benefits: agent → tab covenant → provider, 1 tx / 0 tx / 1 tx | §4 |
+| 5 | Benefits: every paid call, 0 on-chain txs (live house-agent tab + settled receipt card from the chipnet run in `chipnet-proof.md`, settle `4f571d52…2a16`) | §3 |
+| 6 | BCH Usage 1/5: the CashScript covenant (`settle()` excerpt) | §4 |
+| 7 | BCH Usage 2/5: Try to cheat it, 7 / 7 rejected (table) | §5 |
+| 8 | BCH Usage 3/5: Live on BCH mainnet (receipt card + explorer QR) | §8 |
+| 9 | BCH Usage 4/5: Agents pay via MCP (3 lines) | §6 |
+| 10 | BCH Usage 5/5: bch-credit vs per-call vs facilitator batch | §6 |
+| 11 | Business model: 1% provider take-rate | §7 |
+| 12 | The Vision for AgentTab: timeline | §8 |
+| 13 | Try it in 60 seconds: `?net=chipnet` + QR (fire glow) | §10 |
+| 14 | Thank you (template mascot) | |
+
+
 ---
 
 ## 1. Title / one-liner
