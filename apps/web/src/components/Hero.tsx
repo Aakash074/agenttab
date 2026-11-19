@@ -13,7 +13,7 @@ function apiHost(net: Net) {
 /** A paid call the page itself just saw (the API answer), so the receipt never lags the step counter. */
 export type LocalPaid = { tab: string; calls: number; cumulative: bigint; price: bigint };
 
-function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[]; net: Net; bchUsd?: number; tab?: string; mine?: boolean; local?: LocalPaid }) {
+function Receipt({ events, net, bchUsd, tab, mine, local, onTryChipnet }: { events: FeedEvent[]; net: Net; bchUsd?: number; tab?: string; mine?: boolean; local?: LocalPaid; onTryChipnet?: () => void }) {
   const now = useNow(1000);
   const pays = tab ? events.filter((e) => e.type === 'pay' && e.tab === tab) : [];
   const pay = pays[0];
@@ -79,6 +79,12 @@ function Receipt({ events, net, bchUsd, tab, mine, local }: { events: FeedEvent[
           </div>
 
         </>
+      ) : !tab && onTryChipnet ? (
+        <div className="px-5 pb-5 font-sans text-[13px] leading-relaxed text-muted">
+          <p>No agent tab on {net} yet. A receipt appears here when an agent pays from a tab.</p>
+          <p className="mt-1.5">The house demo agent pays every minute on Chipnet.{' '}
+            <button type="button" onClick={onTryChipnet} className="tap font-medium text-bch-2 hover:underline">See a live receipt on Chipnet →</button></p>
+        </div>
       ) : (
         <p className="px-5 pb-6 text-dim">{tab ? 'tab open · waiting for the first paid call…' : 'waiting for the first paid call…'}</p>
       )}
@@ -129,8 +135,10 @@ function FeeBox({ stats, bchUsd, priceLoading }: { stats: Stats; bchUsd?: number
   );
 }
 
-export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, tabIsMine, local, run, onRun, onFund, journey, onStartJourney, onResetJourney, hasOpenTab, timeline, direct, apiDown, apiError, waking, wakeLong, queued, lastSeen, stale }: {
+export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, onTryChipnet, tab, tabIsMine, local, run, onRun, onFund, journey, onStartJourney, onResetJourney, hasOpenTab, timeline, direct, apiDown, apiError, waking, wakeLong, queued, lastSeen, stale }: {
   events: FeedEvent[]; stats: Stats | null; net: Net; bchUsd?: number; demoEnabled: boolean; demoIssue?: string;
+  /** Set when this network does not host the free demo (mainnet): show a one-click switch to chipnet instead. */
+  onTryChipnet?: () => void;
   /** The one tab the receipt (and the timeline under it) shows. */
   tab?: string; tabIsMine?: boolean; local?: LocalPaid;
   run: DemoRun; onRun: () => void; onFund: () => void;
@@ -161,7 +169,7 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
           )}
         </div>
         <div className="order-3 min-w-0 md:order-none md:col-start-2 md:row-span-2 md:row-start-1">
-          <Receipt events={events} net={net} bchUsd={bchUsd} tab={tab} mine={tabIsMine} local={local} />
+          <Receipt events={events} net={net} bchUsd={bchUsd} tab={tab} mine={tabIsMine} local={local} onTryChipnet={onTryChipnet} />
           {timeline}
           {stale && !waking && lastSeen && <p className="mt-2 text-right text-[11px] text-warn">last seen {ago(new Date(lastSeen).toISOString(), now)} · reconnecting</p>}
         </div>
@@ -175,15 +183,28 @@ export function Hero({ events, stats, net, bchUsd, demoEnabled, demoIssue, tab, 
           </p>
           <div className="mt-7">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-dim">The real thing: a 5¢ tab your agent spends</p>
-            <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney} waking={waking} wakeLong={wakeLong} queued={queued}
-              disabledReason={queued ? 'Starting when the server is awake…' : apiDown && !waking ? (apiError ? 'API reconnecting… (a few seconds)' : 'Connecting to the API…') : undefined} />
+            {onTryChipnet && !journey.active && !journey.done && !journey.error ? (
+              <div className="card rounded-2xl border border-line bg-panel p-4 sm:max-w-xl">
+                <p className="text-sm text-fg">The 5¢ tab demo runs free on Chipnet.</p>
+                <p className="mt-1 text-sm text-muted">
+                  On {net} the agent would spend real BCH, so the house demo agent and the free test wallet live on Chipnet: same covenant, same API, no wallet or signup.
+                </p>
+                <button type="button" onClick={onTryChipnet}
+                  className="mt-3 min-h-[44px] w-full rounded-lg border border-line-2 px-4 text-sm font-semibold text-fg hover:bg-subtle sm:w-auto">
+                  Try it free on Chipnet →
+                </button>
+              </div>
+            ) : (
+              <Journey j={journey} net={net} bchUsd={bchUsd} onStart={onStartJourney} onReset={onResetJourney} waking={waking} wakeLong={wakeLong} queued={queued}
+                disabledReason={queued ? 'Starting when the server is awake…' : apiDown && !waking ? (apiError ? 'API reconnecting… (a few seconds)' : 'Connecting to the API…') : undefined} />
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {demoEnabled && !journey.active && (
                 <button onClick={onRun} disabled={run.busy || apiDown} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
                   {run.busy ? 'Agent is paying…' : hasOpenTab ? 'Run the agent once on your open tab' : 'Or watch the house demo agent pay once'}
                 </button>
               )}
-              <button onClick={onFund} className="tap font-medium text-muted hover:text-fg">Advanced: fund your own agent</button>
+              <button onClick={onFund} className="tap font-medium text-muted hover:text-fg">Advanced: fund your own agent{onTryChipnet ? ` on ${net}` : ''}</button>
             </div>
           </div>
           <div className="mt-3 min-h-[44px] text-sm" aria-live="polite">

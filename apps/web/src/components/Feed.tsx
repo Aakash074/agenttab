@@ -36,8 +36,14 @@ export function describe(e: FeedEvent, mine = false) {
 
 const VISIBLE = 8;
 
-export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[]; net: Net; live: boolean; mine?: Set<string>; waking?: boolean }) {
+export function Feed({ events, net, live, mine, waking, onTryChipnet }: { events: FeedEvent[]; net: Net; live: boolean; mine?: Set<string>; waking?: boolean;
+  /** Set on networks without the demo agent (mainnet): the feed is sparse there, so point to the chipnet history. */
+  onTryChipnet?: () => void }) {
   const now = useNow();
+  const payments = events.filter((e) => e.type === 'pay' || e.type === 'direct').length;
+  const chipnetLink = onTryChipnet && (
+    <button type="button" onClick={onTryChipnet} className="tap font-medium text-bch-2 hover:underline">See the full demo history on Chipnet →</button>
+  );
   const [all, setAll] = useState(false);
   const shown = all ? events : events.slice(0, VISIBLE);
   return (
@@ -52,6 +58,11 @@ export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[];
       </header>
       {events.length === 0 && waking ? (
         <p className="flex items-center justify-center gap-2 px-5 py-10 text-center text-sm text-muted"><span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" />Waking the {net} server (~30 s)… It sleeps when idle; this retries on its own.</p>
+      ) : events.length === 0 && onTryChipnet ? (
+        <div className="px-5 py-10 text-center text-sm text-muted">
+          <p>No {net} payments yet. Pay 1¢ above to be the first.</p>
+          <p className="mt-1.5">{chipnetLink}</p>
+        </div>
       ) : events.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-muted">No payments yet. Fund a tab (or run the demo agent, if this server hosts one) to see it here.</p>
       ) : (
@@ -81,6 +92,12 @@ export function Feed({ events, net, live, mine, waking }: { events: FeedEvent[];
             <button onClick={() => setAll((v) => !v)} className="w-full border-t border-line px-5 py-2.5 text-xs font-medium text-muted hover:text-fg">
               {all ? 'Show latest only' : `Show all ${events.length} events`}
             </button>
+          )}
+          {onTryChipnet && (
+            <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-b-2xl border-t border-line bg-panel-2 px-5 py-2.5 text-xs text-muted">
+              <span>{payments === 1 ? `1 ${net} payment` : `${payments} ${net} payments`} so far{net === 'mainnet' ? ' · real BCH' : ''}</span>
+              {chipnetLink}
+            </p>
           )}
         </>
       )}

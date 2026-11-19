@@ -15,6 +15,8 @@ Paying for each call on-chain costs one transaction per call. AgentTab is a paym
 
 ## Verify it in 5 minutes (chipnet)
 
+The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attack panel run on chipnet: pick *Chipnet* in the header, or open https://agenttab-wihk.onrender.com/?net=chipnet directly.
+
 **Try it in 30 seconds: pay 1¢.** Type a question in the first card, press **Ask the oracle — 1¢**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the card, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
 
 | # | Do this | You should see |

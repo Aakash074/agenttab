@@ -82,8 +82,55 @@ function McpSection() {
   );
 }
 
+const NET_KEY = 'agenttab.net';
+const isNet = (v: string | null): v is Net => v === 'chipnet' || (v === 'mainnet' && MAINNET_ENABLED);
+/** First visit lands on mainnet. A ?net= link wins, then the visitor's own earlier choice (only explicit picks are saved). */
+function initialNet(): Net {
+  try {
+    const q = new URLSearchParams(window.location.search).get('net');
+    if (isNet(q)) return q;
+    const saved = localStorage.getItem(NET_KEY);
+    if (isNet(saved)) return saved;
+  } catch { /* storage blocked */ }
+  return MAINNET_ENABLED ? 'mainnet' : 'chipnet';
+}
+
+/** Mainnet stand-in for the attack panel: the attacks spend coins, so they run on chipnet against the same covenant. */
+function CheatOnChipnet({ onSwitch }: { onSwitch: () => void }) {
+  return (
+    <section id="cheat" className="scroll-mt-24 mx-auto max-w-6xl px-4 pt-16">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Try to cheat the tab</h2>
+          <p className="mt-2 max-w-2xl text-muted">
+            Seven real cheating transactions (replay, overclaim, forged amount, early refund…) are sent at a fresh tab and the node's verbatim rejection is shown.
+            They run on Chipnet, where coins are free. The covenant there is the same compiled contract as on mainnet.
+          </p>
+        </div>
+        <button onClick={onSwitch}
+          className="w-full rounded-xl border border-line-2 bg-panel px-5 py-3 font-semibold text-fg transition hover:bg-subtle sm:w-auto">
+          Run the 7 attacks on Chipnet →
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
-  const [net, setNet] = useState<Net>('chipnet');
+  const [net, setNetState] = useState<Net>(initialNet);
+  /** Scroll target to bring back into view once the newly picked network's API answers. */
+  const scrollAfterSwitch = useRef<string | null>(null);
+  const setNet = (n: Net, scrollTo?: string) => {
+    scrollAfterSwitch.current = scrollTo ?? null;
+    setNetState(n);
+    try { localStorage.setItem(NET_KEY, n); } catch { /* ignore */ }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('net', n);
+      window.history.replaceState(null, '', u.toString());
+    } catch { /* ignore */ }
+  };
+  const tryChipnet = (scrollTo?: string) => setNet('chipnet', scrollTo);
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [infoErr, setInfoErr] = useState<string | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -143,7 +190,8 @@ export default function App() {
     document.getElementById('fund')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 5) : null, [wallet]);
-  const demoAgentPub = info?.features?.demo?.agentPub ?? DEMO_AGENT_PUB;
+  // The demo agent only exists where the API hosts it (chipnet); never prefill it on mainnet.
+  const demoAgentPub = info ? info.features?.demo?.agentPub ?? '' : net === 'chipnet' ? DEMO_AGENT_PUB : '';
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
   const journeyTab = journey.openTxid ? `${journey.openTxid}:0` : undefined;
   const mine = useMemo(() => new Set([...myTabs.map((t) => t.id), ...(journeyTab ? [journeyTab] : [])]), [myTabs, journeyTab]);
@@ -171,6 +219,15 @@ export default function App() {
     prevWallet.current = wallet;
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
   const demoEnabled = !!info?.features?.demo;
+  /** The free demo (house agent, test coins, attacks) is not hosted on this network: point to chipnet instead. */
+  const demoElsewhere = info ? !info.features?.demo : net === 'mainnet';
+  const attacksElsewhere = info ? !info.features?.attacks : net === 'mainnet';
+  useEffect(() => {
+    const id = scrollAfterSwitch.current;
+    if (!info || !id) return;
+    scrollAfterSwitch.current = null;
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [info]);
 
   useEffect(() => {
     if (!demoEnabled) { setDemoIssue(undefined); return; }
@@ -333,9 +390,9 @@ export default function App() {
               <span className="hidden sm:inline">{theme.choice === 'light' ? 'Light' : theme.choice === 'dark' ? 'Dark' : 'Auto'}</span>
             </button>
             <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="min-h-[44px] w-[92px] rounded-lg border border-line-2 bg-panel px-1.5 py-1.5 text-sm sm:min-h-0 sm:w-[112px] sm:px-2" title="Network (chipnet = testnet)">
-              <option value="chipnet">Chipnet</option>
+              className="min-h-[44px] w-[92px] rounded-lg border border-line-2 bg-panel px-1.5 py-1.5 text-sm sm:min-h-0 sm:w-[112px] sm:px-2" title="Network (chipnet = testnet, free test coins)">
               <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (at submission)'}</option>
+              <option value="chipnet">Chipnet</option>
             </select>
             {wallet ? (
               <div className="relative">
@@ -365,6 +422,7 @@ export default function App() {
 
       <ErrorBoundary label="The hero">
       <Hero events={events} stats={stats} net={net} bchUsd={info?.bchUsd} demoEnabled={demoEnabled} demoIssue={demoIssue}
+        onTryChipnet={demoElsewhere ? () => tryChipnet() : undefined}
         tab={focusTab} tabIsMine={!!visitorTab} local={local} hasOpenTab={!!preferTab} run={run} onRun={() => runDemo()} onFund={fund}
         direct={<DirectPay wallet={wallet} net={net} info={info} waking={waking} connectCancelled={connectCancelled} onConnect={() => { pendingDirect.current = true; setShowConnect(true); }} />}
         timeline={<TabTimeline events={events} net={net} tab={focusTab} mine={!!visitorTab} minCalls={focusTab && focusTab === journeyTab ? journeyCalls : 0} />}
@@ -373,7 +431,7 @@ export default function App() {
       </ErrorBoundary>
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[1.1fr_1fr]">
-        <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} waking={waking} /></ErrorBoundary></div></div>
+        <div className="order-2 min-w-0 lg:order-1"><div className="lg:sticky lg:top-20"><ErrorBoundary label="The feed"><Feed events={events} net={net} live={live} mine={mine} waking={waking} onTryChipnet={demoElsewhere ? () => tryChipnet('feed') : undefined} /></ErrorBoundary></div></div>
         <div className="order-1 grid min-w-0 content-start gap-6 lg:order-2">
           <details id="advanced" className="group card rounded-2xl border border-line bg-panel open:bg-transparent open:border-transparent">
             <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold group-open:hidden">
@@ -389,6 +447,7 @@ export default function App() {
         </div>
       </main>
 
+      {attacksElsewhere && <CheatOnChipnet onSwitch={() => tryChipnet('cheat')} />}
       {info?.features?.attacks && <ErrorBoundary label="The attack panel"><Suspense fallback={null}><CheatPanel net={net} /></Suspense></ErrorBoundary>}
       <div aria-hidden className="h-16" />
 
