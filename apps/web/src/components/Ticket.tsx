@@ -164,7 +164,9 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
               {v.coin && <span key={v.openTxid ?? 'coin'} className="coin-in relative grid h-5 w-5 place-items-center rounded-full bg-bch font-sans text-[10px] font-bold text-on-bch">5¢{v.openTxid && <Burst delay={330} reach={18} />}</span>}
               locked in tab
             </span>
-            <span className="text-right text-fg">{v.budget !== undefined ? `${sats(v.budget)} sats` : <span className="skeleton inline-block h-3 w-20 align-middle" />}</span>
+            <span className="text-right text-fg">{v.budget !== undefined ? `${sats(v.budget)} sats`
+              : inJourney ? <span className="skeleton inline-block h-3 w-20 align-middle" />
+              : <span className="text-dim" title="Opened before the feed window">—</span>}</span>
           </div>
         )}
         {inJourney && j.capped && v.budget !== undefined && (
@@ -218,7 +220,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
       </div>
       <div className="slip-tear my-3" />
       <div className="flex flex-wrap items-center justify-between gap-x-4 px-5 pb-4 text-[11.5px]">
-        {!v.direct && <span><span className="text-dim">open </span>{v.openTxid ? <a className={link} href={explorerTx(net, v.openTxid)} target="_blank" rel="noreferrer">{short(v.openTxid, 4)} ↗</a> : <span className="text-dim">…</span>}</span>}
+        {!v.direct && <span><span className="text-dim">open </span>{v.openTxid ? <a className={link} href={explorerTx(net, v.openTxid)} target="_blank" rel="noreferrer">{short(v.openTxid, 4)} ↗</a> : <span className="text-dim">{inJourney ? '…' : '—'}</span>}</span>}
         <span><span className="text-dim">{v.direct ? 'tx ' : v.status === 'waived' ? 'waive ' : 'settle '}</span>{v.closeTxid
           ? <a className={link} href={explorerTx(net, v.closeTxid)} target="_blank" rel="noreferrer">{short(v.closeTxid, 4)} ↗</a>
           : <span className="text-dim">on close</span>}</span>

@@ -443,7 +443,7 @@ export default function App() {
     <div className="relative isolate min-h-screen overflow-x-clip">
       <div aria-hidden className="backdrop" />
       <Banner />
-      <header className="sticky top-0 z-40 border-b border-line bg-ink/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-line bg-ink">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
           <Logo />
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
