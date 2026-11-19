@@ -59,15 +59,24 @@
   --bg-aurora-3: rgb(196 150 60 / 0.16);  /* warm counter-glow, top left */
   --bg-aurora-4: rgb(20 120 132 / 0.10);  /* blue-teal under the headline (kept low: text sits on it) */
   --bg-aurora-5: rgb(14 107 96 / 0.24);   /* deep teal in the left margin, balancing the receipt glow */
-  /* below the hero: static glows alternating left/right, and the grid continuing at about half strength */
-  --page-glow: rgb(14 107 96 / 0.10);
-  --page-glow-2: rgb(64 178 160 / 0.13);
-  --page-grid-line: rgb(14 107 96 / 0.05);
-  --page-grid-dot: rgb(17 26 23 / 0.10);
   /* glass: header, footer, tab bar, chips */
   --glass-bg: rgb(246 244 238 / 0.88);   /* high enough that text never reads through where blur is unavailable */
   --glass-bg-soft: rgb(246 244 238 / 0.55);
   --glass-line: rgb(17 26 23 / 0.08);
+  /* glass header + footer: genuinely translucent; the background passes under them */
+  --hdr-bg: rgb(246 244 238 / 0.36);
+  --hdr-bg-scrolled: rgb(246 244 238 / 0.54);
+  --hdr-shine: rgb(255 255 255 / 0.2);
+  --hdr-inner: rgb(255 255 255 / 0.6);
+  --hdr-divider: rgb(17 26 23 / 0.07);
+  --hdr-edge: rgb(17 26 23 / 0.10);
+  --hdr-edge-hi: rgb(14 107 96 / 0.45);
+  --hdr-sheen: rgb(255 255 255 / 0.42);
+  --hdr-glint: rgb(14 107 96 / 0.9);
+  --footer-bg: rgb(255 255 255 / 0.5);
+  --sweep-on-accent: rgb(255 255 255 / 0.85);
+  --menu-bg: rgb(255 255 255 / 0.82);
+  --shadow-menu: 0 1px 2px rgb(17 26 23 / 0.06), 0 12px 32px -8px rgb(17 26 23 / 0.20), 0 30px 60px -24px rgb(14 107 96 / 0.25);
   --shadow-header: 0 1px 0 rgb(17 26 23 / 0.03), 0 10px 28px -14px rgb(17 26 23 / 0.20);
   --shadow-card-hover: 0 1px 1px rgb(17 26 23 / 0.05), 0 4px 8px -2px rgb(17 26 23 / 0.07), 0 16px 32px -12px rgb(17 26 23 / 0.14), 0 32px 60px -24px rgb(14 107 96 / 0.24);
   --bg-grid-line: rgb(14 107 96 / 0.085); /* 1px lines on a 44px grid */
@@ -115,13 +124,22 @@
     --bg-aurora-3: rgb(243 207 106 / 0.07);
     --bg-aurora-4: rgb(60 150 190 / 0.12);
     --bg-aurora-5: rgb(76 195 176 / 0.15);
-    --page-glow: rgb(76 195 176 / 0.07);
-    --page-glow-2: rgb(30 140 125 / 0.13);
-    --page-grid-line: rgb(111 211 195 / 0.04);
-    --page-grid-dot: rgb(232 243 239 / 0.09);
     --glass-bg: rgb(7 11 10 / 0.85);
     --glass-bg-soft: rgb(7 11 10 / 0.5);
     --glass-line: rgb(232 243 239 / 0.07);
+    --hdr-bg: rgb(7 11 10 / 0.34);
+    --hdr-bg-scrolled: rgb(7 11 10 / 0.58);
+    --hdr-shine: rgb(255 255 255 / 0.04);
+    --hdr-inner: rgb(255 255 255 / 0.06);
+    --hdr-divider: rgb(232 243 239 / 0.07);
+    --hdr-edge: rgb(232 243 239 / 0.09);
+    --hdr-edge-hi: rgb(111 211 195 / 0.5);
+    --hdr-sheen: rgb(255 255 255 / 0.07);
+    --hdr-glint: rgb(111 211 195 / 0.9);
+    --footer-bg: rgb(14 21 19 / 0.5);
+    --sweep-on-accent: rgb(255 255 255 / 0.9);
+    --menu-bg: rgb(14 21 19 / 0.86);
+    --shadow-menu: 0 0 0 1px rgb(255 255 255 / 0.03), 0 16px 40px -10px rgb(0 0 0 / 0.7), 0 30px 60px -24px rgb(76 195 176 / 0.2);
     --tab-active: #1c2925;
     --shadow-header: 0 10px 28px -14px rgb(0 0 0 / 0.7);
     --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 4px 8px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.65), 0 30px 64px -28px rgb(76 195 176 / 0.26);
@@ -164,13 +182,22 @@
       --bg-aurora-3: rgb(243 207 106 / 0.07);
       --bg-aurora-4: rgb(60 150 190 / 0.12);
       --bg-aurora-5: rgb(76 195 176 / 0.15);
-      --page-glow: rgb(76 195 176 / 0.07);
-      --page-glow-2: rgb(30 140 125 / 0.13);
-      --page-grid-line: rgb(111 211 195 / 0.04);
-      --page-grid-dot: rgb(232 243 239 / 0.09);
       --glass-bg: rgb(7 11 10 / 0.85);
       --glass-bg-soft: rgb(7 11 10 / 0.5);
       --glass-line: rgb(232 243 239 / 0.07);
+      --hdr-bg: rgb(7 11 10 / 0.34);
+      --hdr-bg-scrolled: rgb(7 11 10 / 0.58);
+      --hdr-shine: rgb(255 255 255 / 0.04);
+      --hdr-inner: rgb(255 255 255 / 0.06);
+      --hdr-divider: rgb(232 243 239 / 0.07);
+      --hdr-edge: rgb(232 243 239 / 0.09);
+      --hdr-edge-hi: rgb(111 211 195 / 0.5);
+      --hdr-sheen: rgb(255 255 255 / 0.07);
+      --hdr-glint: rgb(111 211 195 / 0.9);
+      --footer-bg: rgb(14 21 19 / 0.5);
+      --sweep-on-accent: rgb(255 255 255 / 0.9);
+      --menu-bg: rgb(14 21 19 / 0.86);
+      --shadow-menu: 0 0 0 1px rgb(255 255 255 / 0.03), 0 16px 40px -10px rgb(0 0 0 / 0.7), 0 30px 60px -24px rgb(76 195 176 / 0.2);
       --tab-active: #1c2925;
       --shadow-header: 0 10px 28px -14px rgb(0 0 0 / 0.7);
       --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 4px 8px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.65), 0 30px 64px -28px rgb(76 195 176 / 0.26);

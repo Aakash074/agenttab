@@ -6,9 +6,10 @@ export const LANDED = 'agenttab:landed';
 export const emitLanded = () => window.dispatchEvent(new CustomEvent(LANDED));
 
 // Drifting BCH coins: [side, inset from that side in px, top px, size px, drift seconds, delay seconds, desktop only].
-// They live only in the page margins (never under text, the receipt or the header) and are hidden when the margin is
+// They live only in the page margins (never under text or the receipt; two drift under the glass header) and are hidden when the margin is
 // too narrow to hold them (see .coin-float in index.css).
 const COINS: ['l' | 'r', number, number, number, number, number, boolean][] = [
+  ['l', 96, 22, 24, 29, -6, true], ['r', 112, 56, 20, 33, -14, true], // these two sit under the glass header
   ['l', 34, 214, 30, 26, -4, true], ['l', 70, 560, 22, 31, -12, true], ['r', 40, 168, 28, 23, -7, false],
   ['r', 76, 470, 20, 28, -18, true], ['r', 30, 700, 24, 34, -9, true],
 ];
@@ -60,7 +61,7 @@ export function Backdrop() {
       st.setProperty('--mx', px.toFixed(3));
       st.setProperty('--my', py.toFixed(3));
       const x = cx - r.left, y = cy - r.top;
-      inside = cx >= 0 && y >= 0 && y <= Math.min(r.height, 900);
+      inside = cx >= 0 && y >= 0 && y <= r.height;
       el.classList.toggle('spot-on', inside);
       if (!inside) return;
       const L = x - S / 2, T = y - S / 2;
@@ -103,17 +104,26 @@ export function Backdrop() {
   );
 }
 
-// Aurora blobs (five; phones skip blob 4): colour token, centre (x, y as a fraction of the canvas), radius as a fraction of the width
-// (desktop, phone), aspect, drift amplitude (fraction of radius) and periods in seconds. Phones skip blob 4.
-type Blob = { c: string; x: number; y: number; r: number; mx: number; my: number; mr: number; asp: number; amp: number; tx: number; ty: number; ts: number; phone?: boolean };
+// Aurora blobs on ONE full-page canvas (top pixel to bottom pixel, behind the glass header and footer).
+// x and r are fractions of the width; y is page px for the hero blobs (yPx) or a fraction of the page height for the
+// blobs that carry the light down the page (yF). m* are the phone values. k scales the token's alpha.
+type Blob = { c: string; x: number; r: number; mx: number; mr: number; asp: number; amp: number; tx: number; ty: number; ts: number;
+  yPx?: number; myPx?: number; yF?: number; k?: number; phone?: boolean };
 const BLOBS: Blob[] = [
-  { c: '--bg-aurora-1', x: 0.76, y: 0.22, r: 0.27, mx: 0.98, my: 0.3, mr: 0.55, asp: 0.87, amp: 0.34, tx: 61, ty: 47, ts: 53 },
-  { c: '--bg-aurora-2', x: 0.86, y: 0.56, r: 0.2, mx: 0.3, my: 0.78, mr: 0.6, asp: 1, amp: 0.4, tx: 73, ty: 59, ts: 67 },
-  { c: '--bg-aurora-3', x: 0.12, y: 0.08, r: 0.24, mx: 0.05, my: 0.12, mr: 0.6, asp: 0.77, amp: 0.3, tx: 89, ty: 71, ts: 79 },
-  { c: '--bg-aurora-4', x: 0.24, y: 0.62, r: 0.21, mx: 0, my: 0, mr: 0, asp: 0.7, amp: 0.35, tx: 52, ty: 43, ts: 61, phone: false },
+  { c: '--bg-aurora-1', x: 0.76, yPx: 260, r: 0.27, mx: 0.98, myPx: 360, mr: 0.55, asp: 0.87, amp: 0.34, tx: 61, ty: 47, ts: 53 },
+  { c: '--bg-aurora-2', x: 0.86, yPx: 665, r: 0.2, mx: 0.3, myPx: 930, mr: 0.6, asp: 1, amp: 0.4, tx: 73, ty: 59, ts: 67 },
+  { c: '--bg-aurora-3', x: 0.12, yPx: 60, r: 0.24, mx: 0.05, myPx: 100, mr: 0.6, asp: 0.77, amp: 0.3, tx: 89, ty: 71, ts: 79 },
+  { c: '--bg-aurora-4', x: 0.24, yPx: 736, r: 0.21, mx: 0, mr: 0, asp: 0.7, amp: 0.35, tx: 52, ty: 43, ts: 61, phone: false },
   // left counterweight to the receipt glow, mostly in the left margin so the copy keeps its contrast
-  { c: '--bg-aurora-5', x: 0.02, y: 0.42, r: 0.17, mx: -0.1, my: 0.45, mr: 0.4, asp: 1.5, amp: 0.25, tx: 67, ty: 53, ts: 71 },
+  { c: '--bg-aurora-5', x: 0.02, yPx: 500, r: 0.17, mx: -0.1, myPx: 540, mr: 0.4, asp: 1.5, amp: 0.25, tx: 67, ty: 53, ts: 71 },
+  // a soft teal light right under the glass header, so the glass reads as glass
+  { c: '--bg-aurora-2', x: 0.5, yPx: -10, r: 0.2, mx: 0.6, myPx: -10, mr: 0.5, asp: 0.45, amp: 0.45, tx: 47, ty: 37, ts: 41, k: 0.75 },
+  // down the page: left behind the tabs, right behind the cards, and a wide glow under the footer
+  { c: '--bg-aurora-2', x: 0.03, yF: 0.55, r: 0.2, mx: 0.0, mr: 0.55, asp: 1.3, amp: 0.3, tx: 83, ty: 61, ts: 73, k: 0.6 },
+  { c: '--bg-aurora-1', x: 0.97, yF: 0.74, r: 0.22, mx: 1.0, mr: 0.55, asp: 1.2, amp: 0.3, tx: 77, ty: 57, ts: 69, k: 0.6 },
+  { c: '--bg-aurora-2', x: 0.5, yF: 1.0, r: 0.34, mx: 0.5, mr: 0.8, asp: 0.55, amp: 0.25, tx: 91, ty: 67, ts: 83, k: 0.7 },
 ];
+const AURORA_TOP = 80; // the canvas starts 80px above the page top (see .bg-aurora-wrap)
 // Any CSS colour (the build minifies tokens to #rrggbbaa) -> [r, g, b, a], normalised by the canvas itself.
 const rgba = (ctx: CanvasRenderingContext2D, v: string) => {
   ctx.fillStyle = '#0000'; ctx.fillStyle = v.trim() || '#0000';
@@ -124,10 +134,10 @@ const rgba = (ctx: CanvasRenderingContext2D, v: string) => {
 };
 
 /**
- * The aurora mesh: four soft radial blobs drawn at 1/8 resolution and upscaled by CSS (the blobs are pure blur, so
+ * The aurora mesh: soft radial blobs over the whole page, drawn at 1/8 resolution and upscaled by CSS (the blobs are pure blur, so
  * nothing is lost), redrawn at 20 Hz, and the drifting coins moved on the same tick (transform only). One small
  * canvas composites far cheaper than four large animated layers, and one tick means one background frame per 50 ms.
- * Stops when the tab is hidden or the hero is off screen; drawn once, static, under prefers-reduced-motion.
+ * Stops when the tab is hidden; drawn once, static, under prefers-reduced-motion.
  */
 function Aurora() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -150,13 +160,16 @@ function Aurora() {
       const s = t / 1000;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, W, H);
+      const pageH = H * K - 2 * AURORA_TOP;
       BLOBS.forEach((b, i) => {
         if (phone && b.phone === false) return;
-        const [r, g, bl, a] = cols[i] ?? [0, 0, 0, 0];
+        const [r, g, bl, a0] = cols[i] ?? [0, 0, 0, 0];
+        const a = a0 * (b.k ?? 1) * (phone ? 0.65 : 1); // phones: text sits over the blobs, so softer light
         const rad = (phone ? b.mr : b.r) * W;
         const k = 2 * Math.PI;
+        const yPage = b.yF !== undefined ? b.yF * pageH : (phone ? b.myPx ?? b.yPx ?? 0 : b.yPx ?? 0);
         const cx = (phone ? b.mx : b.x) * W + Math.sin((k * s) / b.tx + i) * b.amp * rad;
-        const cy = (phone ? b.my : b.y) * H + Math.sin((k * s) / b.ty + i * 2) * b.amp * rad * 0.8;
+        const cy = (yPage + AURORA_TOP) / K + Math.sin((k * s) / b.ty + i * 2) * b.amp * rad * 0.8;
         const sc = 1 + Math.sin((k * s) / b.ts + i) * 0.1;
         ctx.setTransform(sc, 0, 0, sc * b.asp, cx, cy);
         const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
@@ -166,13 +179,7 @@ function Aurora() {
         ctx.fillStyle = gr;
         ctx.fillRect(-rad, -rad, rad * 2, rad * 2);
       });
-      // fade out towards the bottom of the hero
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalCompositeOperation = 'destination-in';
-      const f = ctx.createLinearGradient(0, 0, 0, H);
-      f.addColorStop(0.55, '#000'); f.addColorStop(0.96, 'rgb(0 0 0 / 0)');
-      ctx.fillStyle = f; ctx.fillRect(0, 0, W, H);
-      ctx.globalCompositeOperation = 'source-over';
       // the coins drift on the same tick, so the whole background renders one frame per tick
       coins.forEach((c) => {
         const u = (1 - Math.cos((Math.PI * (s + c.delay)) / c.d)) / 2; // eased ping-pong over d seconds
@@ -202,14 +209,6 @@ function Aurora() {
     return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); theme.disconnect(); os.removeEventListener('change', osChange); document.removeEventListener('visibilitychange', vis); };
   }, []);
   return <canvas ref={ref} className="aurora-canvas" />;
-}
-
-/**
- * Below the hero: the grid continues faintly down the page, with soft static glows that alternate left and right
- * behind the tabs, cards and footer. Static (no animation), so it costs one paint.
- */
-export function PageGlow() {
-  return <div aria-hidden className="page-glow"><div className="page-grid" /></div>;
 }
 
 type P = { t0: number; dur: number; r: number; c: string; wob: number };

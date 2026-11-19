@@ -120,7 +120,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
             {budgets.map((b) => (
               <button key={String(b)} onClick={() => setBudget(b)} className={choice(budget === b)}>
                 <div className="font-mono text-sm font-semibold">{sats(b)} sats</div>
-                <div className="text-[11px] text-dim">≈ {String((b - 546n) / price)} calls{bchUsd ? ` · ${usd(b, bchUsd)}` : ''}</div>
+                <div className="text-[11px] text-muted">≈ {String((b - 546n) / price)} calls{bchUsd ? ` · ${usd(b, bchUsd)}` : ''}</div>
               </button>
             ))}
           </div>
@@ -133,7 +133,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
           {(showUseBalance || (!budgets.includes(budget) && budget > 0n && maxAffordable >= 2_200n)) && (
             <button onClick={() => setBudget(maxAffordable)} className={`${choice(budget === maxAffordable)} flex items-center justify-between`}>
               <span><span className="font-mono text-sm font-semibold">Use my balance · {sats(maxAffordable)} sats</span>
-                <span className="block text-[11px] text-dim">{sats(maxAffordable)} usable (600 kept for the fee) · ≈ {String((maxAffordable - 546n) / price)} calls</span></span>
+                <span className="block text-[11px] text-muted">{sats(maxAffordable)} usable (600 kept for the fee) · ≈ {String((maxAffordable - 546n) / price)} calls</span></span>
             </button>
           )}
         </div>

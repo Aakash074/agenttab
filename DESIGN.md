@@ -70,8 +70,23 @@ Both families come from Google Fonts.
 - **Buttons:** there is one primary style, the filled accent (`btn-primary`): the hero CTA, "Run the 7 attacks", "Run the 7 attacks again" and "Run the 7 attacks on Chipnet". Header and secondary actions use `control`.
 - **Step icons:** a 34px tile with a 10px radius. It is filled with the accent at 11% over `panel`, has a 1px inset ring of the accent at 22%, and holds an 18px line icon (1.8 stroke) in accent text: lock (open), receipt (pay per call), check-loop (close), shield (who can take what).
 - **Transaction chips** (`.chip-tx`) look like a receipt line: JetBrains Mono at 11.5px/600, 24px tall, 6px radius, a dashed `line-2` border on `panel-2`. A `0 tx` chip is accent-tinted.
-- **Glass:** the sticky header (banner and nav together), the tab bar, the footer and the link chips sit on `ink` at 88% (55% for the footer) with a 14px blur and 1.5 saturation, over a `rgb(17 26 23/.08)` hairline. In dark this is `ink` at 85% over `rgb(232 243 239/.07)`. The opacity is high enough that nothing reads through where blur is unavailable, and an `@supports not (backdrop-filter)` fallback paints solid `ink`. On phones, once the page scrolls, the banner slides up out of view (translateY −45px, no layout shift), leaving the 64px nav. Banner links are 44px tall on phones. Once the page scrolls, the header gains `0 10px 28px -14px` shadow.
-- **Footer:** a short description, a mono stack line and pill chips for Deck, Source, Prototype (disclosure) and Vote. The Vote chip copies the z-address. On phones a theme chip is added.
+- **Glass header** (banner and nav as one sticky unit) is genuinely translucent, so the aurora, grid and coins pass visibly underneath from the very top pixel.
+  - Light: `ink` at 36% (54% once scrolled) under a 20% white top shine. Dark: `ink` at 34% (58% scrolled).
+  - Backdrop blur is 10px with 1.8 saturation (14px once scrolled), plus a 1px inner top highlight.
+  - There is no hard border. Instead there is a 1px gradient hairline (transparent → `line` → accent at 45% → transparent), with a 26%-wide accent glint that runs along it every 9s.
+  - A soft white sheen (42% light, 7% dark), skewed −18°, crosses the glass in about 2.4s every 11s.
+  - Once scrolled, the header gains a `0 10px 28px -14px` shadow. Header text stays at least 5.1:1 against whatever passes underneath (measured over scroll offsets, sheen and aurora phases, both themes).
+  - Where blur is unsupported, `@supports not (backdrop-filter)` uses a 94→86% `ink` gradient instead.
+  - On phones, once the page scrolls, the banner slides up out of view (translateY −45px, no layout shift), leaving the 64px nav. Banner links are 44px tall on phones.
+- **Network switch:** a custom listbox, not a native `<select>`.
+  - The trigger is a `control` with a status dot (accent with an accent halo for Mainnet, gold for Chipnet), the name, and a chevron that turns 180° when open.
+  - The panel is a 320px glass popover: white at 82% (dark: `panel` at 86%), 18px blur, 14px radius, layered menu shadow. It is portalled to `<body>`, because a backdrop blur nested inside the glass header could only see the header.
+  - Each option shows a dot, the name, a one-line description and a check on the current network. The active option gets a `subtle` fill with a hairline ring, the selected one an accent tint, and keyboard focus a 2px accent ring.
+  - It opens with a 150ms fade and scale from 97%, anchored top right.
+  - On phones it is a bottom sheet (rounded top, grab handle, scrim, safe-area padding).
+  - Keyboard: Enter, Space or the arrows open it; the arrows, Home and End move; Enter or Space picks; Esc closes; focus returns to the trigger. It uses `aria-activedescendant` and closes on outside click or resize.
+- **Other glass:** the tab bar and the link chips sit on `ink` at 72% with a 10px blur.
+- **Footer:** a glass panel floating on the continuing background: 20px radius, white at 50% (dark: `panel` at 50%), 16px blur, a hairline border, a gradient top glint and the card shadow. It holds a short description, a mono stack line and pill chips for Deck, Source, Prototype (disclosure) and Vote. The Vote chip copies the z-address. On phones a theme chip is added.
 - **Receipt lift** (light): an inner top highlight, a hairline, a contact shadow, two ambient layers and two accent-tinted layers:
   `inset 0 1px 0 rgb(255 255 255/.7), 0 0 0 1px rgb(17 26 23/.02), 0 1px 1px rgb(17 26 23/.06), 0 3px 6px -2px rgb(17 26 23/.08), 0 12px 24px -8px rgb(17 26 23/.10), 0 30px 50px -16px rgb(14 107 96/.22), 0 60px 100px -30px rgb(14 107 96/.32)`.
   In dark: `inset 0 1px 0 rgb(255 255 255/.05), 0 0 0 1px rgb(255 255 255/.03), 0 2px 4px rgb(0 0 0/.4), 0 16px 32px -10px rgb(0 0 0/.65), 0 40px 80px -24px rgb(76 195 176/.26)`.
@@ -79,7 +94,7 @@ Both families come from Google Fonts.
 
 ## Background recipe
 
-There are six hero layers, back to front, and a page layer that carries the look down to the footer. The look must read at a glance (a judge should see teal light and a grid, not
+The whole page is ONE continuous canvas, from the top pixel (behind the glass header) to the bottom pixel (behind the glass footer). There is no band anywhere where the effects stop. The look must read at a glance (a judge should see teal light and a grid, not
 plain beige) while text keeps AA. Nothing moves under `prefers-reduced-motion`; everything pauses when the tab is hidden
 or the hero is off screen.
 
@@ -87,7 +102,7 @@ or the hero is off screen.
 2. **Grain:** a 160px SVG `feTurbulence` tile (fractalNoise, baseFrequency 0.8, 3 octaves, grayscale), fixed to the
    viewport. In light it is a pale tile (`.6·noise + .17`) multiplied at 40%, which reads as paper tooth. In dark it is a
    mid-grey tile (`.6·noise − .4`) soft-lit at 60%.
-3. **Aurora mesh:** five soft radial blobs on one canvas drawn at 1/8 resolution, upscaled by CSS and redrawn at 20 Hz (the coins move on the same tick).
+3. **Aurora mesh:** soft radial blobs on one full-page canvas (it starts 80px above the page) drawn at 1/8 resolution, upscaled by CSS and redrawn at 20 Hz (the coins move on the same tick). Blobs 1–5 sit at fixed pixel heights in the hero. A soft teal light sits right under the glass header (y −10px), and three more blobs at 55%, 74% and 100% of the page height carry the light down to the footer at 60–70% strength.
    Each blob drifts on its own 43–89s sine loops (about ±35% of its radius, ±10% scale). The mesh fades out over the
    bottom 40% of the hero.
 
@@ -100,20 +115,17 @@ or the hero is off screen.
    | 5 deep teal | `rgb(14 107 96 / .24)` | `rgb(76 195 176 / .15)` | the left margin, balancing the receipt glow |
 
    Gradient stops are the colour at 0, 45% of its alpha at 55%, and transparent at 100%.
-4. **Grid:** 1px lines on a 44px grid (light `rgb(14 107 96 / .085)`, dark `rgb(111 211 195 / .065)`) with a 1.2px dot on
-   every intersection (light `rgb(17 26 23 / .18)`, dark `rgb(232 243 239 / .16)`). An ellipse mask
-   (72% × 56% at 60% / 32%) fades it out towards the edges and below the hero.
-5. **Cursor spotlight** (fine pointer, 768px and wider): a 520px soft disc that follows the cursor over the hero. It
+4. **Grid:** one grid for the whole page: 1px lines on a 44px grid (light `rgb(14 107 96 / .085)`, dark `rgb(111 211 195 / .065)`) with a 1.2px dot on
+   every intersection (light `rgb(17 26 23 / .18)`, dark `rgb(232 243 239 / .16)`). It runs edge to edge, with the
+   strength profile in step 7.
+5. **Cursor spotlight** (fine pointer, 768px and wider): a 520px soft disc that follows the cursor anywhere on the page. It
    holds a light tint (light `rgb(14 107 96 / .08)`, dark `rgb(76 195 176 / .10)`) and a brighter copy of the grid
    (`.22` alpha), aligned exactly to the base grid, so the grid lights up under the pointer.
-6. **Drifting coins:** five BCH coins (20–30px). Each is an accent disc with a dashed milled rim and a ₿ tilted −14°, drawn
+6. **Drifting coins:** seven BCH coins (20–30px). Two of them drift under the glass header. Each is an accent disc with a dashed milled rim and a ₿ tilted −14°, drawn
    as SVG in `on-bch`, with a soft accent glow. They sit only in the page margins, below the header and never under text
    or the receipt. They drift 22px up and sway ±10° over 23–34s, ping-ponging. The two nearest the content are hidden
    below 1440px, and all of them below 1240px (phones get none).
-7. **Page layer** (below the hero): the same 44px grid at about half strength (lines `.05`, dots `.10`; dark `.04`/`.09`)
-   fades in from 820px to 1150px and out before the page ends. Four static glows alternate left and right behind the
-   tabs, cards and footer (`rgb(14 107 96 / .10)` and `rgb(64 178 160 / .13)`; dark `rgb(76 195 176 / .07)` and
-   `rgb(30 140 125 / .13)`). It has no animation, so it costs one paint.
+7. **Grid strength down the page:** full strength from the top pixel to 860px, easing to 50% by 1300px, then fading out over the last 320px. There is no separate page layer.
 
 **Parallax:** the layers move at different depths. With the pointer at −1…1 across the viewport and `sy` as the scroll
 offset, the aurora moves `18px·mx, 14px·my + .3·sy`, the grid `−10px·mx, −8px·my + .18·sy` and the coins
@@ -156,4 +168,5 @@ The receipt is the product's hero object: a paper slip in mono type that fills i
 - **Micro-interactions:** buttons press to 98%. Header controls darken their border and fill on hover. Inactive tabs get a `subtle` fill on hover, and the tab indicator slides in 250ms.
 - **Reduced motion:** `prefers-reduced-motion: reduce` disables every animation and transition and hides the burst. The aurora and coins are drawn once and stay still. The spotlight, the parallax and the payment stream are off.
 - **Header:** the BLAZE banner and the nav form one sticky glass header, so the banner is never half-clipped.
+- **Animated chrome:** the header sheen and glint, plus a sweeping gradient border on the primary buttons and Connect: a conic highlight rotates every 4.8s behind a 1.5px inner fill (transform only; white on the accent, accent on Connect). All CSS animations pause while the tab is hidden (`html.tab-hidden`), and they are removed under reduced motion.
 - **Theme:** the header button is a two-state light/dark switch that always flips what is on screen. It is not a light/dark/auto cycle, because auto looked like a no-op on a light OS. Dark tokens are unlayered CSS so they override the unlayered light `:root` tokens.

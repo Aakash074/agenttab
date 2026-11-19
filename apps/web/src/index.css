@@ -18,27 +18,29 @@ body::before {
   background-image: var(--bg-grain-image);
   background-size: 160px 160px;
 }
-/* .backdrop is the first child of the app root (isolate), so z -1 sits under the content. */
-.backdrop { position: absolute; inset: 0 0 auto 0; height: min(1100px, 100%); z-index: -1; pointer-events: none; overflow: hidden; contain: strict; }
-.backdrop.is-paused * { animation-play-state: paused !important; }
+/* .backdrop is the first child of the app root (isolate), so z -1 sits under the content. It is ONE continuous canvas
+   from the top pixel (behind the glass header) to the bottom pixel (behind the glass footer). */
+.backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; contain: strict; }
+.backdrop.is-paused *, html.tab-hidden *, html.tab-hidden *::before, html.tab-hidden *::after { animation-play-state: paused !important; }
 .bg-layer { position: absolute; will-change: transform; }
 
-/* 2. Aurora mesh: four soft blobs on one 1/8-resolution canvas (Backdrop.tsx), upscaled here; the wrapper adds a
-   slow pointer/scroll parallax. */
-.bg-aurora-wrap { inset: -8% -8% 0 -8%;
+/* 2. Aurora mesh: soft blobs over the whole page on one 1/8-resolution canvas (Backdrop.tsx), upscaled here; the
+   wrapper adds a slow pointer/scroll parallax. It starts 80px above the page top (AURORA_TOP in Backdrop.tsx). */
+.bg-aurora-wrap { top: -80px; bottom: -80px; left: -60px; right: -60px;
   transform: translate3d(calc(var(--mx, 0) * 18px), calc(var(--my, 0) * 14px + var(--sy, 0) * 0.3px), 0);
   transition: transform 900ms cubic-bezier(.2,.7,.3,1); }
 .aurora-canvas { display: block; width: 100%; height: 100%; }
 
-/* 3. Grid: 1px lines on 44px with a dot on every intersection, faded by an ellipse around the hero. */
+/* 3. Grid: 1px lines on 44px with a dot on every intersection, from the top pixel down: full strength behind the
+   header and hero, about half strength down the page, fading out softly at the very bottom. */
 .bg-grid { inset: -60px; transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0);
   background-image:
     radial-gradient(circle at 0.5px 0.5px, var(--bg-grid-dot) 1.2px, transparent 1.8px),
     linear-gradient(to right, var(--bg-grid-line) 1px, transparent 1px),
     linear-gradient(to bottom, var(--bg-grid-line) 1px, transparent 1px);
   background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(ellipse 72% 56% at 60% 32%, #000 30%, transparent 80%);
-  mask-image: radial-gradient(ellipse 72% 56% at 60% 32%, #000 30%, transparent 80%); }
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 860px, rgb(0 0 0 / .5) 1300px, rgb(0 0 0 / .5) calc(100% - 320px), transparent calc(100% - 60px));
+  mask-image: linear-gradient(to bottom, #000 0, #000 860px, rgb(0 0 0 / .5) 1300px, rgb(0 0 0 / .5) calc(100% - 320px), transparent calc(100% - 60px)); }
 
 /* 4. Spotlight (fine pointer, >=768px): a 520px masked window at the cursor with a tint and a brighter grid copy. */
 .bg-spot { position: absolute; left: 0; top: 0; width: 520px; height: 520px; overflow: hidden; opacity: 0; will-change: transform, opacity;
@@ -67,31 +69,13 @@ body::before {
 @media (min-width: 1240px) { .coin-float { display: block; } }
 @media (max-width: 1439px) { .coin-desk { display: none; } }
 
-/* Below the hero: the grid continues faintly down the page and static glows alternate left/right behind the sections. */
-.page-glow { position: absolute; inset: 0; z-index: -2; pointer-events: none; overflow: hidden;
-  background:
-    radial-gradient(38% 520px at 4% 46%, var(--page-glow), transparent 70%),
-    radial-gradient(40% 560px at 98% 62%, var(--page-glow-2), transparent 70%),
-    radial-gradient(36% 480px at 12% 84%, var(--page-glow-2), transparent 70%),
-    radial-gradient(60% 420px at 70% 100%, var(--page-glow), transparent 72%); }
-.page-grid { position: absolute; inset: 0;
-  background-image:
-    radial-gradient(circle at 0.5px 0.5px, var(--page-grid-dot) 1.2px, transparent 1.8px),
-    linear-gradient(to right, var(--page-grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--page-grid-line) 1px, transparent 1px);
-  background-size: 44px 44px; background-position: -16px -16px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 820px, #000 1150px, #000 calc(100% - 200px), transparent);
-  mask-image: linear-gradient(to bottom, transparent 0, transparent 820px, #000 1150px, #000 calc(100% - 200px), transparent); }
-
 /* The payment stream canvas (components/Backdrop.tsx): fixed over the page, idle unless sats are in flight. */
 .stream-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; opacity: 0; }
 
-/* Phones: three blobs, a tighter grid, three coins, no spotlight, no pointer parallax. */
+/* Phones: fewer blobs, a tighter grid, no coins, no spotlight, no pointer parallax. */
 @media (max-width: 767px) {
   .bg-spot { display: none; }
-  .page-grid { background-size: 36px 36px; }
-  .bg-grid { background-size: 36px 36px;
-    -webkit-mask-image: radial-gradient(ellipse 95% 55% at 50% 30%, #000 25%, transparent 82%); mask-image: radial-gradient(ellipse 95% 55% at 50% 30%, #000 25%, transparent 82%); }
+  .bg-grid { background-size: 36px 36px; opacity: .6; }
 }
 
 /* Utilities must be able to override everything below, so component rules live in @layer components
@@ -99,17 +83,36 @@ body::before {
 
 @layer components {
   /* Sticky glass header: banner + nav over the aurora and grid. */
-  .site-header { background: var(--glass-bg); -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
-    border-bottom: 1px solid var(--glass-line); transition: box-shadow 200ms ease-out, background-color 200ms ease-out; }
-  .site-header.is-scrolled { box-shadow: var(--shadow-header); }
-  .site-banner { border-bottom: 1px solid var(--glass-line); }
-  /* No backdrop blur (some engines): a solid header so nothing reads through it. */
+  /* True glass header (banner + nav as one unit): low-opacity tint, blur and saturate, so the aurora, grid and coins
+     pass visibly underneath from the very top pixel. No hard border: a 1px gradient hairline with a glint that
+     travels along it, and a slow sheen across the glass. Slightly stronger tint and a shadow once scrolled. */
+  .site-header { background: linear-gradient(180deg, var(--hdr-shine), transparent 70%), var(--hdr-bg);
+    -webkit-backdrop-filter: blur(10px) saturate(1.8); backdrop-filter: blur(10px) saturate(1.8);
+    box-shadow: inset 0 1px 0 var(--hdr-inner);
+    transition: background-color 250ms ease-out, box-shadow 250ms ease-out, transform 200ms ease-out; }
+  .site-header > :not(.hdr-fx) { position: relative; z-index: 1; }
+  .site-header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--hdr-edge) 18%, var(--hdr-edge-hi) 50%, var(--hdr-edge) 82%, transparent); }
+  .site-header.is-scrolled { background: linear-gradient(180deg, var(--hdr-shine), transparent 70%), var(--hdr-bg-scrolled);
+    -webkit-backdrop-filter: blur(14px) saturate(1.8); backdrop-filter: blur(14px) saturate(1.8); box-shadow: inset 0 1px 0 var(--hdr-inner), var(--shadow-header); }
+  .site-banner { border-bottom: 1px solid var(--hdr-divider); }
+  .site-header > .site-banner { z-index: 2; } /* the Vote popover opens over the nav */
+  .hdr-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .hdr-sheen { position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%; will-change: transform;
+    background: linear-gradient(100deg, transparent, var(--hdr-sheen) 50%, transparent);
+    transform: translate3d(-140%, 0, 0) skewX(-18deg); animation: hdr-sheen 11s cubic-bezier(.45,0,.25,1) 1.2s infinite; }
+  @keyframes hdr-sheen { 0% { transform: translate3d(-140%, 0, 0) skewX(-18deg); } 22%, 100% { transform: translate3d(420%, 0, 0) skewX(-18deg); } }
+  .hdr-glint { position: absolute; left: 0; bottom: 0; height: 1px; width: 26%; will-change: transform;
+    background: linear-gradient(90deg, transparent, var(--hdr-glint), transparent);
+    transform: translate3d(-110%, 0, 0); animation: hdr-glint 9s linear infinite; }
+  @keyframes hdr-glint { 0% { transform: translate3d(-110%, 0, 0); } 45%, 100% { transform: translate3d(420%, 0, 0); } }
+  /* No backdrop blur: a stronger (still translucent) tint so header text keeps AA. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .site-header, .glass, .chip { background: var(--color-ink); }
+    .site-header { background: linear-gradient(180deg, color-mix(in oklab, var(--color-ink) 94%, transparent), color-mix(in oklab, var(--color-ink) 86%, transparent)); }
+    .glass, .chip, .footer-glass { background: color-mix(in oklab, var(--color-ink) 92%, transparent); }
   }
   /* Phones: once the page scrolls, the banner slides up under the top edge and only the nav stays (no layout shift). */
   @media (max-width: 639px) {
-    .site-header { transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
     .site-header.is-scrolled { transform: translateY(-45px); }
   }
   /* Selected tab: a raised pill with a visible ring in both themes. */
@@ -136,7 +139,13 @@ body::before {
     -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     transition: border-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out; }
   .chip:hover { border-color: var(--color-line-2); transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
-  .site-footer { position: relative; border-top: 1px solid var(--glass-line); background: var(--glass-bg-soft); }
+  /* Footer: a glass panel floating on the continuing background. */
+  .site-footer { position: relative; }
+  .footer-glass { position: relative; border-radius: 20px; background: var(--footer-bg);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--hdr-divider); box-shadow: var(--shadow-card); }
+  .footer-glass::before { content: ""; position: absolute; left: 24px; right: 24px; top: -1px; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--hdr-edge-hi), transparent); }
   /* Glass tab bar over the page glow. */
   .glass { background: var(--glass-bg); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
@@ -164,14 +173,46 @@ body::before {
   }
   .control:hover { background-color: var(--color-panel-2); border-color: color-mix(in oklab, var(--color-line-2) 70%, var(--color-fg)); box-shadow: var(--shadow-control-hover); }
   .control:active { transform: scale(0.97); }
-  /* Native select with the platform arrow removed; the chevron is an inline SVG sibling (.select-chevron). */
-  .select { appearance: none; -webkit-appearance: none; -moz-appearance: none; padding: 0 30px 0 12px; cursor: pointer; text-overflow: ellipsis; }
-  .select::-ms-expand { display: none; }
-  .select-chevron { position: absolute; right: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px; pointer-events: none; color: var(--color-dim); transition: color 150ms ease-out, transform 150ms ease-out; }
-  .select-wrap:hover .select-chevron, .select:focus-visible + .select-chevron { color: var(--color-fg); }
-  .select:focus-visible { border-color: var(--color-bch-2); }
+  /* Network switch (components/NetworkSelect.tsx): trigger with a status dot, glass listbox popover, bottom sheet on phones. */
+  .net-dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+  .net-dot.is-main { background: var(--color-bch); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-bch) 20%, transparent); }
+  .net-dot.is-chip { background: var(--color-gold); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-gold) 20%, transparent); }
+  .net-trigger[aria-expanded="true"] { border-color: color-mix(in oklab, var(--color-line-2) 50%, var(--color-bch)); background-color: var(--color-panel-2); }
+  .net-trigger:focus-visible { border-color: var(--color-bch-2); }
+  .net-chevron { transition: transform 200ms cubic-bezier(.2,.7,.3,1); }
+  .net-chevron.is-open { transform: rotate(180deg); }
+  .net-panel { position: fixed; z-index: 60; width: 320px; padding: 6px; border-radius: 14px;
+    background: var(--menu-bg); -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+    border: 1px solid var(--color-line); box-shadow: var(--shadow-menu);
+    transform-origin: top right; opacity: 0; transform: translateY(-4px) scale(.97);
+    transition: opacity 150ms ease-out, transform 160ms cubic-bezier(.2,.7,.3,1); }
+  .net-panel.is-open { opacity: 1; transform: none; }
+  .net-panel.is-sheet { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; z-index: 70;
+    border-radius: 18px 18px 0 0; padding: 10px 10px calc(14px + env(safe-area-inset-bottom)); transform-origin: bottom center;
+    transform: translateY(100%); }
+  .net-panel.is-sheet.is-open { transform: none; }
+  .net-panel.is-sheet::before { content: ""; display: block; width: 36px; height: 4px; margin: 2px auto 10px; border-radius: 9999px; background: var(--color-line-2); }
+  .net-scrim { position: fixed; inset: 0; z-index: 65; background: rgb(7 11 10 / 0.35); opacity: 0; transition: opacity 160ms ease-out; }
+  .net-scrim.is-open { opacity: 1; }
+  .net-option { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    transition: background-color 120ms ease-out; }
+  .net-option.is-active { background: var(--color-subtle); box-shadow: inset 0 0 0 1px var(--color-line); }
+  .net-option[aria-selected="true"] { background: color-mix(in oklab, var(--color-bch) 8%, transparent); }
+  .net-option[aria-selected="true"].is-active { background: color-mix(in oklab, var(--color-bch) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-bch) 35%, transparent); }
+  .net-option.is-disabled { cursor: not-allowed; opacity: .5; }
+  [role="listbox"]:focus-visible .net-option.is-active { box-shadow: inset 0 0 0 2px var(--color-bch-2); }
   /* Primary (accent) buttons lift a pixel on hover and press in. */
   .btn-primary { transition: background-color 150ms ease-out, box-shadow 180ms ease-out, transform 120ms ease-out; }
+  /* Animated gradient border: a conic highlight rotates behind an inner fill (transform only). The element clips it
+     to a 1.5px ring. Used on the primary buttons and Connect. */
+  .btn-primary, .ring-sweep { position: relative; isolation: isolate; overflow: hidden; }
+  .btn-primary::before, .ring-sweep::before { content: ""; position: absolute; z-index: -2; left: 50%; top: 50%; width: max(170%, 140px); aspect-ratio: 1;
+    background: conic-gradient(from 0deg, transparent 0 58%, var(--sweep) 76%, transparent 90%);
+    transform: translate(-50%, -50%) rotate(0deg); animation: ring-sweep 4.8s linear infinite; will-change: transform; pointer-events: none; }
+  .btn-primary::after, .ring-sweep::after { content: ""; position: absolute; z-index: -1; inset: 1.5px; border-radius: inherit; background: inherit; pointer-events: none; }
+  .btn-primary { --sweep: var(--sweep-on-accent); }
+  .ring-sweep { --sweep: var(--color-bch); }
+  @keyframes ring-sweep { to { transform: translate(-50%, -50%) rotate(360deg); } }
   .btn-primary:not(:disabled):hover { box-shadow: var(--shadow-btn-hover); transform: translateY(-1px); }
   .btn-primary:not(:disabled):active { box-shadow: none; transform: translateY(0) scale(0.98); }
 }
@@ -225,6 +266,8 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .burst { display: none; }
   .bg-layer, .coin-float, .bg-spot, .bg-spot-grid { will-change: auto; }
+  .hdr-fx, .btn-primary::before, .ring-sweep::before { display: none; }
+  .net-panel, .net-panel.is-sheet { transform: none; }
   .card-lift:hover, .chip:hover { transform: none; }
   .bg-spot, .stream-canvas { display: none; }
   button:active, .control:active, .btn-primary:hover, .btn-primary:active { transform: none !important; }

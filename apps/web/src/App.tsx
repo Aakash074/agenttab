@@ -3,7 +3,7 @@ import { Backdrop, PaymentStream } from './components/Backdrop';
 import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react';
 import { Banner } from './components/Banner';
 import { Footer } from './components/Footer';
-import { PageGlow } from './components/Backdrop';
+import { NetworkSelect } from './components/NetworkSelect';
 import { Hero, ProofStrip, type DemoRun } from './components/Hero';
 import { IDLE_JOURNEY, type JourneyState } from './components/Journey';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -450,6 +450,12 @@ export default function App() {
     </span>
   ) : undefined;
 
+  // Pause every CSS animation (header sheen, button sweeps…) while the tab is hidden.
+  useEffect(() => {
+    const f = () => document.documentElement.classList.toggle('tab-hidden', document.hidden);
+    document.addEventListener('visibilitychange', f);
+    return () => document.removeEventListener('visibilitychange', f);
+  }, []);
   // The glass header gains a soft shadow once the page scrolls under it.
   useEffect(() => {
     const h = document.querySelector('.site-header');
@@ -460,11 +466,11 @@ export default function App() {
 
   return (
     <div className="relative isolate min-h-screen overflow-x-clip">
-      <PageGlow />
       <Backdrop />
       <PaymentStream />
       {/* One sticky glass header: the BLAZE banner and the nav move together, so the banner is never half-clipped. */}
       <div className="site-header sticky top-0 z-40">
+      <div aria-hidden className="hdr-fx"><span className="hdr-sheen" /><span className="hdr-glint" /></div>
       <Banner />
       <header>
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
@@ -478,14 +484,7 @@ export default function App() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
               )}
             </button>
-            <span className="select-wrap relative inline-flex shrink-0">
-              <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-                className="control select" title="Network (Chipnet = testnet, free test coins)">
-                <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (soon)'}</option>
-                <option value="chipnet">Chipnet</option>
-              </select>
-              <svg className="select-chevron" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </span>
+            <NetworkSelect net={net} onChange={(n) => setNet(n)} mainnetEnabled={MAINNET_ENABLED} />
             {wallet ? (
               <div className="relative min-w-0">
                 <button onClick={() => setMenu((m) => !m)} className="control max-w-[124px] gap-1.5 px-2.5 font-mono !text-[13px] !font-medium sm:max-w-none" aria-expanded={menu} aria-label="Wallet menu">
@@ -502,7 +501,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="control whitespace-nowrap px-3.5">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="control ring-sweep whitespace-nowrap px-3.5">Connect</button>
             )}
           </div>
         </div>

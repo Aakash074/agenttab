@@ -13,8 +13,8 @@ export function Footer({ themeLabel, onTheme }: { themeLabel: string; onTheme: (
   const [copied, setCopied] = useState(false);
   const z = BANNER.donationZAddress;
   return (
-    <footer className="site-footer">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-9 md:grid-cols-[1fr_auto] md:items-end">
+    <footer className="site-footer mx-auto max-w-6xl px-4 pb-8 pt-4">
+      <div className="footer-glass grid gap-6 px-5 py-7 sm:px-7 md:grid-cols-[1fr_auto] md:items-end">
         <div className="max-w-md">
           <p className="flex items-center gap-2 text-[15px] font-semibold text-fg">
             <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="8" className="fill-bch" /><path d="M9 22V10h7.5a4 4 0 0 1 0 8H13m0-8v12" className="stroke-on-bch" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>

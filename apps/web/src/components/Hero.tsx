@@ -23,7 +23,7 @@ export function ProofStrip({ calls, txs, attacks, onCheat, chipnetNote }: {
       <button type="button" onClick={onCheat} className="tap text-left underline decoration-line-2 underline-offset-4 hover:text-fg hover:decoration-bch">
         <span>{attacks ? <><Num n={attacks.rejected} /><b className="font-semibold text-fg">/{attacks.total}</b> cheats rejected</> : '7 cheats to try'}</span>
       </button>
-      {chipnetNote && <span className="text-sm text-dim">(on Chipnet)</span>}
+      {chipnetNote && <span className="text-sm text-muted">(on Chipnet)</span>}
     </p>
   );
 }
