@@ -11,6 +11,8 @@ You lock a budget in a covenant with **one transaction**. Your agent then pays f
 
 Paying for each call on-chain costs one transaction per call. AgentTab is a payment channel instead: two transactions in total, however many calls. On chipnet the two cost 776 sats in fees together (open 229 bytes + settle 547 bytes at 1 sat/byte).
 
+**Live on BCH mainnet:** a real Paytaca wallet paid 1¢ for an oracle answer on 2026-11-19: [`33d32acd51…`](https://explorer.bch.ninja/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3) ([docs/mainnet-proof.md](docs/mainnet-proof.md)). Hosted mainnet API: https://agenttab-api-mainnet.onrender.com.
+
 ## Verify it in 5 minutes (chipnet)
 
 **Try it in 30 seconds: pay 1¢.** Type a question in the first card, press **Ask the oracle — 1¢**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the card, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
