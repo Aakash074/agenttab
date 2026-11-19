@@ -8,7 +8,7 @@ Mainnet variant (H11 done 2026-11-19). Everything marked [Author to write] must 
 AgentTab: a refundable tab for your AI agent on Bitcoin Cash. One transaction to open, any number of paid API calls, one transaction to settle. Whatever isn't spent comes back to you.
 
 ## Links
-- Live demo: https://agenttab-wihk.onrender.com (opens on Mainnet; the free 5¢ tab demo is at https://agenttab-wihk.onrender.com/?net=chipnet; free hosting, so the first load can take up to a minute)
+- Live demo: https://agenttab-bch.onrender.com (opens on Mainnet; the free 5¢ tab demo is at https://agenttab-bch.onrender.com/?net=chipnet; free hosting, so the first load can take up to a minute)
 - Repo: https://github.com/Aakash074/agenttab
 - Widget Factory deck: [link]
 - CashTokens address: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul

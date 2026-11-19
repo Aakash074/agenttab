@@ -31,7 +31,7 @@ in the site's dark tokens (`DESIGN.md`). Sections below are the source text; thi
 **AgentTab: a refundable tab for your AI agent, on Bitcoin Cash.**
 One transaction to open, any number of paid API calls, one transaction to settle. Whatever isn't spent comes back to you.
 
-- Live demo: https://agenttab-wihk.onrender.com (opens on Mainnet; free 5¢ demo at `?net=chipnet`)
+- Live demo: https://agenttab-bch.onrender.com (opens on Mainnet; free 5¢ demo at `?net=chipnet`)
 - Screenshot: `desktop-chipnet-settled.jpg` (the receipt ticket with the SETTLED stamp, "provider 3,000 / 17,000 back to you")
 - Repo: https://github.com/Aakash074/agenttab
 - Vote with EMBER2026: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul
@@ -99,7 +99,7 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 AI agents are starting to pay for APIs per request, and the usual options are one on-chain transaction and fee for every call, or a balance prepaid to the provider, where you trust its ledger for each charge and for your refund. I've built production AI agents and worked on stablecoin payments, and I wanted something in between: a bounded budget the agent can spend but can never run off with. AgentTab locks that budget in a Bitcoin Cash covenant with one transaction, pays for each call with a signed off-chain voucher, and settles with one more transaction, and the covenant forces whatever wasn't spent back to the owner. On chipnet the covenant rejected all 7 attacks in the app's test panel, and on 19 November 2026 a real wallet made a plain 1¢ payment for an oracle answer on BCH mainnet.
 
 ## 10. Try it in 60 seconds
-1. Open https://agenttab-wihk.onrender.com/?net=chipnet.
+1. Open https://agenttab-bch.onrender.com/?net=chipnet.
 2. Press **Give an AI agent a 5¢ tab**.
 3. Watch the receipt ticket: 3 paid calls, 0 on-chain txs, then SETTLED with 17,000 sats back to you.
 4. Open the **Try to cheat it** tab → **Run the 7 attacks**.

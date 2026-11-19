@@ -1,6 +1,6 @@
 # Mainnet proof: AgentTab on BCH mainnet
 
-Hosted mainnet API: https://agenttab-api-mainnet.onrender.com (site: https://agenttab-wihk.onrender.com, network **Mainnet**).
+Hosted mainnet API: https://agenttab-api-mainnet.onrender.com (site: https://agenttab-bch.onrender.com, network **Mainnet**).
 
 ## 1¢ direct pay from a real Paytaca wallet (2026-11-19 10:47 UTC)
 

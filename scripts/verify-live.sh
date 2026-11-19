@@ -2,7 +2,7 @@
 # Post-deploy check: the live web bundle must carry the mandatory BLAZE banner links
 # (Widget Factory deck, source repo, EMBER2026 z-address) and both API URLs.
 set -euo pipefail
-B=${1:-https://agenttab-wihk.onrender.com}
+B=${1:-https://agenttab-bch.onrender.com}
 JS=$(for js in $(curl -s -m 60 "$B/" | grep -oE '/assets/[^"]+\.js'); do
   curl -s -m 60 "$B$js"
   for c in $(curl -s -m 60 "$B$js" | grep -oE '[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.js' | sort -u); do curl -s -m 60 "$B/assets/$c"; done

@@ -1,6 +1,6 @@
 # Demo video script (target 1:40, hard limit 1:45)
 
-Site: https://agenttab-wihk.onrender.com (opens on Mainnet). The free 5¢ demo runs at https://agenttab-wihk.onrender.com/?net=chipnet. Screen at 1440×900, light theme, browser zoom 110%. Voiceover is yours to say in your own words; the lines below are a guide, not a script to read.
+Site: https://agenttab-bch.onrender.com (opens on Mainnet). The free 5¢ demo runs at https://agenttab-bch.onrender.com/?net=chipnet. Screen at 1440×900, light theme, browser zoom 110%. Voiceover is yours to say in your own words; the lines below are a guide, not a script to read.
 
 The real run takes about 25 s from click to SETTLED. Cut the waits between calls in editing so the first 15 s show the whole arc.
 
@@ -15,7 +15,7 @@ The real run takes about 25 s from click to SETTLED. Cut the waits between calls
 | 0:50–1:10 | **Try to cheat it** tab → **Run the 7 attacks**. All rows show "trying", then "Rejected by node/server"; the counter reaches "7/7 cheats rejected". Open one expander (e.g. "Provider rewrites the signed amount") to show the node error in the mono box and "never entered the mempool". | "Can the provider overcharge, or the agent drain the tab? This fires seven real attacks at a fresh tab. The network rejects every one, and this is the node's own error. Then the honest settle goes through." |
 | 1:10–1:25 | Switch the network to **Mainnet** (no query string). Hero button **Pay 1¢ for a live BCH price**; the ticket shows the last real mainnet payment with the PAID stamp. Click its tx link → explorer.bch.ninja tx `33d32acd…f7efe3`: 4,797 sats to the provider, an `OP_RETURN`, change to the payer. | "And it's live on mainnet. This is a real 1 cent payment from a Paytaca wallet over WizardConnect, accepted at zero-conf. The same tab flow is enabled on mainnet; the attack runs are on Chipnet because they spend coins." |
 | 1:25–1:35 | **Use with your agent** tab: the MCP JSON with Copy, and "Your tabs" with Budget/Spent/Returned. | "Any MCP agent, like Claude, can use it as a tool. It speaks the x402 payment flow with one new scheme, bch-credit: batch settlement, but no facilitator holds the money." |
-| 1:35–1:40 | Plain end card: site URL + GitHub link. | "Try it in 30 seconds at agenttab-wihk.onrender.com." "Give your agent a budget, not your keys." |
+| 1:35–1:40 | Plain end card: site URL + GitHub link. | "Try it in 30 seconds at agenttab-bch.onrender.com." "Give your agent a budget, not your keys." |
 
 ## Shots to capture separately (for the BUIDL screenshots, 4+)
 Already captured in `reviews/shots-r9-after/`:

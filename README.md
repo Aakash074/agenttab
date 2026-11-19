@@ -13,9 +13,11 @@ Paying for each call on-chain costs one transaction per call. AgentTab is a paym
 
 **Live on BCH mainnet:** a real Paytaca wallet paid 1¢ for an oracle answer on 2026-11-19: [`33d32acd51…`](https://explorer.bch.ninja/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3) ([docs/mainnet-proof.md](docs/mainnet-proof.md)). Hosted mainnet API: https://agenttab-api-mainnet.onrender.com.
 
+The previous URL https://agenttab-wihk.onrender.com still serves the same build as a mirror.
+
 ## Verify it in 5 minutes (chipnet)
 
-The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attacks run on chipnet: pick *Chipnet* in the header network selector, use the "Or try the 5¢ tab free on Chipnet →" link, or open https://agenttab-wihk.onrender.com/?net=chipnet directly.
+The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attacks run on chipnet: pick *Chipnet* in the header network selector, use the "Or try the 5¢ tab free on Chipnet →" link, or open https://agenttab-bch.onrender.com/?net=chipnet directly.
 
 **Try it in 30 seconds: pay 1¢.** On Mainnet, press **Pay 1¢ for a live BCH price**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the button, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
 

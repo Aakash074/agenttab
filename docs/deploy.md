@@ -45,7 +45,7 @@ The API sends `access-control-allow-origin: *`, and the live feed uses SSE, whic
 
 ## First mainnet transaction (the user does this)
 
-1. Open https://agenttab-wihk.onrender.com and switch the network to **Mainnet**.
+1. Open https://agenttab-bch.onrender.com and switch the network to **Mainnet**.
 2. Press the one-button journey, choose **WizardConnect**, and scan with Paytaca.
 3. Approve the open-tab transaction (about 5¢). The demo agent pays 3 calls (600 sats each) from the tab, then the tab is closed and the change comes back.
 4. Record the open and settle txids in `docs/mainnet-proof.md`.
