@@ -5,7 +5,7 @@ Deck: https://docs.google.com/presentation/d/1HWXYkITgDgsd3Xc6NcHcST592q_E5ljSum
 ## Slide order (as built, 2026-11-19 redesign)
 
 The deck follows the BLAZE template's order (Title, Name/one-liner, Story, Benefits, BCH Usage, Vision, Thank you)
-in the site's dark tokens (`DESIGN.md`). Sections below are the source text; this is where each one lands. Every slide has a 0.5 s Dissolve transition and builds its key idea; explanations live in the speaker notes.
+in the site's dark tokens (`DESIGN.md`). Sections below are the source text; this is where each one lands. Every slide has a 0.5 s Fade (through black) transition and builds its key idea; explanations live in the speaker notes.
 
 | # | Slide | Source section |
 |---|---|---|
@@ -15,8 +15,8 @@ in the site's dark tokens (`DESIGN.md`). Sections below are the source text; thi
 | 4 | Benefits: owner + agent → tab covenant → provider, built step by step: 1 tx / 0 tx / 1 tx | §4 |
 | 5 | Benefits: every paid call, 0 on-chain txs (looping GIF of a live chipnet run in a browser frame) | §3 |
 | 6 | BCH Usage 1/5: the 176-byte CashScript covenant (`settle()`, simplified) | §4 |
-| 7 | BCH Usage 2/5: Try to cheat it, 7 / 7 rejected (rows build in sequence) | §5 |
-| 8 | BCH Usage 3/5: Live on BCH mainnet (receipt card + explorer QR) | §8 |
+| 7 | BCH Usage 2/5: Try to cheat it, 7 / 7 rejected (rows build in sequence, ember-red REJECTED stamps, key error tokens; full strings in chipnet-proof) | §5 |
+| 8 | BCH Usage 3/5: Live on BCH mainnet (light paper receipt card + explorer QR) | §8 |
 | 9 | BCH Usage 4/5: Agents pay via MCP (3 lines) | §6 |
 | 10 | BCH Usage 5/5: bch-credit vs per-call vs facilitator batch (3 tiles) | §6 |
 | 11 | Business model: 1% provider take-rate | §7 |
