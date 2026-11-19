@@ -58,11 +58,11 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 - Comparison table (copy from README "How it compares"): per-call payment = 100 txs per 100 calls; facilitator batch (Coinbase x402 batch, PSF batch debit) = few txs but the facilitator holds funds; `bch-credit` = 2 txs and no one can take the unspent budget. Line to say: "x402 batch settlement, trust-minimised on BCH L1: the covenant enforces the refund, no facilitator."
 
 ## 7. Business model
-- No paying provider yet.
-- First guess: a hosted paywall for API providers, charging 1% of settled volume [Author to confirm].
+- **Provider take-rate:** API providers use a hosted AgentTab paywall and pay 1% of what their tabs settle.
+- Agents and their owners pay nothing extra.
 - Settlement stays non-custodial: funds go from the covenant straight to the provider.
 - The middleware, MCP server and SDK stay open source.
-- Who pays is open: the API provider (take-rate) or the agent owner (nothing extra today) [Author to confirm].
+- No paying provider yet.
 
 ## 8. Roadmap
 - **Next concrete step:** propose `bch-credit` to the x402-bch maintainers (issue not opened yet).

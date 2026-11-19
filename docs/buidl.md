@@ -56,6 +56,9 @@ Credit: PSF `x402-bch` / `x402-bch-express` and OPTN Labs `x402-bch` (same HTTP 
 ## Screenshots (4+)
 1. Hero with a settled receipt. 2. Tab card mid-spend next to the live feed. 3. Attack panel, 7/7 rejected. 4. Explorer view of a settle with two outputs. 5. Claude calling `fetch_paid`.
 
+## Business model
+API providers run a hosted AgentTab paywall and pay **1% of what their tabs settle**. Agents and their owners pay nothing extra, and settlement stays non-custodial: funds go from the covenant straight to the provider. The middleware, MCP server and SDK stay open source. No paying provider yet.
+
 ## Roadmap
 - Propose `bch-credit` to the x402-bch maintainers.
 - [Author to confirm] Top-ups, multi-provider tabs, PUSD-denominated tabs.

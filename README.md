@@ -64,6 +64,9 @@ A capped vault is the better fit when an agent pays **many different providers**
 
 Also in this hackathon, **LaunchDesk** uses a per-order CashScript escrow so a *human pays an AI* for one finished job, released on delivery. AgentTab is the other direction: an *AI agent pays any API* per call, many calls on one budget, 2 transactions in total.
 
+## Business model
+API providers run a hosted AgentTab paywall and pay **1% of what their tabs settle**. Agents and their owners pay nothing extra, and settlement stays non-custodial: funds go from the covenant straight to the provider. The middleware, MCP server and SDK stay open source. No paying provider yet.
+
 ## Build timeline
 
 - **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.
