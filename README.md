@@ -15,17 +15,17 @@ Paying for each call on-chain costs one transaction per call. AgentTab is a paym
 
 ## Verify it in 5 minutes (chipnet)
 
-The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attack panel run on chipnet: pick *Chipnet* in the header, or open https://agenttab-wihk.onrender.com/?net=chipnet directly.
+The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attacks run on chipnet: pick *Chipnet* in the header network selector, use the "Or try the 5¢ tab free on Chipnet →" link, or open https://agenttab-wihk.onrender.com/?net=chipnet directly.
 
-**Try it in 30 seconds: pay 1¢.** Type a question in the first card, press **Ask the oracle — 1¢**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the card, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
+**Try it in 30 seconds: pay 1¢.** On Mainnet, press **Pay 1¢ for a live BCH price**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the button, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
 
 | # | Do this | You should see |
 |---|---|---|
-| 1 | Open the app and press **"Give an AI agent a 5¢ tab. Watch it pay 3 API calls. Get your change back."** and pick *Chipnet test wallet* | The stepper fetches free test coins (no signup), then opens the tab: **one transaction** (explorer link). |
-| 2 | Watch the receipt on the right | `402 Payment Required` → `X-PAYMENT` voucher #1, #2, #3 → `200 OK`. **No transactions** for the calls; the bar drains. |
-| 3 | Wait for step 5 | The tab is closed in **one transaction**: "Change back: 17,000 sats". In the explorer the settle has exactly two outputs, the provider's 3,000 (minus its fee) and your exact remainder. |
-| 4 | Open **Advanced: fund your own agent** | Paste any agent pubkey (from the MCP tool `agent_info`), pick a budget and timeout, and see the covenant source and the provider key. |
-| 5 | Scroll to **Try to cheat the tab → Run 7 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund, agent-withdraw and cancel-to-self are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
+| 1 | On `?net=chipnet`, press **Give an AI agent a 5¢ tab** | A throwaway Chipnet test wallet gets free test coins (no signup), then the tab opens in **one transaction**: a coin lands in the receipt ticket, "5¢ locked in tab · 20,000 sats". |
+| 2 | Watch the receipt ticket | Three call lines fill in, `/api/oracle 402 → 200 +1,000`, while "on-chain txs for these calls" stays at **0**; the bar fills. |
+| 3 | Wait about 25 s | The tab is closed in **one transaction**: the bar splits into "provider 3,000" and "17,000 back to you", and the SETTLED stamp appears. In the explorer the settle has exactly two outputs, the provider's 3,000 (minus its fee) and your exact remainder. |
+| 4 | Open **How it works → Advanced: fund a tab for your own agent** | Paste any agent pubkey (from the MCP tool `agent_info`), pick a budget and timeout, and see the covenant source and the provider key. |
+| 5 | Open the **Try to cheat it** tab → **Run the 7 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund, agent-withdraw and cancel-to-self are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
 
 For agents, an MCP server (`packages/mcp`) gives Claude or any MCP client `fetch_paid`, `tab_status`, `close_tab` and `agent_info`. On-chain evidence (txids) is in [`docs/chipnet-proof.md`](docs/chipnet-proof.md). The threat model is in [`docs/security.md`](docs/security.md).
 
@@ -207,16 +207,15 @@ On a 402, `fetch_paid` pays from a tab in this order:
 
 ### Web
 
-The page shows three things:
-- a hero with the latest paid call and its on-chain open and settle txids;
-- the live feed;
-- the "Fund your agent's tab" form, which takes the agent pubkey, budget and refund timeout.
+The page is one hero action plus a receipt ticket, then four tabs:
+- **Hero:** on Mainnet, **Pay 1¢ for a live BCH price**; on Chipnet, **Give an AI agent a 5¢ tab**. The ticket shows the run live (calls, 0 on-chain txs, provider/back-to-you split, SETTLED stamp).
+- **Live feed**, **Try to cheat it** (7 attacks), **How it works** (with *Advanced: fund a tab for your own agent*: agent pubkey, budget, refund timeout), **Use with your agent** (MCP config and "Your tabs").
 
 Two signers are available:
 - **WizardConnect** (Paytaca etc.): the dapp builds the tx with placeholder signatures and the wallet signs it.
 - **Chipnet test wallet**: a throwaway key in localStorage, chipnet only.
 
-The "Your tabs" panel shows budget, spent, remaining and the refund countdown, and has a Refund button that unlocks after the timeout.
+"Your tabs" shows budget, spent, remaining and the refund countdown, and has a Refund button that unlocks after the timeout.
 
 Banner values come from `VITE_DECK_URL`, `VITE_REPO_URL`, `VITE_DONATION_ZADDR` and `VITE_PROTOTYPE_URL`. Mainnet in the network selector is enabled when `VITE_SERVER_URL_MAINNET` is set at build time (hosted: https://agenttab-api-mainnet.onrender.com).
 

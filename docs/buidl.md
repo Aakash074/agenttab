@@ -8,7 +8,7 @@ Mainnet variant (H11 done 2026-11-19). Everything marked [Author to write] must 
 AgentTab: a refundable tab for your AI agent on Bitcoin Cash. One transaction to open, any number of paid API calls, one transaction to settle. Whatever isn't spent comes back to you.
 
 ## Links
-- Live demo: https://agenttab-wihk.onrender.com (free hosting: the first load can take up to a minute)
+- Live demo: https://agenttab-wihk.onrender.com (opens on Mainnet; the free 5¢ tab demo is at https://agenttab-wihk.onrender.com/?net=chipnet; free hosting, so the first load can take up to a minute)
 - Repo: https://github.com/Aakash074/agenttab
 - Widget Factory deck: [link]
 - CashTokens address: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul
@@ -27,8 +27,8 @@ AI agents are starting to pay for APIs per request (x402). On BCH today there ar
 
 The live site counts it: every paid call so far versus the on-chain transactions it actually took.
 
-## Try to cheat the tab
-One button opens a fresh tab and fires 7 real attacks at it: voucher replay, overclaim, forged amount, remainder sent elsewhere, early refund, agent withdrawal, provider cancelling into its own wallet. All 7 are rejected, with the node's own error shown. Then the honest settle is accepted.
+## Try to cheat it
+On the site's **Try to cheat it** tab, **Run the 7 attacks** opens a fresh tab and fires 7 real attacks at it: voucher replay, overclaim, forged amount, remainder sent elsewhere, early refund, agent withdrawal, provider cancelling into its own wallet. All 7 are rejected, with the node's own error shown. Then the honest settle is accepted.
 
 ## For agents
 An MCP server gives Claude or any MCP client four tools: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps.
@@ -54,7 +54,12 @@ Credit: PSF `x402-bch` / `x402-bch-express` and OPTN Labs `x402-bch` (same HTTP 
 - Tests: unit, property and HTTP tests, including a 500-step adversarial voucher stream.
 
 ## Screenshots (4+)
-1. Hero with a settled receipt. 2. Tab card mid-spend next to the live feed. 3. Attack panel, 7/7 rejected. 4. Explorer view of a settle with two outputs. 5. Claude calling `fetch_paid`.
+1. `desktop-chipnet-run-midway.jpg`: the receipt ticket mid-run, three paid calls, "0 on-chain txs".
+2. `desktop-chipnet-settled.jpg`: SETTLED stamp, bar split "provider 3,000 / 17,000 back to you".
+3. `desktop-attacks-7of7.jpg`: Try to cheat it, 7/7 cheats rejected, node error in the expander.
+4. `desktop-mainnet-first-screen.jpg`: Mainnet default, "Pay 1¢ for a live BCH price" with the last real payment.
+5. `mobile-chipnet-settled.jpg`: the settled ticket on a phone.
+6. (To capture) Explorer view of mainnet tx `33d32acd…f7efe3`, and Claude calling `fetch_paid`.
 
 ## Business model
 API providers run a hosted AgentTab paywall and pay **1% of what their tabs settle**. Agents and their owners pay nothing extra, and settlement stays non-custodial: funds go from the covenant straight to the provider. The middleware, MCP server and SDK stay open source. No paying provider yet.
