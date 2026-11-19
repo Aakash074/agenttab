@@ -208,7 +208,7 @@ Two signers are available:
 
 The "Your tabs" panel shows budget, spent, remaining and the refund countdown, and has a Refund button that unlocks after the timeout.
 
-Banner values come from `VITE_DECK_URL`, `VITE_REPO_URL`, `VITE_DONATION_ZADDR` and `VITE_PROTOTYPE_URL`. Mainnet in the network selector is disabled unless `VITE_ENABLE_MAINNET=1` and `VITE_SERVER_URL_MAINNET` is set.
+Banner values come from `VITE_DECK_URL`, `VITE_REPO_URL`, `VITE_DONATION_ZADDR` and `VITE_PROTOTYPE_URL`. Mainnet in the network selector is enabled when `VITE_SERVER_URL_MAINNET` is set at build time (hosted: https://agenttab-api-mainnet.onrender.com).
 
 ## Voucher format
 

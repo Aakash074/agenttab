@@ -1,6 +1,8 @@
 # Deploying AgentTab (Vercel + Render free)
 
-Update 2026-11-15: the user created Render + Vercel accounts. Step 1 deploys `render.yaml` (chipnet API + static web, both on Render free). Keys come from a Render-generated `KEY_SEED` (server derives each role key), so no WIF is typed into a dashboard. Fund the derived faucet/demo addresses (shown at `/.well-known/agenttab` and the faucet route) with chipnet coins. The mainnet API is added only after the user's chipnet Paytaca test passes.
+Update 2026-11-15: the user created Render + Vercel accounts. Step 1 deploys `render.yaml` (chipnet API + static web, both on Render free). Keys come from a Render-generated `KEY_SEED` (server derives each role key), so no WIF is typed into a dashboard. Fund the derived faucet/demo addresses (shown at `/.well-known/agenttab` and the faucet route) with chipnet coins. 
+
+Update 2026-11-19: `agenttab-api-mainnet` is live at https://agenttab-api-mainnet.onrender.com (added to `render.yaml`, created by the Blueprint sync). It also uses a Render-generated `KEY_SEED`, so the mainnet `PROVIDER_WIF` / `DEMO_AGENT_WIF` rows below are only needed for a non-Render deploy. Defaults on mainnet: 1¢ direct pay, max tab 100k sats; demo agent, faucet and attack panel are off.
 
 ## API servers on Render (`render.yaml`)
 
@@ -43,7 +45,7 @@ The API sends `access-control-allow-origin: *`, and the live feed uses SSE, whic
 
 ## First mainnet transaction (the user does this)
 
-1. Open the Vercel URL and switch the network to **Mainnet**.
+1. Open https://agenttab-wihk.onrender.com and switch the network to **Mainnet**.
 2. Press the one-button journey, choose **WizardConnect**, and scan with Paytaca.
 3. Approve the open-tab transaction (about 5¢). The demo agent pays 3 calls (600 sats each) from the tab, then the tab is closed and the change comes back.
 4. Record the open and settle txids in `docs/mainnet-proof.md`.
