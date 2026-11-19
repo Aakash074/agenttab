@@ -1,0 +1,124 @@
+/* AgentTab design tokens: the single source for colour, type, radius, shadow and background recipe.
+   Light ("paper") is the default theme; dark is opt-in via the header toggle (data-theme="dark") or follows
+   the OS when data-theme="system". Tailwind utilities (bg-ink, text-muted, border-line, …) read these
+   variables, so both themes share one set of class names. Documented for the deck/video in /DESIGN.md. */
+@theme {
+  /* type: Inter for UI, JetBrains Mono for the receipt, txids and code (Google Fonts, see index.html) */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* surfaces */
+  --color-ink: #f6f4ee;        /* page background (warm paper) */
+  --color-panel: #ffffff;      /* cards, the receipt */
+  --color-panel-2: #f1eee6;    /* wells, tab bar, banner */
+  --color-subtle: rgb(17 26 23 / 0.05);   /* hover fills, tracks */
+  --color-line: #e3ded2;       /* borders */
+  --color-line-2: #cdc6b6;     /* control borders */
+  /* text */
+  --color-fg: #111a17;         /* 16.1:1 on paper */
+  --color-muted: #44514c;      /* 7.6:1 on paper */
+  --color-dim: #5c6964;        /* 5.2:1 on paper */
+  /* brand */
+  --color-bch: #0e6b60;        /* the one accent (deep teal): fills, bars, primary button */
+  --color-bch-hover: #0a564d;
+  --color-on-bch: #ffffff;     /* text on the accent (6.4:1) */
+  --color-bch-2: #0e6b60;      /* accent used as TEXT (links): 5.8:1 on paper */
+  /* status */
+  --color-warn: #8a5300;
+  --color-bad: #b42318;
+  --color-info: #1b5aa0;
+  --color-gold: #7a5200;
+  /* elevation */
+  --shadow-card: 0 1px 2px rgb(17 26 23 / 0.06), 0 1px 1px rgb(17 26 23 / 0.04);
+}
+
+:root {
+  /* radii (px): controls 8 · big buttons / wells 12 · receipt 10 · cards 16 · pills 9999 */
+  --radius-control: 8px;
+  --radius-button: 12px;
+  --radius-slip: 10px;
+  --radius-card: 16px;
+  --control-h: 40px;
+
+  /* the receipt lifts off the page: four stacked shadows, the last one tinted with the accent */
+  --shadow-slip:
+    0 1px 1px rgb(17 26 23 / 0.04),
+    0 2px 4px -1px rgb(17 26 23 / 0.05),
+    0 10px 20px -6px rgb(17 26 23 / 0.08),
+    0 28px 56px -16px rgb(14 107 96 / 0.22);
+  --shadow-btn-hover: 0 6px 16px -6px rgb(14 107 96 / 0.45), 0 2px 4px -1px rgb(17 26 23 / 0.08);
+  --shadow-control-hover: 0 1px 2px rgb(17 26 23 / 0.08);
+
+  /* background recipe: paper + grain + teal glow + fading dot grid */
+  --bg-glow: rgb(14 107 96 / 0.13);       /* teal glow behind the hero and receipt */
+  --bg-glow-warm: rgb(196 150 60 / 0.07); /* faint warm counter-glow, top left */
+  --bg-dot: rgb(17 26 23 / 0.11);         /* 1px dots on a 22px grid */
+  /* grain: a 160px feTurbulence tile; light = pale tile multiplied, dark = mid-grey tile soft-lit */
+  --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 .17 .6 .6 .6 0 .17 .6 .6 .6 0 .17 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --bg-grain-blend: multiply;
+  --bg-grain-opacity: 0.4;
+  --notch: var(--color-ink);              /* punched holes in the receipt show the page */
+}
+
+@layer base {
+  :root[data-theme="dark"] {
+    --color-ink: #070b0a;
+    --color-panel: #0e1513;
+    --color-panel-2: #131c19;
+    --color-subtle: rgb(255 255 255 / 0.05);
+    --color-line: #1e2b27;
+    --color-line-2: #2a3a35;
+    --color-fg: #e8f3ef;
+    --color-muted: #a3b8b1;
+    --color-dim: #8aa098;
+    --color-bch: #4cc3b0;
+    --color-bch-hover: #7ad8c9;
+    --color-on-bch: #04201c;
+    --color-bch-2: #6fd3c3;
+    --color-warn: #f5b84b;
+    --color-bad: #f2716b;
+    --color-info: #7cc8f5;
+    --color-gold: #f3cf6a;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+    --shadow-slip: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 24px -8px rgb(0 0 0 / 0.6), 0 30px 60px -18px rgb(76 195 176 / 0.18);
+    --shadow-btn-hover: 0 6px 18px -6px rgb(76 195 176 / 0.45);
+    --shadow-control-hover: 0 0 0 1px rgb(255 255 255 / 0.03);
+    --bg-glow: rgb(76 195 176 / 0.11);
+    --bg-glow-warm: rgb(243 207 106 / 0.04);
+    --bg-dot: rgb(232 243 239 / 0.075);
+    --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 -.4 .6 .6 .6 0 -.4 .6 .6 .6 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --bg-grain-blend: soft-light;
+    --bg-grain-opacity: 0.6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] {
+      --color-ink: #070b0a;
+      --color-panel: #0e1513;
+      --color-panel-2: #131c19;
+      --color-subtle: rgb(255 255 255 / 0.05);
+      --color-line: #1e2b27;
+      --color-line-2: #2a3a35;
+      --color-fg: #e8f3ef;
+      --color-muted: #a3b8b1;
+      --color-dim: #8aa098;
+      --color-bch: #4cc3b0;
+      --color-bch-hover: #7ad8c9;
+      --color-on-bch: #04201c;
+      --color-bch-2: #6fd3c3;
+      --color-warn: #f5b84b;
+      --color-bad: #f2716b;
+      --color-info: #7cc8f5;
+      --color-gold: #f3cf6a;
+      --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+      --shadow-slip: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 24px -8px rgb(0 0 0 / 0.6), 0 30px 60px -18px rgb(76 195 176 / 0.18);
+      --shadow-btn-hover: 0 6px 18px -6px rgb(76 195 176 / 0.45);
+      --shadow-control-hover: 0 0 0 1px rgb(255 255 255 / 0.03);
+      --bg-glow: rgb(76 195 176 / 0.11);
+      --bg-glow-warm: rgb(243 207 106 / 0.04);
+      --bg-dot: rgb(232 243 239 / 0.075);
+      --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 -.4 .6 .6 .6 0 -.4 .6 .6 .6 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      --bg-grain-blend: soft-light;
+      --bg-grain-opacity: 0.6;
+    }
+  }
+}

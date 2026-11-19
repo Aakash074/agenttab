@@ -80,7 +80,7 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
           <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             {isDemo && onRunOnTab && (
               <button onClick={() => onRunOnTab(t.id)} disabled={running || busy}
-                className="min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5">
+                className="btn-primary min-h-[44px] flex-1 rounded-lg bg-bch px-3 text-sm font-semibold text-on-bch hover:bg-bch-hover disabled:opacity-60 sm:min-h-0 sm:flex-none sm:py-1.5">
                 {running ? 'Busy…' : 'Run 3 calls on this tab'}
               </button>
             )}

@@ -17,9 +17,9 @@ export function ProofStrip({ calls, txs, attacks, onCheat, chipnetNote }: {
   calls?: number; txs?: number; attacks?: { rejected: number; total: number }; onCheat: () => void; chipnetNote?: boolean;
 }) {
   return (
-    <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[15px] text-muted">
-      <span>{calls !== undefined ? <Num n={calls} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} calls paid by agents</span><span aria-hidden className="text-line-2">·</span>
-      <span>{txs !== undefined ? <Num n={txs} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} on-chain txs</span><span aria-hidden className="text-line-2">·</span>
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-muted sm:gap-x-2.5">
+      <span>{calls !== undefined ? <Num n={calls} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} calls paid by agents</span><span aria-hidden className="hidden text-line-2 sm:inline">·</span>
+      <span>{txs !== undefined ? <Num n={txs} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} on-chain txs</span><span aria-hidden className="hidden text-line-2 sm:inline">·</span>
       <button type="button" onClick={onCheat} className="tap text-left underline decoration-line-2 underline-offset-4 hover:text-fg hover:decoration-bch">
         <span>{attacks ? <><Num n={attacks.rejected} /><b className="font-semibold text-fg">/{attacks.total}</b> cheats rejected</> : '7 cheats to try'}</span>
       </button>
@@ -57,7 +57,7 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
         {demoHere ? (
           <div className="sm:max-w-lg">
             <button type="button" onClick={j.error && j.openTxid ? onResume : onStart} disabled={running || queued}
-              className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch transition hover:bg-bch-hover active:scale-[0.98] disabled:cursor-wait disabled:opacity-80 sm:w-auto">
+              className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-80 sm:w-auto">
               {(running || queued) && <Spinner />}{label}
             </button>
             <p className="mt-2.5 min-h-[24px] text-sm text-muted" aria-live="polite">

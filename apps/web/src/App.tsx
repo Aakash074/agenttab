@@ -440,14 +440,15 @@ export default function App() {
   ) : undefined;
 
   return (
-    <div className="min-h-screen overflow-x-clip">
+    <div className="relative isolate min-h-screen overflow-x-clip">
+      <div aria-hidden className="backdrop" />
       <Banner />
-      <header className="sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-line bg-ink/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
           <Logo />
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <button onClick={theme.next} aria-label={`Theme: ${theme.choice === 'system' ? 'auto' : theme.choice}. Switch theme`} title="Switch theme (light / dark / auto)"
-              className="hidden h-9 w-9 place-items-center rounded-lg text-muted hover:bg-subtle hover:text-fg sm:grid">
+              className="hidden h-10 w-10 place-items-center rounded-lg text-muted transition-colors hover:bg-subtle hover:text-fg sm:grid">
               {theme.choice === 'light' ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
               ) : theme.choice === 'dark' ? (
@@ -456,15 +457,19 @@ export default function App() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
               )}
             </button>
-            <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
-              className="min-h-[40px] w-[104px] rounded-lg border border-line-2 bg-panel px-2 text-sm" title="Network (Chipnet = testnet, free test coins)">
-              <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (soon)'}</option>
-              <option value="chipnet">Chipnet</option>
-            </select>
+            <span className="select-wrap relative inline-flex shrink-0">
+              <select value={net} onChange={(e) => setNet(e.target.value as Net)} aria-label="Network"
+                className="control select" title="Network (Chipnet = testnet, free test coins)">
+                <option value="mainnet" disabled={!MAINNET_ENABLED}>{MAINNET_ENABLED ? 'Mainnet' : 'Mainnet (soon)'}</option>
+                <option value="chipnet">Chipnet</option>
+              </select>
+              <svg className="select-chevron" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
             {wallet ? (
               <div className="relative min-w-0">
-                <button onClick={() => setMenu((m) => !m)} className="flex min-h-[40px] max-w-[120px] items-center gap-1.5 rounded-lg border border-line-2 bg-panel px-2.5 font-mono text-[13px] sm:max-w-none" aria-expanded={menu} aria-label="Wallet menu">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-bch" /><span className="truncate">{walletLabel}</span> <span className="text-dim">▾</span>
+                <button onClick={() => setMenu((m) => !m)} className="control max-w-[124px] gap-1.5 px-2.5 font-mono !text-[13px] !font-medium sm:max-w-none" aria-expanded={menu} aria-label="Wallet menu">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-bch" /><span className="truncate">{walletLabel}</span>
+                  <svg className="h-3 w-3 shrink-0 text-dim" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 {menu && (
                   <div className="fade-in absolute right-0 mt-2 w-60 rounded-xl border border-line-2 bg-panel p-2 text-sm shadow-xl" onMouseLeave={() => setMenu(false)}>
@@ -476,7 +481,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowConnect(true)} className="min-h-[40px] whitespace-nowrap rounded-lg border border-line-2 bg-panel px-3 text-sm font-semibold hover:bg-subtle">Connect</button>
+              <button onClick={() => setShowConnect(true)} className="control whitespace-nowrap px-3.5">Connect</button>
             )}
           </div>
         </div>

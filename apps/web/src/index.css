@@ -1,107 +1,100 @@
 @import "tailwindcss";
 
-/* Design tokens. Light ("paper") is the default theme; dark is opt-in via the header toggle
-   (data-theme="dark") or follows the OS when data-theme="system". Utilities reference these
-   variables, so both themes share one set of class names. */
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-
-  /* surfaces */
-  --color-ink: #f6f4ee;        /* page background (warm paper) */
-  --color-panel: #ffffff;      /* cards */
-  --color-panel-2: #f1eee6;
-  --color-subtle: rgb(17 26 23 / 0.05);   /* hover fills, tracks */
-  --color-line: #e3ded2;       /* borders */
-  --color-line-2: #cdc6b6;
-  /* text */
-  --color-fg: #111a17;
-  --color-muted: #44514c;
-  --color-dim: #5c6964;
-  /* brand */
-  --color-bch: #0e6b60;        /* the one accent (deep teal): fills, bars, primary button */
-  --color-bch-hover: #0a564d;
-  --color-on-bch: #ffffff;     /* text on the accent (7:1) */
-  --color-bch-2: #0e6b60;      /* accent used as TEXT (links): 6:1 on paper */
-  /* status */
-  --color-warn: #8a5300;
-  --color-bad: #b42318;
-  --color-info: #1b5aa0;
-  --color-gold: #7a5200;
-  --shadow-card: 0 1px 2px rgb(17 26 23 / 0.06), 0 1px 1px rgb(17 26 23 / 0.04);
-}
-
-@layer base {
-  :root[data-theme="dark"] {
-    --color-ink: #070b0a;
-    --color-panel: #0e1513;
-    --color-panel-2: #131c19;
-    --color-subtle: rgb(255 255 255 / 0.05);
-    --color-line: #1e2b27;
-    --color-line-2: #2a3a35;
-    --color-fg: #e8f3ef;
-    --color-muted: #a3b8b1;
-    --color-dim: #8aa098;
-    --color-bch: #4cc3b0;
-    --color-bch-hover: #7ad8c9;
-    --color-on-bch: #04201c;
-    --color-bch-2: #6fd3c3;
-    --color-warn: #f5b84b;
-    --color-bad: #f2716b;
-    --color-info: #7cc8f5;
-    --color-gold: #f3cf6a;
-    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root[data-theme="system"] {
-      --color-ink: #070b0a;
-      --color-panel: #0e1513;
-      --color-panel-2: #131c19;
-      --color-subtle: rgb(255 255 255 / 0.05);
-      --color-line: #1e2b27;
-      --color-line-2: #2a3a35;
-      --color-fg: #e8f3ef;
-      --color-muted: #a3b8b1;
-      --color-dim: #8aa098;
-      --color-bch: #4cc3b0;
-      --color-bch-hover: #7ad8c9;
-      --color-on-bch: #04201c;
-      --color-bch-2: #6fd3c3;
-      --color-warn: #f5b84b;
-      --color-bad: #f2716b;
-      --color-info: #7cc8f5;
-      --color-gold: #f3cf6a;
-      --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
-    }
-  }
-}
+@import "./styles/tokens.css";
 
 html { background: var(--color-ink); color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark; } }
-body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); background: var(--color-ink); -webkit-font-smoothing: antialiased; }
+/* body stays transparent so the fixed grain layer (z -1) shows over the html paper colour */
+body { margin: 0; font-family: var(--font-sans); color: var(--color-fg); -webkit-font-smoothing: antialiased; }
 
-.card { box-shadow: var(--shadow-card); }
-
-/* The receipt is a paper slip: perforated tear lines with punched notches at both ends. */
-.slip { position: relative; background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 10px; box-shadow: var(--shadow-card); }
-.slip-tear { position: relative; height: 0; border-top: 2px dashed var(--color-line-2); margin-inline: 14px; }
-.slip-tear::before, .slip-tear::after {
-  content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 9999px;
-  background: var(--color-ink); border: 1px solid var(--color-line);
+/* ---- Background recipe: paper + grain + teal glow + fading dot grid. Static layers; only the glow drifts. ---- */
+/* 1. Grain: a 160px feTurbulence tile (tokens.css), multiplied on paper and soft-lit in dark. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  opacity: var(--bg-grain-opacity); mix-blend-mode: var(--bg-grain-blend);
+  background-image: var(--bg-grain-image);
+  background-size: 160px 160px;
 }
-.slip-tear::before { left: -23px; clip-path: inset(0 0 0 50%); }
-.slip-tear::after { right: -23px; clip-path: inset(0 50% 0 0); }
+/* 2 + 3. Glow and dots live in .backdrop, the first child of the app root (which is isolate, so z -1 sits under content). */
+.backdrop { position: absolute; inset: 0 0 auto 0; height: min(1100px, 100%); z-index: -1; pointer-events: none; overflow: hidden; }
+.backdrop::before {   /* dot grid, fading out towards the edges and below the hero */
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, var(--bg-dot) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 62% at 62% 30%, #000 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 62% at 62% 30%, #000 25%, transparent 78%);
+}
+.backdrop::after {    /* soft teal glow behind the receipt, a fainter one behind the headline; drifts very slowly */
+  content: ""; position: absolute; inset: -10% -10% 0 -10%;
+  background:
+    radial-gradient(38% 46% at 72% 36%, var(--bg-glow), transparent 70%),
+    radial-gradient(30% 34% at 22% 24%, var(--bg-glow-warm), transparent 72%),
+    radial-gradient(26% 30% at 34% 52%, color-mix(in oklab, var(--bg-glow) 40%, transparent), transparent 75%);
+  animation: glow-drift 38s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@media (max-width: 767px) {
+  .backdrop::after { background:
+    radial-gradient(70% 26% at 50% 66%, var(--bg-glow), transparent 72%),
+    radial-gradient(60% 22% at 20% 18%, var(--bg-glow-warm), transparent 72%); }
+  .backdrop::before { -webkit-mask-image: radial-gradient(ellipse 90% 55% at 50% 30%, #000 20%, transparent 80%); mask-image: radial-gradient(ellipse 90% 55% at 50% 30%, #000 20%, transparent 80%); }
+}
+@keyframes glow-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-2.5%, 1.5%, 0) scale(1.04); }
+  100% { transform: translate3d(2%, -1%, 0) scale(1.02); }
+}
 
-input, select, button { font: inherit; }
+/* Utilities must be able to override everything below, so component rules live in @layer components
+   (an unlayered rule beats every Tailwind utility). Preflight already sets font: inherit on controls. */
+
+@layer components {
+  .card { box-shadow: var(--shadow-card); }
+
+  /* The receipt is a paper slip: perforated tear lines with punched notches at both ends. */
+  .slip { position: relative; background: var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-slip); box-shadow: var(--shadow-slip); }
+  .slip-tear { position: relative; height: 0; border-top: 2px dashed var(--color-line-2); margin-inline: 14px; }
+  .slip-tear::before, .slip-tear::after {
+    content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 9999px;
+    background: var(--notch); border: 1px solid var(--color-line);
+  }
+  .slip-tear::before { left: -23px; clip-path: inset(0 0 0 50%); }
+  .slip-tear::after { right: -23px; clip-path: inset(0 50% 0 0); }
+
+  /* >=44px touch targets on small screens for inline links */
+  .tap { display: inline-flex; align-items: center; min-height: 44px; }
+  @media (min-width: 640px) { .tap { min-height: 0; } }
+
+  /* ---- Controls ---- */
+  /* Header controls (network select, Connect, wallet): one height, radius, border and type. */
+  .control {
+    display: inline-flex; align-items: center; height: var(--control-h); border-radius: var(--radius-control);
+    border: 1px solid var(--color-line-2); background-color: var(--color-panel); color: var(--color-fg);
+    font-size: 14px; line-height: 20px; font-weight: 600;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, transform 120ms ease-out;
+  }
+  .control:hover { background-color: var(--color-panel-2); border-color: color-mix(in oklab, var(--color-line-2) 70%, var(--color-fg)); box-shadow: var(--shadow-control-hover); }
+  .control:active { transform: scale(0.97); }
+  /* Native select with the platform arrow removed; the chevron is an inline SVG sibling (.select-chevron). */
+  .select { appearance: none; -webkit-appearance: none; -moz-appearance: none; padding: 0 30px 0 12px; cursor: pointer; text-overflow: ellipsis; }
+  .select::-ms-expand { display: none; }
+  .select-chevron { position: absolute; right: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px; pointer-events: none; color: var(--color-dim); transition: color 150ms ease-out, transform 150ms ease-out; }
+  .select-wrap:hover .select-chevron, .select:focus-visible + .select-chevron { color: var(--color-fg); }
+  .select:focus-visible { border-color: var(--color-bch-2); }
+  /* Primary (accent) buttons lift a pixel on hover and press in. */
+  .btn-primary { transition: background-color 150ms ease-out, box-shadow 180ms ease-out, transform 120ms ease-out; }
+  .btn-primary:not(:disabled):hover { box-shadow: var(--shadow-btn-hover); transform: translateY(-1px); }
+  .btn-primary:not(:disabled):active { box-shadow: none; transform: translateY(0) scale(0.98); }
+}
+@layer base {
+  /* Every other button: a small press. */
+  button:not(:disabled):active { transform: scale(0.98); }
+  [role="tab"]:not([aria-selected="true"]):hover { background-color: var(--color-subtle); }
+}
 input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
   outline: 2px solid var(--color-bch-2); outline-offset: 2px;
 }
-
-/* >=44px touch targets on small screens for inline links */
-.tap { display: inline-flex; align-items: center; min-height: 44px; }
-@media (min-width: 640px) { .tap { min-height: 0; } }
-
 
 /* ---- Motion: 150-400 ms, ease-out. Everything below is switched off under prefers-reduced-motion. ---- */
 @keyframes slide-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
@@ -127,6 +120,22 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .spin { animation: spin 0.9s linear infinite; }
 .bar-seg { transition: width 400ms cubic-bezier(.2,.7,.3,1), background-color 300ms ease-out; }
 .tab-indicator { transition: transform 250ms cubic-bezier(.2,.7,.3,1), width 250ms cubic-bezier(.2,.7,.3,1); }
+/* Coin burst: eight small specks fly out when the 5¢ coin lands and each time a paid call lands on the receipt. */
+.burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.burst i { position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 9999px; background: var(--color-bch); opacity: 0;
+  animation: burst 700ms cubic-bezier(.15,.7,.3,1) var(--delay, 0ms) both; }
+.burst i:nth-child(3n) { background: var(--color-gold); width: 4px; height: 4px; }
+.burst i:nth-child(4n) { background: color-mix(in oklab, var(--color-bch) 55%, var(--color-panel)); }
+@keyframes burst {
+  0% { opacity: 0; transform: rotate(var(--a)) translateX(4px) scale(1); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(.3); }
+}
+@keyframes land { 0% { transform: none; } 40% { transform: translateY(1px) scale(1.06); } 100% { transform: none; } }
+.land { animation: land 360ms cubic-bezier(.2,.7,.3,1) both; display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .burst { display: none; }
+  .backdrop::after { will-change: auto; }
+  button:active, .control:active, .btn-primary:hover, .btn-primary:active { transform: none !important; }
 }

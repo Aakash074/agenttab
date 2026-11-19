@@ -118,7 +118,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
     return (
       <div id="direct" className="scroll-mt-24 sm:max-w-lg">
         <button type="button" onClick={start} disabled={busy}
-          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
+          className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
           {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
           Pay {price} for a live BCH price
         </button>

@@ -168,7 +168,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
 
         </>}
         {step.state === 'done' ? null : !wallet ? (
-          <button onClick={onConnect} className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch hover:bg-bch-hover">Connect a wallet to fund</button>
+          <button onClick={onConnect} className="btn-primary rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch hover:bg-bch-hover">Connect a wallet to fund</button>
         ) : (
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-dim">
@@ -192,7 +192,7 @@ export function FundTab({ wallet, info, infoErr, net, demoAgentPub, onConnect, o
               </div>
             )}
             <button disabled={!!blocker || step.state === 'busy'} onClick={open}
-              className="rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch transition hover:bg-bch-hover disabled:cursor-not-allowed disabled:opacity-60">
+              className="btn-primary rounded-xl bg-bch px-5 py-3 font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-not-allowed disabled:opacity-60">
               {step.state === 'busy' ? step.msg : `Open tab with ${sats(budget)} sats${net === 'mainnet' && bchUsd ? ` (${usd(budget, bchUsd)})` : ''}`}
             </button>
             {blocker && step.state !== 'busy' && <p className="text-center text-xs text-dim">{blocker}</p>}

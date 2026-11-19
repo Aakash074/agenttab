@@ -1,3 +1,4 @@
+import { useRef, type CSSProperties } from 'react';
 import type { FeedEvent } from '../lib/api';
 import { ago, sats, short, usd } from '../lib/format';
 import { useCountUp } from '../lib/motion';
@@ -69,6 +70,17 @@ function directView(e: FeedEvent): View {
     route: e.route ?? '/api/oracle', spent: amt, closeTxid: e.txid, direct: true };
 }
 
+/** Eight specks fly out from the centre of the parent (which must be position: relative). Hidden under reduced motion. */
+function Burst({ delay = 0, reach = 22 }: { delay?: number; reach?: number }) {
+  return (
+    <span aria-hidden className="burst">
+      {Array.from({ length: 8 }, (_, i) => (
+        <i key={i} style={{ '--a': `${i * 45 + (i % 2 ? 12 : -8)}deg`, '--d': `${reach + (i % 3) * 6}px`, '--delay': `${delay + (i % 2) * 40}ms` } as CSSProperties} />
+      ))}
+    </span>
+  );
+}
+
 const Spinner = () => <span aria-hidden className="spin inline-block h-3 w-3 shrink-0 rounded-full border-2 border-current border-r-transparent" />;
 
 /** The receipt slip: the live stage for the run (and the latest real tab when nothing is running). */
@@ -83,13 +95,23 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
     : direct ? directView(direct) : undefined;
 
   const spentN = useCountUp(Number(v?.spent ?? 0n));
+  // A payment "lands" when the call count goes up while this tab is on screen (not on first paint).
+  // Tracked in a ref during render so the burst stays mounted (and plays once) through later re-renders.
+  const seen = useRef<{ label?: string; calls: number; landed: number }>({ calls: 0, landed: 0 });
+  if (v) {
+    const c = seen.current;
+    if (c.label !== v.label) c.landed = 0;
+    else if (v.calls > c.calls) c.landed = v.calls;
+    c.label = v.label; c.calls = v.calls;
+  }
+  const landed = seen.current.landed;
   const backN = useCountUp(Number(v?.back ?? (v?.budget !== undefined ? v.budget - v.spent : 0n)));
 
   if (!v) {
     return (
       <div id="ticket" className="slip min-w-0 scroll-mt-24 p-5 font-mono text-[12.5px]">
         <div className="flex justify-between text-[13px] font-semibold"><span className="tracking-[0.2em]">AGENTTAB</span><span>TAB #----</span></div>
-        <div className="slip-tear my-4" />
+        <div className="slip-tear my-4 -mx-1.5" />
         {waking || !onTryChipnet ? (
           <div aria-busy="true">
             <div className="grid gap-2.5">{[80, 64, 72, 50].map((w) => <div key={w} className="skeleton h-3.5" style={{ width: `${w}%` }} />)}</div>
@@ -139,7 +161,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
         {!v.direct && (
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-dim">
-              {v.coin && <span key={v.openTxid ?? 'coin'} className="coin-in grid h-5 w-5 place-items-center rounded-full bg-bch font-sans text-[10px] font-bold text-on-bch">5¢</span>}
+              {v.coin && <span key={v.openTxid ?? 'coin'} className="coin-in relative grid h-5 w-5 place-items-center rounded-full bg-bch font-sans text-[10px] font-bold text-on-bch">5¢{v.openTxid && <Burst delay={330} reach={18} />}</span>}
               locked in tab
             </span>
             <span className="text-right text-fg">{v.budget !== undefined ? `${sats(v.budget)} sats` : <span className="skeleton inline-block h-3 w-20 align-middle" />}</span>
@@ -177,7 +199,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
               </span>
             )}
           </span>
-          <span className="text-right"><span className="text-2xl font-bold tabular-nums text-fg">{spentN.toLocaleString('en-US')}</span> <span className="text-muted">sats</span>
+          <span className="text-right"><span key={`land-${landed}`} className={`relative text-2xl font-bold tabular-nums text-fg ${landed ? 'land' : ''}`}>{spentN.toLocaleString('en-US')}{landed > 0 && <Burst reach={26} />}</span> <span className="text-muted">sats</span>
             {bchUsd ? <span className="block text-[11.5px] text-dim">{usd(BigInt(spentN), bchUsd)}</span> : null}</span>
         </div>
         {(v.budget !== undefined) && (
@@ -195,7 +217,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
         )}
       </div>
       <div className="slip-tear my-3" />
-      <div className="flex flex-wrap justify-between gap-x-4 px-5 pb-4 text-[11.5px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 px-5 pb-4 text-[11.5px]">
         {!v.direct && <span><span className="text-dim">open </span>{v.openTxid ? <a className={link} href={explorerTx(net, v.openTxid)} target="_blank" rel="noreferrer">{short(v.openTxid, 4)} ↗</a> : <span className="text-dim">…</span>}</span>}
         <span><span className="text-dim">{v.direct ? 'tx ' : v.status === 'waived' ? 'waive ' : 'settle '}</span>{v.closeTxid
           ? <a className={link} href={explorerTx(net, v.closeTxid)} target="_blank" rel="noreferrer">{short(v.closeTxid, 4)} ↗</a>
