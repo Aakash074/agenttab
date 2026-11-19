@@ -58,8 +58,9 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
     <div id="cheat" className="scroll-mt-24">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-baseline gap-3">
-          <span className="font-mono text-5xl font-bold tabular-nums">{busy || !run ? '–' : count}/{total}</span>
-          <span className="text-lg font-semibold text-muted">cheats rejected</span>
+          {!run && !busy ? <span className="text-3xl font-bold">7 cheats to try</span> : <>
+          <span className="font-mono text-5xl font-bold tabular-nums">{busy ? '–' : count}/{total}</span>
+          <span className="text-lg font-semibold text-muted">cheats rejected</span></>}
         </div>
         <button onClick={go} disabled={busy}
           className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-fg px-5 font-semibold text-fg transition hover:bg-fg hover:text-panel disabled:cursor-wait disabled:opacity-60 sm:w-auto">

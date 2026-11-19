@@ -18,10 +18,10 @@ export function ProofStrip({ calls, txs, attacks, onCheat, chipnetNote }: {
 }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[15px] text-muted">
-      {calls !== undefined && <><span><Num n={calls} /> calls paid by agents</span><span aria-hidden className="text-line-2">·</span></>}
-      {txs !== undefined && <><span><Num n={txs} /> on-chain txs</span><span aria-hidden className="text-line-2">·</span></>}
+      <span>{calls !== undefined ? <Num n={calls} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} calls paid by agents</span><span aria-hidden className="text-line-2">·</span>
+      <span>{txs !== undefined ? <Num n={txs} /> : <span className="skeleton inline-block h-3.5 w-8 align-middle" aria-label="loading" />} on-chain txs</span><span aria-hidden className="text-line-2">·</span>
       <button type="button" onClick={onCheat} className="tap text-left underline decoration-line-2 underline-offset-4 hover:text-fg hover:decoration-bch">
-        {attacks ? <><Num n={attacks.rejected} /><b className="font-semibold text-fg">/{attacks.total}</b> cheats rejected</> : '7 cheats to try'}
+        <span>{attacks ? <><Num n={attacks.rejected} /><b className="font-semibold text-fg">/{attacks.total}</b> cheats rejected</> : '7 cheats to try'}</span>
       </button>
       {chipnetNote && <span className="text-sm text-dim">(on Chipnet)</span>}
     </p>
@@ -50,7 +50,9 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
         {waking ? `Waking the ${net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server` : net === 'mainnet' ? 'Live on Mainnet, real BCH' : 'Live on Chipnet, free test coins'}
       </p>
       <h1 className="text-[40px] font-extrabold leading-[1.04] tracking-[-0.025em] sm:text-[52px] lg:text-[58px]">A bar tab for AI&nbsp;agents.</h1>
-      <p className="mt-4 max-w-md text-lg leading-relaxed text-muted">Put 5¢ behind the bar once. Your agent pays per call, fee-free. Change comes back.</p>
+      <p className="mt-4 max-w-md text-lg leading-relaxed text-muted">{demoHere
+        ? 'Put 5¢ behind the bar once. Your agent pays per call, fee-free. Change comes back.'
+        : 'Pay 1¢ for one live answer, or give your agent a tab with change back.'}</p>
       <div className="mt-7">
         {demoHere ? (
           <div className="sm:max-w-lg">
