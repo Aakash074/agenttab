@@ -52,6 +52,8 @@ services:
         value: https://agenttab-api-chipnet.onrender.com
       - key: VITE_SERVER_URL_MAINNET
         value: https://agenttab-api-mainnet.onrender.com
+      - key: VITE_DECK_URL
+        value: https://docs.google.com/presentation/d/1HWXYkITgDgsd3Xc6NcHcST592q_E5ljSumN9d2bI-l4/edit?usp=sharing
       - key: VITE_REPO_URL
         value: https://github.com/Aakash074/agenttab
       - key: VITE_PROTOTYPE_URL
