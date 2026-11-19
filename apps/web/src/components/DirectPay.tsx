@@ -51,7 +51,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
     const say = (msg: string) => setSt({ s: 'busy', msg });
     let step: 'invoice' | 'funds' | 'sign' | 'pay' = 'invoice';
     try {
-      say(waking || !info ? 'Waking the server (~30 s)…' : 'Creating an invoice…');
+      say(waking || !info ? `Waking the ${net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s)…` : 'Creating an invoice…');
       // The oracle returns the same live market data for any question, so we don't ask for one.
       const inv = await api.directInvoice('price');
       const amount = BigInt(inv.amountSats);
@@ -94,7 +94,7 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
   const status = (
     <div className="mt-2 min-h-[24px] text-sm" aria-live="polite">
       {st.s === 'idle' && (
-        <p className="text-muted">{waking ? <span className="flex items-center gap-2"><span aria-hidden className="spin inline-block h-3 w-3 rounded-full border-2 border-current border-r-transparent" />Waking the {net} server (about 20 s). You can press now.</span>
+        <p className="text-muted">{waking ? <span className="flex items-center gap-2"><span aria-hidden className="spin inline-block h-3 w-3 rounded-full border-2 border-current border-r-transparent" />Waking the {net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s). You can press now.</span>
           : `One on-chain payment from Paytaca or any WizardConnect wallet${net === 'chipnet' ? ', or a free test wallet' : ''}.`}</p>
       )}
       {st.s === 'connecting' && (

@@ -79,11 +79,11 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
             </button>
             )}
             <p className="mt-2.5 min-h-[24px] text-sm text-muted" aria-live="polite">
-              {waking && !running ? <span className="flex items-center gap-2"><Spinner />Waking the demo server (about 20 s).{queued ? ' Your run starts when it answers.' : ' You can press now.'}</span>
+              {waking && !running ? <span className="flex items-center gap-2"><Spinner />Waking the {net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s).{queued ? ' Your run starts when it answers.' : ' You can press now.'}</span>
                 : j.done && j.returned ? <>3 calls · 2 transactions · <b className="text-fg">{sats(j.returned)} sats came back</b></>
                 : house ? 'Free test coins are out for now. The house agent pays from its own tab, no coins needed.'
                 : j.error ? (j.openTxid ? 'Your tab is safe in the covenant. Resume picks up where it stopped.' : 'Nothing was spent.')
-                : '30 seconds · 2 transactions · free test coins'}
+                : 'About 40 seconds · 2 transactions · free test coins'}
             </p>
           </div>
         ) : (

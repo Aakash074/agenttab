@@ -109,7 +109,7 @@ function CheatOnChipnet({ onSwitch }: { onSwitch: () => void }) {
     <div id="cheat" className="card card-lift rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <h3 className="text-lg font-semibold">Seven real cheating transactions, all rejected by the node</h3>
       <p className="mt-1.5 max-w-2xl text-sm text-muted">They spend coins, so they run on Chipnet, against the same compiled covenant as Mainnet.</p>
-      <button onClick={onSwitch} className="mt-4 min-h-[44px] w-full rounded-xl border border-fg px-5 font-semibold text-fg transition hover:bg-fg hover:text-panel sm:w-auto">
+      <button onClick={onSwitch} className="btn-primary mt-4 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-bch px-6 font-semibold text-on-bch hover:bg-bch-hover sm:w-auto">
         Run the 7 attacks on Chipnet →
       </button>
     </div>
@@ -165,6 +165,9 @@ export default function App() {
   const [myTabs, setMyTabs] = useState<TabRecord[]>([]);
   const [menu, setMenu] = useState(false);
   const [run, setRun] = useState<DemoRun>({ busy: false });
+  // The "Paid N sats" note beside the house-agent button fades after a few seconds, so it never reads as a stale payment.
+  const [runFresh, setRunFresh] = useState(false);
+  useEffect(() => { if (!run.at) return; setRunFresh(true); const t = setTimeout(() => setRunFresh(false), 6000); return () => clearTimeout(t); }, [run.at]);
   const [journey, setJourney] = useState<JourneyState>(IDLE_JOURNEY);
   const [infoSlow, setInfoSlow] = useState(false);
   const [queued, setQueued] = useState(false);
@@ -440,7 +443,7 @@ export default function App() {
   );
   const houseAction = demoEnabled && !journey.active ? (
     <span className="flex items-center gap-3 text-[13px]">
-      {run.result && !run.busy && <span className={`fade-in ${run.result.ok ? 'text-bch-2' : 'text-warn'}`}>{run.result.ok ? `Paid ${sats(run.result.r.priceSats)} sats` : run.result.msg}</span>}
+      {run.result && !run.busy && runFresh && <span className={`fade-in ${run.result.ok ? 'text-bch-2' : 'text-warn'}`}>{run.result.ok ? `Paid ${sats(run.result.r.priceSats)} sats` : run.result.msg}</span>}
       <button type="button" onClick={() => runDemo()} disabled={run.busy || !info} className="tap font-medium text-bch-2 hover:underline disabled:opacity-60">
         {run.busy ? 'Paying…' : preferTab ? 'Pay once from your tab' : 'Make the house agent pay now'}
       </button>
@@ -511,7 +514,7 @@ export default function App() {
       )}
 
       <ErrorBoundary label="The hero">
-        <section className="mx-auto grid max-w-6xl gap-x-14 gap-y-7 px-4 pb-12 pt-9 md:grid-cols-[1fr_minmax(0,430px)] md:grid-rows-[auto_1fr] md:pt-16">
+        <section className="mx-auto grid max-w-6xl gap-x-14 gap-y-7 px-4 pb-10 pt-9 md:grid-cols-[1fr_minmax(0,430px)] md:grid-rows-[auto_1fr] md:pb-8 md:pt-16">
           <div className="min-w-0 md:col-start-1 md:row-start-1">
             <Hero net={net} waking={waking} apiDown={!info} queued={queued} journey={journey} demoHere={!demoElsewhere}
               direct={direct(true)} onStart={journey.done || journey.error ? restartJourney : startJourney} onResume={() => void resumeJourney()} onTryChipnet={() => tryChipnet()}
@@ -539,9 +542,10 @@ export default function App() {
             advanced={<FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
               openTabs={wallet ? openTabs : undefined} />} />,
           agent: (
-            <div className="grid items-start gap-5 lg:grid-cols-2">
+            <div className="grid gap-5 lg:grid-cols-2">
               <McpSection />
               <ErrorBoundary label="Your tabs"><MyTabs wallet={wallet} info={info} net={net} refreshKey={opened} demoAgentPub={demoAgentPub} onTabs={setMyTabs}
+                onConnect={() => setShowConnect(true)} onTryDemo={() => (demoElsewhere ? tryChipnet() : window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' }))}
                 onRunOnTab={demoEnabled ? (t) => runDemo3(t) : undefined} running={run.busy || (journey.active && (journey.step === 'calls' || journey.step === 'close'))} /></ErrorBoundary>
             </div>
           ),

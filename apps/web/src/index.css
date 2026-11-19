@@ -103,10 +103,23 @@ body::before {
     border-bottom: 1px solid var(--glass-line); transition: box-shadow 200ms ease-out, background-color 200ms ease-out; }
   .site-header.is-scrolled { box-shadow: var(--shadow-header); }
   .site-banner { border-bottom: 1px solid var(--glass-line); }
+  /* No backdrop blur (some engines): a solid header so nothing reads through it. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-header, .glass, .chip { background: var(--color-ink); }
+  }
+  /* Phones: once the page scrolls, the banner slides up under the top edge and only the nav stays (no layout shift). */
+  @media (max-width: 639px) {
+    .site-header { transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
+    .site-header.is-scrolled { transform: translateY(-45px); }
+  }
+  /* Selected tab: a raised pill with a visible ring in both themes. */
+  .tab-pill { background: var(--tab-active); box-shadow: 0 1px 2px rgb(17 26 23 / 0.12), inset 0 0 0 1px var(--color-line-2); }
+  /* Empty states: a dashed paper well. */
+  .empty-box { border: 1px dashed var(--color-line-2); background: color-mix(in oklab, var(--color-panel-2) 60%, transparent); }
 
-  /* One card style for every panel (steps, covenant, feed, cheat list, MCP, your tabs, advanced) and, with a deeper
-     shadow, the receipt: paper fibre over the panel colour, a hairline border and a layered shadow. */
-  .card { background-image: var(--slip-texture); background-size: 180px 180px; box-shadow: var(--shadow-card); }
+  /* One card style for every panel (steps, covenant, feed, cheat list, MCP, your tabs, advanced), shared with the receipt:
+     a hairline border and a layered shadow. Only the receipt carries the paper-fibre texture. */
+  .card { box-shadow: var(--shadow-card); }
   .card-lift { transition: transform 200ms cubic-bezier(.2,.7,.3,1), box-shadow 200ms ease-out, border-color 200ms ease-out; }
   .card-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); border-color: var(--color-line-2); }
   /* Step icons: a small accent tile. */

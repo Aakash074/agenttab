@@ -63,7 +63,7 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
           <span className="text-lg font-semibold text-muted">cheats rejected</span></>}
         </div>
         <button onClick={go} disabled={busy}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-fg px-5 font-semibold text-fg transition hover:bg-fg hover:text-panel disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+          className="btn-primary flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
           {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
           {busy ? 'Attacking chipnet (about 15 s)' : run ? 'Run the 7 attacks again' : 'Run the 7 attacks'}
         </button>
@@ -86,7 +86,7 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
                     <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${r.outcome === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-warn/15 text-warn'}`}>
                       {r.outcome === 'rejected' ? `Rejected by ${/node/i.test(r.layer) ? 'node' : 'server'}` : 'Accepted'}
                     </span>
-                    <span aria-hidden className="text-dim transition-transform group-open:rotate-180">▾</span>
+                    <svg aria-hidden viewBox="0 0 12 12" fill="none" className="h-3 w-3 shrink-0 text-dim transition-transform group-open:rotate-180"><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </span>
                 ) : <span className="flex items-center gap-2 text-xs text-dim"><span className="h-1.5 w-1.5 rounded-full bg-warn pulse-dot" />trying</span>}
               </summary>

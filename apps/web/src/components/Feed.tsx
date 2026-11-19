@@ -113,13 +113,13 @@ export function Feed({ events, net, live, mine, waking, onTryChipnet, action }: 
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 sm:px-5">
         <span className="flex items-center gap-2 text-sm text-muted">
           <span className={`h-2 w-2 rounded-full ${live ? 'bg-bch pulse-dot' : 'bg-dim'}`} />
-          {waking ? 'Waking server' : idle ? `${net === 'mainnet' ? 'Mainnet' : 'Chipnet'} · last payment ${ago(events[0].at, now)}` : live ? `Streaming from ${net}` : `Polling ${net}`}
+          {waking ? `Waking the ${net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server` : idle ? `${net === 'mainnet' ? 'Mainnet' : 'Chipnet'} · last payment ${ago(events[0].at, now)}` : live ? `Streaming from ${net}` : `Polling ${net}`}
         </span>
         {action}
       </header>
       {events.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-muted">
-          {waking ? <p className="flex items-center justify-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" />Waking the {net} server (about 20 s)</p>
+          {waking ? <p className="flex items-center justify-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-bch pulse-dot" />Waking the {net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s)</p>
             : <p>No payments on {net} yet.</p>}
           {onTryChipnet && net !== 'mainnet' && <button type="button" onClick={onTryChipnet} className="tap mt-1 font-medium text-bch-2 hover:underline">See the live feed on Chipnet →</button>}
         </div>

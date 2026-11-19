@@ -108,9 +108,11 @@ function TabCard({ t, tip, net, wallet, info, demoAgentPub, onChange, onRunOnTab
   );
 }
 
-export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, onRunOnTab, running }: {
+export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, onRunOnTab, running, onConnect, onTryDemo }: {
   wallet: Wallet | null; info: ServerInfo | null; net: Net; refreshKey: number; demoAgentPub: string; onTabs?: (tabs: TabRecord[]) => void;
   onRunOnTab?: (tab: string) => void; running?: boolean;
+  /** Empty state actions: connect a wallet, or go run the free demo. */
+  onConnect?: () => void; onTryDemo?: () => void;
 }) {
   const [tabs, setTabs] = useState<TabRecord[]>([]);
   const [tip, setTip] = useState(0);
@@ -121,12 +123,17 @@ export function MyTabs({ wallet, info, net, refreshKey, demoAgentPub, onTabs, on
   useEffect(() => { setTabs([]); load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load, refreshKey]);
 
   return (
-    <section id="tabs" className="scroll-mt-24 card rounded-2xl border border-line bg-panel p-5 sm:p-6">
+    <section id="tabs" className="flex scroll-mt-24 flex-col card rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <h3 className="text-lg font-semibold">Your tabs</h3>
-      {!wallet ? (
-        <p className="mt-2 text-sm text-muted">Connect a wallet to see the tabs you funded.</p>
-      ) : tabs.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">No tabs yet for this wallet on {net}.</p>
+      {!wallet || tabs.length === 0 ? (
+        <div className="empty-box mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-xl px-5 py-8 text-center">
+          <svg aria-hidden width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-bch-2"><path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z" /><path d="M9 8.5h6M9 12h6M9 15.5h3" /></svg>
+          <p className="max-w-xs text-sm text-muted">{!wallet ? 'Connect a wallet to see the tabs you funded, with spend, change and a close button for each.' : `No tabs yet for this wallet on ${net === 'mainnet' ? 'Mainnet' : 'Chipnet'}.`}</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            {!wallet && onConnect && <button type="button" onClick={onConnect} className="control px-4">Connect a wallet</button>}
+            {onTryDemo && <button type="button" onClick={onTryDemo} className="tap text-sm font-medium text-bch-2 hover:underline">Try the free 5¢ demo →</button>}
+          </div>
+        </div>
       ) : (
         <ul className="mt-4 grid gap-3">
           {tabs.map((t) => <TabCard key={t.id} t={t} tip={tip} net={net} wallet={wallet} info={info!} demoAgentPub={demoAgentPub} onChange={load} onRunOnTab={onRunOnTab} running={running} />)}

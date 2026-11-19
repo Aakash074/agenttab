@@ -65,7 +65,7 @@
   --page-grid-line: rgb(14 107 96 / 0.05);
   --page-grid-dot: rgb(17 26 23 / 0.10);
   /* glass: header, footer, tab bar, chips */
-  --glass-bg: rgb(246 244 238 / 0.72);
+  --glass-bg: rgb(246 244 238 / 0.88);   /* high enough that text never reads through where blur is unavailable */
   --glass-bg-soft: rgb(246 244 238 / 0.55);
   --glass-line: rgb(17 26 23 / 0.08);
   --shadow-header: 0 1px 0 rgb(17 26 23 / 0.03), 0 10px 28px -14px rgb(17 26 23 / 0.20);
@@ -81,6 +81,8 @@
   --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 .17 .6 .6 .6 0 .17 .6 .6 .6 0 .17 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --bg-grain-blend: multiply;
   --bg-grain-opacity: 0.4;
+  --ticket-run-h: 572px;                  /* the receipt's settled height in the 5¢ run, reserved so nothing jumps */
+  --tab-active: var(--color-panel);
   --notch: color-mix(in oklab, var(--color-ink) 84%, var(--color-bch)); /* punched holes show the (teal-tinted) page */
 }
 
@@ -117,9 +119,10 @@
     --page-glow-2: rgb(30 140 125 / 0.13);
     --page-grid-line: rgb(111 211 195 / 0.04);
     --page-grid-dot: rgb(232 243 239 / 0.09);
-    --glass-bg: rgb(7 11 10 / 0.68);
+    --glass-bg: rgb(7 11 10 / 0.85);
     --glass-bg-soft: rgb(7 11 10 / 0.5);
     --glass-line: rgb(232 243 239 / 0.07);
+    --tab-active: #1c2925;
     --shadow-header: 0 10px 28px -14px rgb(0 0 0 / 0.7);
     --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 4px 8px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.65), 0 30px 64px -28px rgb(76 195 176 / 0.26);
     --bg-grid-line: rgb(111 211 195 / 0.065);
@@ -165,9 +168,10 @@
       --page-glow-2: rgb(30 140 125 / 0.13);
       --page-grid-line: rgb(111 211 195 / 0.04);
       --page-grid-dot: rgb(232 243 239 / 0.09);
-      --glass-bg: rgb(7 11 10 / 0.68);
+      --glass-bg: rgb(7 11 10 / 0.85);
       --glass-bg-soft: rgb(7 11 10 / 0.5);
       --glass-line: rgb(232 243 239 / 0.07);
+      --tab-active: #1c2925;
       --shadow-header: 0 10px 28px -14px rgb(0 0 0 / 0.7);
       --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 4px 8px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.65), 0 30px 64px -28px rgb(76 195 176 / 0.26);
       --bg-grid-line: rgb(111 211 195 / 0.065);

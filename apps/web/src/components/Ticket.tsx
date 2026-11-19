@@ -117,7 +117,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
         {waking || !onTryChipnet ? (
           <div aria-busy="true">
             <div className="grid gap-2.5">{[80, 64, 72, 50].map((w) => <div key={w} className="skeleton h-3.5" style={{ width: `${w}%` }} />)}</div>
-            <p className="mt-4 flex items-center gap-2 font-sans text-sm text-muted"><Spinner />Waking the demo server (about 20 s)</p>
+            <p className="mt-4 flex items-center gap-2 font-sans text-sm text-muted"><Spinner />Waking the {net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s)</p>
           </div>
         ) : (
           <p className="font-sans text-sm text-muted">No tabs on {net} yet.{' '}
@@ -146,7 +146,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
   ) : null;
 
   return (
-    <div id="ticket" className="slip relative min-w-0 scroll-mt-24 font-mono text-[12.5px]" aria-live="polite">
+    <div id="ticket" className={`slip relative min-w-0 scroll-mt-24 font-mono text-[12.5px] ${inJourney ? 'md:min-h-[var(--ticket-run-h)]' : ''}`} aria-live="polite">
       <div className="px-5 pt-4">
         <div className="flex items-center justify-between gap-3 text-[13px] font-semibold">
           <span className="tracking-[0.2em]">AGENTTAB</span>
@@ -211,7 +211,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
             <div className="flex h-2 overflow-hidden rounded-full bg-subtle" role="img"
               aria-label={closed ? `provider ${sats(v.spent)} sats, ${sats(v.back)} back to ${owner}` : `${sats(v.spent)} of ${sats(v.budget)} sats spent`}>
               <div className="bar-seg h-full bg-bch" style={{ width: `${pct}%` }} />
-              <div className={`bar-seg h-full ${closed ? 'bg-fg/25' : 'bg-transparent'}`} style={{ width: `${100 - pct}%`, marginLeft: closed && pct > 0 ? 2 : 0 }} />
+              <div className={`bar-seg h-full ${closed ? 'bg-bch/35' : 'bg-transparent'}`} style={{ width: `${100 - pct}%`, marginLeft: closed && pct > 0 ? 2 : 0 }} />
             </div>
             <div className="mt-1.5 flex justify-between gap-2 text-[11.5px]">
               <span className={closed ? 'text-bch-2' : 'text-dim'}>{closed ? `provider ${sats(v.spent)}` : `${sats(v.spent)} spent`}</span>

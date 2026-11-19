@@ -61,12 +61,16 @@ Both families come from Google Fonts.
 
 - **Radii:** 8px for controls and small buttons, 10px for the receipt, 12px for the primary button and wells, 16px for cards, and pills are fully round.
 - **Layout:** content is at most 1152px wide (`max-w-6xl`) with 16px side gutters. The hero is two columns, copy and a 430px receipt with a 56px gap, and stacks on a phone.
-- **Cards:** every panel uses one style shared with the receipt. Steps, covenant, feed, cheat list, MCP, your tabs and Advanced all get the `panel` colour, the receipt's paper-fibre texture, a 1px `line` border, a 16px radius and a layered shadow:
+- **Cards:** every panel uses one style shared with the receipt. Steps, covenant, feed, cheat list, MCP, your tabs and Advanced all get the `panel` colour, a 1px `line` border, a 16px radius and a layered shadow:
   `0 1px 1px rgb(17 26 23/.04), 0 2px 4px -1px rgb(17 26 23/.05), 0 10px 24px -12px rgb(17 26 23/.10), 0 24px 48px -24px rgb(14 107 96/.16)`.
   Interactive cards (`.card-lift`) rise 2px on hover onto a deeper shadow, and their border darkens to `line-2`. In dark, the shadows are black, with the last layer `rgb(76 195 176/.16)`.
+- **Paper texture** is on the receipt only; on long cards it read as noise.
+- **Empty states** sit in a dashed `line-2` well (`panel-2` at 60%) with a line icon, one sentence and an action: "Connect a wallet" as a `control` button plus a "Try the free 5¢ demo" link. The well stretches so neighbouring cards keep equal height.
+- **Selected tab:** a raised pill (`panel` in light, `#1C2925` in dark) with an inset 1px `line-2` ring.
+- **Buttons:** there is one primary style, the filled accent (`btn-primary`): the hero CTA, "Run the 7 attacks", "Run the 7 attacks again" and "Run the 7 attacks on Chipnet". Header and secondary actions use `control`.
 - **Step icons:** a 34px tile with a 10px radius. It is filled with the accent at 11% over `panel`, has a 1px inset ring of the accent at 22%, and holds an 18px line icon (1.8 stroke) in accent text: lock (open), receipt (pay per call), check-loop (close), shield (who can take what).
 - **Transaction chips** (`.chip-tx`) look like a receipt line: JetBrains Mono at 11.5px/600, 24px tall, 6px radius, a dashed `line-2` border on `panel-2`. A `0 tx` chip is accent-tinted.
-- **Glass:** the sticky header (banner and nav together), the tab bar, the footer and the link chips sit on `ink` at 72% (55% for the footer) with a 14px blur and 1.5 saturation, over a `rgb(17 26 23/.08)` hairline. In dark this is `ink` at 68% over `rgb(232 243 239/.07)`. Once the page scrolls, the header gains `0 10px 28px -14px` shadow.
+- **Glass:** the sticky header (banner and nav together), the tab bar, the footer and the link chips sit on `ink` at 88% (55% for the footer) with a 14px blur and 1.5 saturation, over a `rgb(17 26 23/.08)` hairline. In dark this is `ink` at 85% over `rgb(232 243 239/.07)`. The opacity is high enough that nothing reads through where blur is unavailable, and an `@supports not (backdrop-filter)` fallback paints solid `ink`. On phones, once the page scrolls, the banner slides up out of view (translateY −45px, no layout shift), leaving the 64px nav. Banner links are 44px tall on phones. Once the page scrolls, the header gains `0 10px 28px -14px` shadow.
 - **Footer:** a short description, a mono stack line and pill chips for Deck, Source, Prototype (disclosure) and Vote. The Vote chip copies the z-address. On phones a theme chip is added.
 - **Receipt lift** (light): an inner top highlight, a hairline, a contact shadow, two ambient layers and two accent-tinted layers:
   `inset 0 1px 0 rgb(255 255 255/.7), 0 0 0 1px rgb(17 26 23/.02), 0 1px 1px rgb(17 26 23/.06), 0 3px 6px -2px rgb(17 26 23/.08), 0 12px 24px -8px rgb(17 26 23/.10), 0 30px 50px -16px rgb(14 107 96/.22), 0 60px 100px -30px rgb(14 107 96/.32)`.
@@ -135,6 +139,8 @@ The receipt is the product's hero object: a paper slip in mono type that fills i
 - **Paper:** a 180px fibre texture over the panel colour: horizontally stretched noise (baseFrequency `.75 .22`, 3 octaves). In light it is dark specks at alpha `.2·noise − .075`; in dark it is pale specks at `.12·noise − .045`. Receipt text stays above 5.5:1.
 - **Punched notches** are filled with the page colour tinted 16% toward the accent (12% in dark), so they match the aurora behind the slip.
 - **Perforations:** three tear lines, each a 2px dashed `line-2` rule inset 14px. Each tear line has a punched half-circle notch (16px) at both ends, filled with the page colour.
+- **Split bar:** the provider's share is solid accent; the change coming back is accent at 35%, never grey.
+- **Height:** during the 5¢ run the receipt reserves its settled height (`--ticket-run-h`, 572px, on md and wider), so the tabs below never jump.
 - **Rows:** in order, header (`AGENTTAB` · `TAB #ABCD`), status, `locked in tab`, up to three `/api/oracle 402 → 200  +1,000` rows, `on-chain txs for these calls  0`, then **Total** with a spend bar (accent for provider, `fg/25` for change back), and the open/settle txids.
 - **Motion:**
   - The 5¢ coin flies in when the tab opens (400ms), then bursts into eight specks.

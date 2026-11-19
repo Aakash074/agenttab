@@ -70,7 +70,7 @@ export function HowItWorks({ stats, bchUsd, direct, advanced, advancedOpen, onAd
         className="card group rounded-2xl border border-line bg-panel">
         <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-5 font-semibold">
           <span>Advanced: fund a tab for your own agent</span>
-          <span aria-hidden className="text-dim transition-transform group-open:rotate-180">▾</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-2 bg-panel text-muted"><svg aria-hidden viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5 transition-transform group-open:rotate-180"><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
         </summary>
         <div className="border-t border-line">{advanced}</div>
       </details>
