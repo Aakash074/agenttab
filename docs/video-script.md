@@ -24,3 +24,10 @@ Record after the mainnet deploy (hosted URL + one real mainnet open/settle). Scr
 - Close other tabs and notifications; hide bookmarks bar.
 - Do one dry run; keep total under 2:00 (judges give each project "a couple of minutes").
 - Media track ($1k, judged on engagement): a 30–45 s vertical cut of 0:00–0:50 + the attack panel works as a separate post — your call, posted by you.
+
+## If there is no mainnet payment (testnet-only submission)
+- Skip "Record after the mainnet deploy". Record on the hosted chipnet site, network selector on **Chipnet**.
+- 0:25–0:50: pick *Chipnet test wallet* instead of Paytaca (no wallet needed); say "on BCH testnet".
+- 0:50–1:05: use a chipnet settle in the explorer (any settle txid from the live feed or `docs/chipnet-proof.md`).
+- Shot 4 (BUIDL screenshots): chipnet explorer settle instead of mainnet.
+- Add one line near the end, in your own words: mainnet is deploy-ready (`mainnet-dryrun.ts` builds the real WizardConnect transaction) but not live yet.
