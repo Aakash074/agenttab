@@ -173,7 +173,7 @@ Server config is read from `.env` or the environment:
 
 ### Mainnet
 
-The mainnet path is implemented and tested on a mock chain. **No mainnet transaction has been broadcast by this repo.**
+The mainnet API is live at https://agenttab-api-mainnet.onrender.com. The first mainnet transaction is a real Paytaca 1¢ direct payment on 2026-11-19 (see [docs/mainnet-proof.md](docs/mainnet-proof.md)). The covenant tab flow is enabled on mainnet (max tab 100k sats); its open/settle/refund and the 7 rejected attacks are proven on chipnet.
 
 To run it:
 ```sh
