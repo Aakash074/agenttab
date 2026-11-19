@@ -8,7 +8,7 @@
 
 - Owner (agent) address: `bchtest:qzxawz6qwku8xguf7vsdxwx6cjzrg8mxzq0q2qqc5m`
 - Provider address: `bchtest:qzhyn0j9r7e5rsnkae4a5dej3nhtgn4f8vqj3v8xcc`
-- Contract: `packages/covenant/contracts/AgentTab.cash`. It compiles to 126 bytes and is deployed as P2SH32.
+- Contract: `packages/covenant/contracts/AgentTab.cash`. The v1 contract used here compiled to 126 bytes; the current contract (v3, with `cancel`) compiles to 176 bytes. Both are deployed as P2SH32.
 
 Explorers:
 - `https://chipnet.imaginary.cash/tx/<txid>`

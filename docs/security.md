@@ -2,7 +2,7 @@
 
 ## What the covenant enforces
 
-`packages/covenant/contracts/AgentTab.cash` is 127 bytes. Its constructor is `AgentTab(owner, agent, provider, timeout)`. The `owner` funds the tab, receives the remainder, and is the only key that can refund. The `agent` key can only sign vouchers.
+`packages/covenant/contracts/AgentTab.cash` compiles to 176 bytes (cashc 0.14, `AgentTab.json`). Its constructor is `AgentTab(owner, agent, provider, timeout)`. The `owner` funds the tab, receives the remainder, and is the only key that can refund. The `agent` key can only sign vouchers.
 
 **`settle(providerSig, voucher, amountBytes)`** has these requirements:
 - **Shape:** exactly 1 input and exactly 2 outputs.

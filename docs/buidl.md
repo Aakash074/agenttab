@@ -47,7 +47,7 @@ An MCP server gives Claude or any MCP client four tools: `fetch_paid`, `tab_stat
 Credit: PSF `x402-bch` / `x402-bch-express` and OPTN Labs `x402-bch` (same HTTP flow; `bch-credit` sits next to their schemes in `accepts[]`). Payment-channel prior art: Streamium, CashCast.
 
 ## Architecture and stack
-- `packages/covenant`: CashScript contract (126 bytes, P2SH32), voucher signing (Schnorr datasig), tx builders.
+- `packages/covenant`: CashScript contract (176 bytes compiled, P2SH32), voucher signing (Schnorr datasig), tx builders.
 - `packages/server`: x402 paywall (Node, TypeScript), tab ledger, settle/cancel ticker, chain replay after restarts.
 - `packages/mcp`: MCP server for agents.
 - `apps/web`: React + Vite + Tailwind, WizardConnect (Paytaca) for the human wallet.
