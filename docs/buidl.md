@@ -59,6 +59,8 @@ Credit: PSF `x402-bch` / `x402-bch-express` and OPTN Labs `x402-bch` (same HTTP 
 3. `desktop-attacks-7of7.jpg`: Try to cheat it, 7/7 cheats rejected, node error in the expander.
 4. `desktop-mainnet-first-screen.jpg`: Mainnet default, "Pay 1¢ for a live BCH price" with the last real payment.
 5. `mobile-chipnet-settled.jpg`: the settled ticket on a phone.
+6. `mainnet-tx-explorer.jpg`: the first real mainnet 1¢ payment (tx `33d32acd…f7efe3`) in a block explorer.
+7. `mcp-fetch-paid.jpg`: Claude Code (MCP) calling `fetch_paid` against the hosted chipnet API: BCH price returned, 1,000-sat voucher on a new tab.
 6. (To capture) Explorer view of mainnet tx `33d32acd…f7efe3`, and Claude calling `fetch_paid`.
 
 ## Business model

@@ -53,7 +53,7 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 - AgentTab speaks the same HTTP flow as **x402-bch** (v2.2): `402` + `accepts[]`, an `X-PAYMENT` retry, and `X-PAYMENT-RESPONSE`.
 - It adds one scheme, **`bch-credit`**: a non-custodial, covenant-backed tab instead of a per-request transaction or custodial batch debit.
 - Credit: **Permissionless Software Foundation** (`x402-bch`, `x402-bch-express`) and **OPTN Labs** (`x402-bch`). `bch-credit` is designed to sit next to their schemes in the same `accepts[]`.
-- An **MCP server** lets Claude or any MCP agent pay on its own: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps.
+- An **MCP server** lets Claude or any MCP agent pay on its own: `fetch_paid`, `tab_status`, `close_tab`, `agent_info`, with spend caps. Screenshot: `mcp-fetch-paid.jpg` (a real Claude Code headless run on chipnet: price returned, 1,000-sat voucher).
 - Closest rival in this hackathon: Satchel (capped covenant vault, payee allowlist, one on-chain tx per call). Say: "Vault = many payees, a tx per call. Tab = one API, thousands of calls, 2 txs." Credit them; don't knock them.
 - Neighbour in this hackathon (say it if asked): LaunchDesk = a human pays an AI per job (escrow per order); AgentTab = an AI agent pays any API per call (one tab, many calls, 2 txs).
 - Comparison table (copy from README "How it compares"): per-call payment = 100 txs per 100 calls; facilitator batch (Coinbase x402 batch, PSF batch debit) = few txs but the facilitator holds funds; `bch-credit` = 2 txs and no one can take the unspent budget. Line to say: "x402 batch settlement, trust-minimised on BCH L1: the covenant enforces the refund, no facilitator."
@@ -67,7 +67,7 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 
 ## 8. Roadmap
 - **Next concrete step:** propose `bch-credit` to the x402-bch maintainers (issue not opened yet).
-- Mainnet: live since 2026-11-19 (first real Paytaca 1¢ payment, tx `33d32acd…f7efe3`); next is the first mainnet covenant tab open/settle.
+- Mainnet: live since 2026-11-19 (first real Paytaca 1¢ payment, tx `33d32acd…f7efe3`, screenshot: `mainnet-tx-explorer.jpg`); next is the first mainnet covenant tab open/settle.
 - Possible later: PUSD-denominated tabs, tab top-ups, multi-provider tabs [Author to confirm].
 
 ## 9. Why I built this
