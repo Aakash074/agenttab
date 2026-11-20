@@ -55,6 +55,13 @@ test('a wiped server rebuilds settled tabs, stats and feed from the provider add
   const s = fresh.stats();
   assert.equal(s.paidCalls, 3); // attack tab kept out of the headline
   assert.equal(s.onchainTxs, 2);
+  // Fee figure from the real open + settle sizes, never a guess.
+  const openBytes = (await net.getRawTransaction(settled.split(':')[0])).length / 2;
+  assert.equal(t.openTxBytes, openBytes);
+  assert.equal(s.feeSats, openBytes + t.settleTxBytes!);
+  t.openTxBytes = undefined;
+  assert.equal(fresh.stats().feeSats, null, 'unknown size: no fee figure');
+  t.openTxBytes = openBytes;
   assert.deepEqual(fresh.events.map((e) => [e.id, e.type]), [[1, 'open'], [2, 'settle'], [3, 'open'], [4, 'settle']]);
   assert.equal(fresh.events.find((e) => e.type === 'settle' && e.tab === settled)!.calls, 3, 'calls derived from the settle tx');
   assert.notEqual(fresh.epoch, epoch);

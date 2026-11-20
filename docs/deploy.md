@@ -15,7 +15,7 @@ Update 2026-11-19: `agenttab-api-mainnet` is live at https://agenttab-api-mainne
 |---|---|---|
 | chipnet | `PROVIDER_WIF`, `DEMO_AGENT_WIF`, `FAUCET_WIF`, `ATTACK_OWNER_WIF` | Throwaway **testnet** WIFs. Generate them with `node packages/covenant/scripts/keygen.ts` in a scratch dir, then fund FAUCET, DEMO_AGENT and ATTACK_OWNER with free chipnet coins (`packages/server/scripts/faucet-topup.ts`). |
 | mainnet | `PROVIDER_WIF` | A **mainnet** WIF for a fresh key that only *receives* settlements. Never the user's main wallet. |
-| mainnet | `DEMO_AGENT_WIF` | A fresh **mainnet** WIF. It needs no funds, because on mainnet the demo agent only spends tabs that visitors fund for it (capped by `DEMO_MAINNET_MAX_TOTAL_SATS`, default 50k sats). |
+| mainnet | `DEMO_AGENT_WIF` | A fresh **mainnet** WIF. It needs no funds, because on mainnet the demo agent only spends tabs that visitors fund for it (capped by `DEMO_MAINNET_MAX_TOTAL_SATS`, default and maximum 500k sats). |
 
 3. **Free-plan caveats:**
    - **Services sleep after about 15 min idle.** `.github/workflows/keepalive.yml` pings `/.well-known/agenttab` every 10 minutes. Set the repo variables `AGENTTAB_API_CHIPNET` and `AGENTTAB_API_MAINNET` to the Render URLs.

@@ -113,7 +113,7 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
     .filter((h) => !known.has(h.txid))
     .sort((a, b) => (b.height <= 0 ? Infinity : b.height) - (a.height <= 0 ? Infinity : a.height))
     .slice(0, o.limit ?? 300);
-  const found: { p: ParsedSettle; at: string; openAt?: string }[] = [];
+  const found: { p: ParsedSettle; at: string; openAt?: string; openBytes?: number }[] = [];
   const directs: { invoice: string; txid: string; amount: string; at: string; timeUnknown?: boolean }[] = [];
   const iso = (s?: number) => (s ? new Date(s * 1000).toISOString() : undefined);
   const queue = [...hist];
@@ -130,20 +130,20 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
         }
         if (ledger.tabs.has(p.tab)) continue;
         if (ledger.contractFor(p).bytecode !== p.redeemHex) continue; // not our AgentTab covenant
-        const openTime = await src.tx(p.openTxid).then((t) => t.time).catch(() => undefined);
-        found.push({ p, at: iso(time) ?? new Date().toISOString(), openAt: iso(openTime) });
+        const open = await src.tx(p.openTxid).catch(() => undefined);
+        found.push({ p, at: iso(time) ?? new Date().toISOString(), openAt: iso(open?.time), openBytes: open?.hex ? open.hex.length / 2 : undefined });
       } catch { /* skip one bad tx, keep going */ }
     }
   };
   await Promise.all(Array.from({ length: o.concurrency ?? 6 }, worker));
-  const records = found.map(({ p, at, openAt }) => {
+  const records = found.map(({ p, at, openAt, openBytes }) => {
     const requests = Number((p.amount + o.maxPrice - 1n) / o.maxPrice);
     const tag = o.tagOwners?.[p.ownerPub];
     const rec: TabRecord = {
       id: p.tab, outpoint: { txid: p.openTxid, vout: p.vout }, ownerPub: p.ownerPub, agentPub: p.agentPub, timeout: p.timeout,
       budget: p.budget.toString(), contractAddress: ledger.contractFor(p).address,
       highest: { amount: p.amount.toString(), sig: '' }, requests, openedAt: openAt ?? at, status: 'settled',
-      settledTxid: p.settleTxid, settledAmount: p.amount.toString(), settleTxBytes: p.settleBytes,
+      settledTxid: p.settleTxid, settledAmount: p.amount.toString(), settleTxBytes: p.settleBytes, openTxBytes: openBytes,
       restored: true, ...(tag ? { tag } : {}),
     };
     return { rec, settledAt: at };

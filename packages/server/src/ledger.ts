@@ -346,14 +346,18 @@ export class TabLedger extends EventEmitter {
   }
 
   stats() {
-    let paidCalls = 0, earned = 0n, open = 0, onchainTxs = 0, feeSats = 0;
+    // feeSats: the tabs' on-chain size in bytes (≈ sats at the 1 sat/byte relay fee), from the real txs only.
+    // If any counted tab's size is unknown, it is null: no guessed figure.
+    let paidCalls = 0, earned = 0n, open = 0, onchainTxs = 0, feeSats: number | null = 0;
     for (const t of this.tabs.values()) {
       if (t.tag === 'attack' || t.requests === 0) continue; // headline counts tabs that actually served calls
       paidCalls += t.requests;
       earned += BigInt(t.highest?.amount ?? '0');
       if (t.status === 'open') open++;
       onchainTxs += 1 + (t.settledTxid ? 1 : 0);
-      feeSats += (t.openTxBytes ?? 300) + (t.settledTxid ? (t.settleTxBytes ?? 470) : 0);
+      const bytes = t.openTxBytes === undefined || (t.settledTxid && t.settleTxBytes === undefined) ? undefined
+        : t.openTxBytes + (t.settledTxid ? t.settleTxBytes ?? 0 : 0);
+      feeSats = feeSats === null || bytes === undefined ? null : feeSats + bytes;
     }
     // Baseline: paying per call on-chain = one ~226-byte P2PKH payment per call.
     const perCallFeeSats = paidCalls * 226;

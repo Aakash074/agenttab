@@ -43,8 +43,10 @@ const features: Record<string, unknown> = { maxBudgetSats: maxBudget?.toString()
 
 const demoWif = env.DEMO_AGENT_WIF ?? env.AGENT_WIF;
 let demo: ReturnType<typeof createDemo> | undefined;
-// Mainnet demo caps: never above 50k sats signed in total per process, and at most 10 calls' worth on any one visitor tab.
-const demoMainnetMaxTotal = (() => { const v = BigInt(env.DEMO_MAINNET_MAX_TOTAL_SATS ?? 50_000); return v > 50_000n ? 50_000n : v; })();
+// Mainnet demo caps: never above 500k sats signed in total per process, and at most 10 calls' worth on any one visitor tab.
+// (Vouchers only pay the provider from tabs visitors fund themselves; the per-tab cap stops anyone draining a stranger's tab.)
+const DEMO_MAINNET_HARD_CAP = 500_000n;
+const demoMainnetMaxTotal = (() => { const v = BigInt(env.DEMO_MAINNET_MAX_TOTAL_SATS ?? DEMO_MAINNET_HARD_CAP); return v > DEMO_MAINNET_HARD_CAP ? DEMO_MAINNET_HARD_CAP : v; })();
 const demoMainnetPerTab = 10n * price;
 // Mainnet: the demo agent is off unless DEMO_ON_MAINNET=1, and then it only spends tabs visitors fund for it.
 if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
