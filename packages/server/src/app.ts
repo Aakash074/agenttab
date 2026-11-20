@@ -67,7 +67,7 @@ export function paymentRequirements(o: AppOptions, route: PaidRoute, resource: s
       extra: {
         contract: 'AgentTab',
         artifactHash: ARTIFACT_HASH,
-        voucher: 'schnorr datasig(owner, sha256("AGENTTAB" || outpointTxHashLE || voutLE32 || cumulativeAmountLE64))',
+        voucher: 'schnorr datasig(agent, sha256("AGENTTAB" || outpointTxHashLE || voutLE32 || cumulativeAmountLE64))',
         openTab: '/tabs',
         minTimeoutBlocks: o.ledger.safetyBlocks + 1,
         voucherSigner: 'agentPub (register with POST /tabs {txid,vout,ownerPub,agentPub,timeout})',
