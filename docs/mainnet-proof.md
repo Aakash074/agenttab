@@ -2,7 +2,7 @@
 
 ## Mainnet covenant tab from a real Paytaca wallet (2026-11-20 10:46–10:47 UTC)
 
-A visitor-funded tab (the author's own Paytaca wallet, over WizardConnect) was spent by our hosted demo agent: 10 API calls paid with off-chain vouchers, then one provider settle. Fees for the whole tab: 776 sats (open + settle); paying each call on-chain would have cost about 2,260 sats in fees for the same 10 calls (live feed stats). **10 paid calls, 2 on-chain transactions**, and the covenant forced the exact remainder back to the wallet.
+A 5¢ tab funded from the author's own Paytaca wallet (over WizardConnect, through the site's normal mainnet flow) was spent by our hosted demo agent: 10 API calls paid with off-chain vouchers, then one provider settle. Fees for the whole tab, as the chain shows them: **780 sats (open 231 + settle 549)**; the two transactions are 229 and 547 bytes. Paying each call on-chain would have cost about 2,260 sats in fees for the same 10 calls (10 × a ~226-byte payment at 1 sat/byte). **10 paid calls, 2 on-chain transactions**, and the covenant forced the exact remainder back to the wallet.
 
 | Step | Txid | What the chain shows |
 |---|---|---|

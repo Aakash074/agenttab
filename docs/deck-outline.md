@@ -92,8 +92,8 @@ The test suite adds unit, property and HTTP tests, including a 500-step adversar
 
 ## 8. Roadmap
 - **Next concrete step:** propose `bch-credit` to the x402-bch maintainers (issue not opened yet).
-- Mainnet: live since 2026-11-19 (first real Paytaca 1¢ payment, tx `33d32acd…f7efe3`, screenshot: `mainnet-tx-explorer.jpg`); next is the first mainnet covenant tab open/settle.
-- Possible later: PUSD-denominated tabs, tab top-ups, multi-provider tabs [Author to confirm].
+- Mainnet: live since 2026-11-19 (first real Paytaca 1¢ payment, tx `33d32acd…f7efe3`, screenshot: `mainnet-tx-explorer.jpg`); the first mainnet covenant tab followed on 2026-11-20 (10 calls, 2 txs: open `2e6bc19d…`, settle `fe456030…`).
+- Next (not built yet): top-ups, multi-provider tabs, PUSD-denominated tabs.
 
 ## 9. Why I built this
 AI agents are starting to pay for APIs per request, and the usual options are one on-chain transaction and fee for every call, or a balance prepaid to the provider, where you trust its ledger for each charge and for your refund. I've built production AI agents and worked on stablecoin payments, and I wanted something in between: a bounded budget the agent can spend but can never run off with. AgentTab locks that budget in a Bitcoin Cash covenant with one transaction, pays for each call with a signed off-chain voucher, and settles with one more transaction, and the covenant forces whatever wasn't spent back to the owner. On chipnet the covenant rejected all 7 attacks in the app's test panel, and on 19 November 2026 a real wallet made a plain 1¢ payment for an oracle answer on BCH mainnet.

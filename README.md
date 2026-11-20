@@ -1,5 +1,7 @@
 # AgentTab
 
+**Demo video (1:24):** https://youtu.be/bNDT09rOvoo · **Live app:** https://agenttab-bch.onrender.com
+
 **A refundable tab for your AI agent on Bitcoin Cash: one transaction for N API calls.**
 
 You lock a budget in a covenant with **one transaction**. Your agent then pays for each API call with an off-chain voucher, signed for the **cumulative** amount owed. Vouchers are instant, free and need no on-chain transaction.
@@ -9,19 +11,19 @@ You lock a budget in a covenant with **one transaction**. Your agent then pays f
 - If the provider disappears, you reclaim everything after the timeout.
 - The agent's key can sign vouchers but can never withdraw.
 
-Paying for each call on-chain costs one transaction per call. AgentTab is a payment channel instead: two transactions in total, however many calls. On chipnet the two cost 776 sats in fees together (open 229 bytes + settle 547 bytes at 1 sat/byte).
+Paying for each call on-chain costs one transaction per call. AgentTab is a payment channel instead: two transactions in total, however many calls. On the 20 November mainnet tab below, the two cost **780 sats in fees together (open 231 + settle 549)**, against about 2,260 sats if each of its 10 calls had been its own ~226-byte payment.
 
-**Live on BCH mainnet:** a visitor-funded 5¢ tab from a real Paytaca wallet was spent by our hosted demo agent on **10 API calls off-chain, and the tab settled in 2 transactions in total**: open [`2e6bc19dd2…`](https://explorer.selene.cash/tx/2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8?network=mainnet), settle [`fe4560302f…`](https://explorer.selene.cash/tx/fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df?network=mainnet) with exactly 18,597 sats returned to the owner by the covenant. Plus a 1¢ direct pay [`33d32acd51…`](https://explorer.selene.cash/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3?network=mainnet). Details: [docs/mainnet-proof.md](docs/mainnet-proof.md).
-
-**Demo video (1:24):** https://youtu.be/bNDT09rOvoo · **Live app:** https://agenttab-bch.onrender.com
+**Live on BCH mainnet:** a 5¢ tab (24,597 sats) funded from the author's own Paytaca wallet through the site's normal mainnet flow was spent by our hosted demo agent on **10 API calls off-chain, and the tab settled in 2 transactions in total**: open [`2e6bc19dd2…`](https://explorer.selene.cash/tx/2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8?network=mainnet), settle [`fe4560302f…`](https://explorer.selene.cash/tx/fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df?network=mainnet) with exactly 18,597 sats returned to the owner by the covenant. Plus a 1¢ direct pay [`33d32acd51…`](https://explorer.selene.cash/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3?network=mainnet). Details: [docs/mainnet-proof.md](docs/mainnet-proof.md).
 
 The previous URL https://agenttab-wihk.onrender.com still serves the same build as a mirror.
 
-## Verify it in 5 minutes (chipnet)
+## Try it (mainnet first, chipnet free)
 
-The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5¢ tab demo, test wallet and attacks run on chipnet: pick *Chipnet* in the header network selector, use the "Or try the 5¢ tab free on Chipnet →" link, or open https://agenttab-bch.onrender.com/?net=chipnet directly.
+The app opens on mainnet. **Give an AI agent a 5¢ tab** is the main button there: you approve one transaction in Paytaca (WizardConnect) that locks about 5¢ in the covenant, the hosted demo agent makes 10 paid calls with off-chain vouchers (600 sats each), and one settle transaction pays the provider and sends the rest back to your wallet.
 
-**Try it in 30 seconds: pay 1¢.** On Mainnet, press **Pay 1¢ for a live BCH price**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the button, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
+The free path needs no wallet: the 5¢ tab demo, test wallet and attacks run on chipnet. Use the "Try it free on Chipnet (no wallet) →" link, pick *Chipnet* in the header network selector, or open https://agenttab-bch.onrender.com/?net=chipnet directly.
+
+**Or pay 1¢, no tab.** On Mainnet, press **Pay 1¢ for a live BCH price**, connect Paytaca (WizardConnect) and approve one payment of about 1 US cent. The answer and the transaction's explorer link appear under the button, and the feed shows it as *1¢ direct pay*. It is a single plain payment (no tab) bound to the invoice by an `OP_RETURN`, accepted at 0-conf.
 
 | # | Do this | You should see |
 |---|---|---|
@@ -29,7 +31,7 @@ The app opens on mainnet (the 1¢ payment works there with Paytaca). The free 5�
 | 2 | Watch the receipt ticket | Three call lines fill in, `/api/oracle 402 → 200 +1,000`, while "on-chain txs for these calls" stays at **0**; the bar fills. |
 | 3 | Wait about 25 s | The tab is closed in **one transaction**: the bar splits into "provider 3,000" and "17,000 back to you", and the SETTLED stamp appears. In the explorer the settle has exactly two outputs, the provider's 3,000 (minus its fee) and your exact remainder. |
 | 4 | Open **How it works → Advanced: fund a tab for your own agent** | Paste any agent pubkey (from the MCP tool `agent_info`), pick a budget and timeout, and see the covenant source and the provider key. |
-| 5 | Open the **Try to cheat it** tab → **Run the 7 attacks** | A fresh chipnet tab is attacked. Replay, overclaim, forged amount, wrong remainder, early refund, agent-withdraw and cancel-to-self are all **REJECTED**, with the chipnet node's verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
+| 5 | Open the **Try to cheat it** tab → **Run the 7 attacks** | A fresh chipnet tab is attacked and all 7 cheats are **blocked**: the voucher replay by the paywall server (`402 replayed_voucher`), and overclaim, forged amount, wrong remainder, early refund, agent-withdraw and cancel-to-self by the chipnet node, with its verbatim reason (e.g. `mandatory-script-verify-flag-failed (Script failed an OP_EQUALVERIFY operation)`, `bad-txns-nonfinal`). Then the honest settle is accepted. |
 
 For agents, an MCP server (`packages/mcp`) gives Claude or any MCP client `fetch_paid`, `tab_status`, `close_tab` and `agent_info`. On-chain evidence (txids) is in [`docs/chipnet-proof.md`](docs/chipnet-proof.md). The threat model is in [`docs/security.md`](docs/security.md).
 
@@ -62,7 +64,7 @@ The settle is one transaction with exactly two outputs, so the provider claims a
 
 A capped vault is the better fit when an agent pays **many different providers** with no expiry. A tab is the better fit when an agent makes **many calls to one API**: the calls cost no on-chain fee and wait for no broadcast, and the provider is still guaranteed every voucher the agent signed.
 
-**Prior art, named honestly.** The mechanism is a one-way payment channel, the same family as Spilman channels, Streamium (BCH, 2017) and, in this hackathon, CashCast (pay-per-second music). What AgentTab adds is what an *AI agent* needs and a human listener does not:
+**Prior art.** The mechanism is a one-way payment channel, the same family as Spilman channels, Streamium (BCH, 2017) and, in this hackathon, CashCast (pay-per-second music). What AgentTab adds is what an *AI agent* needs and a human listener does not:
 - the agent holds a key that can **only sign vouchers**: it cannot move the deposit, only the owner can;
 - a machine-readable **402 `bch-credit` scheme**, so any x402 client can discover and pay;
 - an **MCP server**, so Claude and other agents use it as a tool with no wallet code;
@@ -75,13 +77,12 @@ API providers run a hosted AgentTab paywall and pay **1% of what their tabs sett
 
 ## Build timeline
 
-- **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold.
+- **Before 2026-11-14 (pre-hackathon):** idea research and a small throwaway prototype in a separate repo, [Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype). It has a 30-line covenant sketch, 5 mock tests and an empty Vite scaffold. No hosted demo of the prototype existed; its pre-kickoff state is commit [631e586](https://github.com/Aakash074/agenttab-prototype/tree/631e586).
 - **2026-11-14 (kickoff day, after 14:00 UTC):** this repo started from scratch.
   - Covenant, SDK, paywall server, MCP server and web app.
   - First chipnet settle, refund and attack runs ([proof](docs/chipnet-proof.md)).
-  - Four UX review passes, one judge review and one copy audit, each followed by fixes.
   - Covenant versions: v1 (one key for owner and agent), v2 (owner/agent split), v3 (adds `cancel`, current). The chipnet proof labels each run with its version.
-- **2026-11-15 → 11-21:** hosting, the first mainnet transaction with a real Paytaca wallet over WizardConnect, deck and video.
+- **2026-11-15 → 11-21:** hosting, the first mainnet transaction (a 1¢ direct pay from a real Paytaca wallet over WizardConnect, 19 Nov), the first full mainnet covenant tab (10 calls, 2 txs, 20 Nov), deck and video.
 
 ## What changed vs the pre-hackathon prototype
 
@@ -98,18 +99,22 @@ API providers run a hosted AgentTab paywall and pay **1% of what their tabs sett
 | Tests | 5 mock tests. | Unit, property and HTTP tests, plus live chipnet attack runs. |
 
 ## Why I built this
-AI agents are starting to pay for APIs per request, and the usual options are one on-chain transaction and fee for every call, or a balance prepaid to the provider, where you trust its ledger for each charge and for your refund. I've built production AI agents and worked on stablecoin payments, and I wanted something in between: a bounded budget the agent can spend but can never run off with. AgentTab locks that budget in a Bitcoin Cash covenant with one transaction, pays for each call with a signed off-chain voucher, and settles with one more transaction, and the covenant forces whatever wasn't spent back to the owner. On chipnet the covenant rejected all 7 attacks in the app's test panel, and on 19 November 2026 a real wallet made a plain 1¢ payment for an oracle answer on BCH mainnet.
+AI agents are starting to pay for APIs per request, and the usual options are one on-chain transaction and fee for every call, or a balance prepaid to the provider, where you trust its ledger for each charge and for your refund. I've built production AI agents and worked on stablecoin payments, and I wanted something in between: a bounded budget the agent can spend but can never run off with. AgentTab locks that budget in a Bitcoin Cash covenant with one transaction, pays for each call with a signed off-chain voucher, and settles with one more transaction, and the covenant forces whatever wasn't spent back to the owner. On chipnet the covenant rejected all 7 attacks in the app's test panel, and on 19 November 2026 a real wallet made a plain 1¢ payment for an oracle answer on BCH mainnet. On 20 November 2026 a full tab ran on mainnet: 10 paid calls, 2 transactions, and exactly 18,597 sats forced back to the owner.
 
 ## How I built this
 
-Built with Claude Code as a pair programmer, which is why the history is dense and commits are co-authored. The prototype repo (linked above) is where the covenant idea was worked out before kickoff. My decisions: [Author to write].
+Built with Claude Code as a pair programmer, which is why the history is dense and commits are co-authored. The prototype repo (linked above) is where the covenant idea was worked out before kickoff. My decisions: Mainnet is the site's default view; providers pay 1% of what their tabs settle; I entered solo; I had the interface cut down to less text and chose the current design after several review rounds; and I ran the first full mainnet tab from my own Paytaca wallet (10 calls, 2 transactions, 20 November 2026).
 
 ## Design decisions
 
+- **Cumulative, outpoint-bound vouchers.** Each voucher is the agent's Schnorr datasig over `"AGENTTAB" ‖ funding outpoint ‖ cumulative amount`, so only the latest one matters and it cannot be replayed on another tab or a second coin at the same address. The server also refuses any voucher that is not above the highest it has seen.
+- **The agent key can only sign vouchers.** `settle` and `cancel` need the provider's signature and `refund` needs the owner's; no path accepts the agent's key as a transaction signature, so the agent can never withdraw.
+- **The covenant forces the exact remainder.** `settle` allows exactly 1 input and 2 outputs: the provider gets at most the signed amount and pays the miner fee from it, and the owner's output must equal budget − amount, with no tokens on either output.
+- **Two ways out without the agent.** The provider can `cancel` and return the whole budget to the owner (miner fee capped at 1,000 sats), and after the timeout the owner can `refund` everything alone (`tx.time >= timeout`). The server settles or cancels tabs 6 blocks before their timeout.
+- **`bch-credit` sits beside `exact`.** The oracle's 402 answer lists both schemes in `accepts[]`: the tab voucher and a plain one-payment `exact` option, so one server serves both kinds of client.
+- **The 1¢ direct pay is accepted at 0-conf** because the payment carries `OP_RETURN "AGENTTAB" <invoiceId>`, which binds it to one invoice; each invoice and each txid pays once.
 
-[Author to write]
-
-> **Disclosure:** a small pre-hackathon prototype exists in a separate folder/repo ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). This repository was started from scratch after kickoff.
+> **Disclosure:** a small pre-hackathon prototype exists in a separate repo ([Aakash074/agenttab-prototype](https://github.com/Aakash074/agenttab-prototype)). No hosted demo of the prototype existed; its pre-kickoff state is commit [631e586](https://github.com/Aakash074/agenttab-prototype/tree/631e586). This repository was started from scratch after kickoff, and its code was generated with AI assistance (Claude Code) live after kickoff, from the author's design.
 
 ## Layout
 
@@ -127,7 +132,7 @@ Requires Node 23.6+ (runs TypeScript natively).
 
 ```sh
 npm install
-npm test                                       # 58 tests: covenant 24 (incl. property tests), server 29, mcp 5
+npm test                                       # 102 tests: covenant 35 (incl. property tests), server 55, mcp 5, web 7
 npm run typecheck
 
 node packages/covenant/scripts/keygen.ts       # throwaway chipnet keys -> .env (OWNER / AGENT / PROVIDER)
@@ -180,7 +185,7 @@ Server config is read from `.env` or the environment:
 
 ### Mainnet
 
-The mainnet API is live at https://agenttab-api-mainnet.onrender.com. The first mainnet transaction is a real Paytaca 1¢ direct payment on 2026-11-19 (see [docs/mainnet-proof.md](docs/mainnet-proof.md)). The covenant tab flow is enabled on mainnet (max tab 100k sats); its open/settle/refund and the 7 rejected attacks are proven on chipnet.
+The mainnet API is live at https://agenttab-api-mainnet.onrender.com. The first mainnet transaction is a real Paytaca 1¢ direct payment on 2026-11-19, and the first full covenant tab ran on mainnet on 2026-11-20 (see [docs/mainnet-proof.md](docs/mainnet-proof.md)). Open and settle are proven on mainnet (tab `2e6bc19d…` / `fe456030…`). Refund and the 7 attacks are proven on chipnet.
 
 To run it:
 ```sh
@@ -189,18 +194,23 @@ NETWORK=mainnet ALLOW_MAINNET=1 PROVIDER_WIF=<mainnet WIF> PORT=8403 node packag
 Then build the web app with `VITE_SERVER_URL_MAINNET=https://…`.
 
 On mainnet:
-- The price defaults to 100 sats per call.
-- Tabs above 100k sats are refused.
-- Budgets in the UI are 3k, 5k and 10k sats.
-- The demo agent and the faucet are off.
+- The price defaults to 600 sats per call (`/api/oracle`; `/api/fx` 360, `/api/chain/tip` 180).
+- Tabs above 100k sats are refused (`MAX_TAB_BUDGET_SATS`).
+- The hero's 5¢ tab is about 5¢ at the live BCH price (about 25–26k sats, never above 30k). The Advanced form offers 3k, 5k and 10k sats.
+- The demo agent is on in visitor-tabs-only mode (`DEMO_ON_MAINNET=1`): it spends only tabs that visitors fund from their own wallet, at most 10 calls per tab and at most `DEMO_MAINNET_MAX_TOTAL_SATS` in all (default and maximum 500k sats).
+- The faucet and the attack panel are off (chipnet only).
 
 `node packages/covenant/scripts/mainnet-dryrun.ts [bitcoincash:q…]` builds the unsigned WizardConnect open-tab transaction against live mainnet UTXOs and prints it. It never signs and never broadcasts.
 
 ### MCP (give your agent a tab)
 
+```sh
+git clone https://github.com/Aakash074/agenttab.git && cd agenttab && npm install
+```
+
 ```json
 { "mcpServers": { "agenttab": {
-  "command": "node", "args": ["/path/to/agenttab/packages/mcp/src/index.ts"],
+  "command": "npx", "args": ["-y", "tsx", "/full/path/to/agenttab/packages/mcp/src/index.ts"],
   "env": { "AGENT_WIF": "<testnet WIF>", "NETWORK": "chipnet", "MAX_BUDGET_SATS": "20000", "MAX_PRICE_SATS": "5000", "MAX_TOTAL_SATS": "100000" }
 } } }
 ```
@@ -212,7 +222,7 @@ On a 402, `fetch_paid` pays from a tab in this order:
 ### Web
 
 The page is one hero action plus a receipt ticket, then four tabs:
-- **Hero:** on Mainnet, **Pay 1¢ for a live BCH price**; on Chipnet, **Give an AI agent a 5¢ tab**. The ticket shows the run live (calls, 0 on-chain txs, provider/back-to-you split, SETTLED stamp).
+- **Hero:** **Give an AI agent a 5¢ tab** on both networks (on Mainnet from your own wallet, with **Pay 1¢ for a live BCH price** under it and a link to the free Chipnet run). The ticket shows the run live (calls, 0 on-chain txs, provider/back-to-you split, SETTLED stamp).
 - **Live feed**, **Try to cheat it** (7 attacks), **How it works** (with *Advanced: fund a tab for your own agent*: agent pubkey, budget, refund timeout), **Use with your agent** (MCP config and "Your tabs").
 
 Two signers are available:
