@@ -1,6 +1,7 @@
-import type { Stats } from '../lib/api';
+import { useEffect, useState } from 'react';
+import type { FeedEvent, TabRecord } from '../lib/api';
 import { api } from '../lib/api';
-import { plural, ratio, sats, usd } from '../lib/format';
+import { plural, sats } from '../lib/format';
 import { CONTRACT_SOURCE_URL } from '../config';
 
 const I = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
@@ -13,35 +14,42 @@ const STEPS = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" {...I}><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4.5v3.9h3.9" /><path d="m9 12.2 2.1 2.1 4-4.3" /></svg> },
 ];
 
-function FeeBox({ stats, bchUsd }: { stats: Stats; bchUsd?: number }) {
-  const fee = stats.feeSats ?? 0, txs = stats.onchainTxs ?? 0;
-  const perCallTxs = stats.perCallTxs ?? stats.paidCalls, perCallFee = stats.perCallFeeSats ?? 0;
-  const money = (v: number) => (bchUsd ? usd(BigInt(Math.round(v)), bchUsd) : `${sats(Math.round(v))} sats`);
-  if (fee < perCallFee) {
-    return (
-      <p className="text-sm text-muted">
-        Paying on-chain per call would have taken <b className="text-fg">{plural(perCallTxs, 'transaction')}</b> and {money(perCallFee)} in fees.
-        AgentTab used {plural(txs, 'transaction')}: <b className="text-bch-2">{ratio(perCallTxs, txs)} fewer</b>.
-      </p>
-    );
-  }
-  const perTab = txs > 0 ? (2 * fee) / txs : 770;
-  const perCall = perCallTxs > 0 ? perCallFee / perCallTxs : 226;
-  const breakEven = Math.floor(perTab / perCall) + 1;
+/** The most recent settled tab (attack runs excluded): its own calls and transactions, nothing aggregated. */
+function useLastTab(events: FeedEvent[]) {
+  const id = events.find((e) => e.type === 'settle' && e.tag !== 'attack')?.tab;
+  const [tab, setTab] = useState<TabRecord | null>(null);
+  useEffect(() => {
+    if (!id) { setTab(null); return; }
+    let stop = false;
+    api.tab(id).then((t) => !stop && setTab(t)).catch(() => {});
+    return () => { stop = true; };
+  }, [id]);
+  return tab && tab.id === id && tab.status === 'settled' && tab.requests > 0 ? tab : null;
+}
+
+/** Baseline: paying on-chain per call = one ~226-byte P2PKH payment per call (1 sat/byte), as the server's stats assume. */
+const PER_CALL_FEE = 226;
+
+function LastTabBox({ tab }: { tab: TabRecord }) {
+  const n = tab.requests;
+  const fee = tab.openTxBytes && tab.settleTxBytes ? tab.openTxBytes + tab.settleTxBytes : undefined;
   return (
     <p className="text-sm text-muted">
-      <b className="text-fg">Cheaper than paying per call from {breakEven}+ calls.</b> A tab costs about {money(perTab)} in miner fees however many calls it covers;
-      paying on-chain costs about {money(perCall)} per call.
+      Last tab: <b className="text-fg">{plural(n, 'call')} · 2 on-chain transactions</b> (paying per call: {plural(n, 'transaction')}).
+      {fee !== undefined && <> Its two transactions cost {sats(fee)} sats in miner fees, a flat cost however many calls a tab covers; paying per call costs about {PER_CALL_FEE} sats a call,
+        so a tab is <b className="text-bch-2">cheaper from {Math.floor(fee / PER_CALL_FEE) + 1} calls</b>.</>}
     </p>
   );
 }
 
-export function HowItWorks({ stats, bchUsd, direct, advanced, advancedOpen, onAdvancedToggle }: {
-  stats: Stats | null; bchUsd?: number;
+export function HowItWorks({ events, direct, advanced, advancedOpen, onAdvancedToggle }: {
+  /** Newest first, as the feed holds them. */
+  events: FeedEvent[];
   /** The 1¢ no-tab card (shown here when it isn't the hero action). */
   direct?: React.ReactNode;
   advanced: React.ReactNode; advancedOpen: boolean; onAdvancedToggle: (open: boolean) => void;
 }) {
+  const lastTab = useLastTab(events);
   return (
     <div id="how" className="grid scroll-mt-24 gap-5">
       <ol className="grid gap-3 sm:grid-cols-3">
@@ -62,7 +70,7 @@ export function HowItWorks({ stats, bchUsd, direct, advanced, advancedOpen, onAd
           A Bitcoin Cash covenant holds the money. The provider can claim only the highest voucher the agent signed, and the transaction must send
           the rest back to the owner. The agent can never withdraw. If the provider vanishes, the owner takes everything back after the timeout.
         </p>
-        {stats && stats.paidCalls > 0 && stats.feeSats !== undefined && stats.perCallFeeSats !== undefined && <FeeBox stats={stats} bchUsd={bchUsd} />}
+        {lastTab && <LastTabBox tab={lastTab} />}
         <a className="tap text-sm font-medium text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
       </div>
       {direct}

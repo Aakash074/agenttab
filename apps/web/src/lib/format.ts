@@ -34,8 +34,3 @@ export const loadWallet = () => import('./wallet');
 /** "1 transaction", "2 transactions". */
 export const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
-/** Exact-ish ratio for "N× fewer": one decimal under 10 (1.5×), whole numbers above. */
-export const ratio = (a: number, b: number) => {
-  const r = a / Math.max(1, b);
-  return r >= 10 ? `${Math.round(r)}×` : `${(Math.round(r * 10) / 10).toString()}×`;
-};

@@ -605,7 +605,7 @@ export default function App() {
           cheat: attacksElsewhere ? <CheatOnChipnet onSwitch={() => tryChipnet('sections')} />
             : info?.features?.attacks ? <ErrorBoundary label="The attack panel"><Suspense fallback={<div className="skeleton h-40 rounded-2xl" />}><CheatPanel net={net} onResult={proof.onAttackRun} /></Suspense></ErrorBoundary>
             : <div className="skeleton h-40 rounded-2xl" aria-label="Loading" />,
-          how: <HowItWorks stats={stats} bchUsd={info?.bchUsd} direct={demoElsewhere ? undefined : direct(false)} advancedOpen={advOpen} onAdvancedToggle={setAdvOpen}
+          how: <HowItWorks events={events} direct={demoElsewhere ? undefined : direct(false)} advancedOpen={advOpen} onAdvancedToggle={setAdvOpen}
             advanced={<FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoElsewhere ? '' : demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
               openTabs={wallet ? openTabs : undefined} />} />,
           agent: (

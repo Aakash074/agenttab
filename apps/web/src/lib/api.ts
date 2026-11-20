@@ -45,6 +45,7 @@ export interface TabRecord {
   settledTxid?: string;
   settledAmount?: string;
   settleTxBytes?: number;
+  openTxBytes?: number;
 }
 
 export interface ServerInfo {
