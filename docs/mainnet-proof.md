@@ -2,12 +2,12 @@
 
 ## Mainnet covenant tab from a real Paytaca wallet (2026-11-20 10:46–10:47 UTC)
 
-A visitor (the author's Paytaca wallet, over WizardConnect) funded a 5¢ tab on the live site; the hosted agent paid for 10 API calls with off-chain vouchers; the provider settled once. **10 paid calls, 2 on-chain transactions**, and the covenant forced the exact remainder back to the wallet.
+A visitor-funded tab (the author's own Paytaca wallet, over WizardConnect) was spent by our hosted demo agent: 10 API calls paid with off-chain vouchers, then one provider settle. Fees for the whole tab: 776 sats (open + settle); paying each call on-chain would have cost about 2,260 sats in fees for the same 10 calls (live feed stats). **10 paid calls, 2 on-chain transactions**, and the covenant forced the exact remainder back to the wallet.
 
 | Step | Txid | What the chain shows |
 |---|---|---|
 | Open (owner locks 24,597 sats) | [`2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8`](https://explorer.selene.cash/tx/2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8?network=mainnet) | 24,597 sats to the AgentTab covenant (P2SH32) + change to the owner |
-| 10 calls | none (off-chain vouchers, 1,000 sats each) | — |
+| 10 calls | none (off-chain vouchers, 600 sats each = 6,000) | — |
 | Settle | [`fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df`](https://explorer.selene.cash/tx/fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df?network=mainnet) | 5,451 sats to the provider (6,000 owed − 549-sat miner fee) and **exactly 18,597 sats back to the owner** (24,597 − 6,000) |
 
 Hosted mainnet API: https://agenttab-api-mainnet.onrender.com (site: https://agenttab-bch.onrender.com, network **Mainnet**).

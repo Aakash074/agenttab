@@ -35,7 +35,15 @@ An MCP server gives Claude or any MCP client four tools: `fetch_paid`, `tab_stat
 
 ## On-chain proof
 
-**Live on BCH mainnet, full covenant tab:** a real Paytaca wallet opened a 5¢ tab (24,597 sats), the agent paid for 10 API calls with off-chain vouchers, and the provider settled once: 2 on-chain transactions for 10 calls, with exactly 18,597 sats forced back to the owner. Open 2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8 · settle fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df (explorer.selene.cash). Also a 1¢ direct pay 33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3. Chipnet: 7/7 attacks rejected and the full history in docs/chipnet-proof.md.
+**Live on BCH mainnet, full covenant tab:** a visitor-funded 5¢ tab (24,597 sats from the author's Paytaca wallet) was spent by our hosted demo agent on 10 API calls (600 sats each) with off-chain vouchers, and the provider settled once: 2 on-chain transactions for 10 calls, with exactly 18,597 sats forced back to the owner. Open 2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8 · settle fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df (explorer.selene.cash). Also a 1¢ direct pay 33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3. Chipnet: 7/7 attacks rejected and the full history in docs/chipnet-proof.md.
+
+### [MAINNET] 10 calls · 2 txs
+| Step | Tx | Result |
+|---|---|---|
+| Open | 2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8 | 24,597 sats locked in the covenant |
+| 10 calls | off-chain vouchers | 6,000 sats owed, 0 txs |
+| Settle | fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df | 5,451 to provider (after 549 fee), 18,597 back to owner |
+| Fees | | 776 sats for the whole tab vs ~2,260 if each call paid on-chain |
 
 ## How it compares
 | Approach | On-chain txs for N calls | Who can take unspent money |
