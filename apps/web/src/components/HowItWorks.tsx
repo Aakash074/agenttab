@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FeedEvent, TabRecord } from '../lib/api';
 import { api } from '../lib/api';
-import { plural, sats } from '../lib/format';
-import { CONTRACT_SOURCE_URL } from '../config';
+import { plural, sats, short } from '../lib/format';
+import { CONTRACT_SOURCE_URL, explorerTx, type Net } from '../config';
 
 const I = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 const STEPS = [
@@ -14,42 +14,49 @@ const STEPS = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" {...I}><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4.5v3.9h3.9" /><path d="m9 12.2 2.1 2.1 4-4.3" /></svg> },
 ];
 
-/** The most recent settled tab (attack runs excluded): its own calls and transactions, nothing aggregated. */
-function useLastTab(events: FeedEvent[]) {
-  const id = events.find((e) => e.type === 'settle' && e.tag !== 'attack')?.tab;
+/** The most recent settled tab (attack runs excluded) that served at least 10 calls, read from its own record. Never aggregated. */
+function useExampleTab(events: FeedEvent[]) {
+  const ids = events.filter((e) => e.type === 'settle' && e.tag !== 'attack').slice(0, 8).map((e) => e.tab);
+  const key = ids.join(',');
   const [tab, setTab] = useState<TabRecord | null>(null);
   useEffect(() => {
-    if (!id) { setTab(null); return; }
+    if (!key) { setTab(null); return; }
     let stop = false;
-    api.tab(id).then((t) => !stop && setTab(t)).catch(() => {});
+    Promise.all(key.split(',').map((id) => api.tab(id).catch(() => null))).then((ts) => {
+      if (!stop) setTab(ts.find((t) => t && t.status === 'settled' && t.settledTxid && t.requests >= 10) ?? null);
+    });
     return () => { stop = true; };
-  }, [id]);
-  return tab && tab.id === id && tab.status === 'settled' && tab.requests > 0 ? tab : null;
+  }, [key]);
+  return tab;
 }
 
 /** Baseline: paying on-chain per call = one ~226-byte P2PKH payment per call (1 sat/byte), as the server's stats assume. */
 const PER_CALL_FEE = 226;
 
-function LastTabBox({ tab }: { tab: TabRecord }) {
-  const n = tab.requests;
-  const fee = tab.openTxBytes && tab.settleTxBytes ? tab.openTxBytes + tab.settleTxBytes : undefined;
+function TxCount({ tab, net }: { tab: TabRecord | null; net: Net }) {
+  const fee = tab?.openTxBytes && tab.settleTxBytes ? tab.openTxBytes + tab.settleTxBytes : undefined;
+  const link = (txid: string, label: string) => (
+    <a className="font-mono text-[12.5px] text-bch-2 hover:underline" href={explorerTx(net, txid)} target="_blank" rel="noreferrer">{label} {short(txid, 4)}</a>
+  );
   return (
     <p className="text-sm text-muted">
-      Last tab: <b className="text-fg">{plural(n, 'call')} · 2 on-chain transactions</b> (paying per call: {plural(n, 'transaction')}).
-      {fee !== undefined && <> Its two transactions cost {sats(fee)} sats in miner fees, a flat cost however many calls a tab covers; paying per call costs about {PER_CALL_FEE} sats a call,
+      <b className="text-fg">A tab always takes 2 on-chain transactions, however many calls it covers</b>: one to open, one to close.
+      The 5¢ demo stops at 3 calls to keep it short; 100 calls would still be 2 transactions, not 100.
+      {tab && <> Recent tab: <b className="text-fg">{plural(tab.requests, 'call')} · 2 transactions</b> ({link(tab.outpoint.txid, 'open')}, {link(tab.settledTxid!, 'close')}).</>}
+      {fee !== undefined && <> Its two transactions cost {sats(fee)} sats in miner fees; paying per call costs about {PER_CALL_FEE} sats a call,
         so a tab is <b className="text-bch-2">cheaper from {Math.floor(fee / PER_CALL_FEE) + 1} calls</b>.</>}
     </p>
   );
 }
 
-export function HowItWorks({ events, direct, advanced, advancedOpen, onAdvancedToggle }: {
+export function HowItWorks({ events, net, direct, advanced, advancedOpen, onAdvancedToggle }: {
   /** Newest first, as the feed holds them. */
-  events: FeedEvent[];
+  events: FeedEvent[]; net: Net;
   /** The 1¢ no-tab card (shown here when it isn't the hero action). */
   direct?: React.ReactNode;
   advanced: React.ReactNode; advancedOpen: boolean; onAdvancedToggle: (open: boolean) => void;
 }) {
-  const lastTab = useLastTab(events);
+  const example = useExampleTab(events);
   return (
     <div id="how" className="grid scroll-mt-24 gap-5">
       <ol className="grid gap-3 sm:grid-cols-3">
@@ -70,7 +77,7 @@ export function HowItWorks({ events, direct, advanced, advancedOpen, onAdvancedT
           A Bitcoin Cash covenant holds the money. The provider can claim only the highest voucher the agent signed, and the transaction must send
           the rest back to the owner. The agent can never withdraw. If the provider vanishes, the owner takes everything back after the timeout.
         </p>
-        {lastTab && <LastTabBox tab={lastTab} />}
+        <TxCount tab={example} net={net} />
         <a className="tap text-sm font-medium text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
       </div>
       {direct}
