@@ -43,6 +43,9 @@ const features: Record<string, unknown> = { maxBudgetSats: maxBudget?.toString()
 
 const demoWif = env.DEMO_AGENT_WIF ?? env.AGENT_WIF;
 let demo: ReturnType<typeof createDemo> | undefined;
+// Mainnet demo caps: never above 50k sats signed in total per process, and at most 10 calls' worth on any one visitor tab.
+const demoMainnetMaxTotal = (() => { const v = BigInt(env.DEMO_MAINNET_MAX_TOTAL_SATS ?? 50_000); return v > 50_000n ? 50_000n : v; })();
+const demoMainnetPerTab = 10n * price;
 // Mainnet: the demo agent is off unless DEMO_ON_MAINNET=1, and then it only spends tabs visitors fund for it.
 if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
   demo = createDemo({
@@ -55,10 +58,14 @@ if (demoWif && (!mainnet || env.DEMO_ON_MAINNET === '1')) {
     recycleFromPriv: mainnet ? undefined : providerPriv,
     idleSeconds: Number(env.DEMO_IDLE_SECONDS ?? 600),
     visitorTabsOnly: mainnet,
-    maxTotalSats: mainnet ? BigInt(env.DEMO_MAINNET_MAX_TOTAL_SATS ?? 50_000) : undefined,
+    maxTotalSats: mainnet ? demoMainnetMaxTotal : undefined,
+    maxPerVisitorTabSats: mainnet ? demoMainnetPerTab : undefined,
   });
   extra.push(demo.handler);
-  features.demo = { agentPub: demo.agent.agentPubHex, cronSeconds: mainnet ? 0 : Number(env.DEMO_CRON_SECONDS ?? 60), visitorTabsOnly: mainnet };
+  features.demo = {
+    agentPub: demo.agent.agentPubHex, cronSeconds: mainnet ? 0 : Number(env.DEMO_CRON_SECONDS ?? 60), visitorTabsOnly: mainnet,
+    ...(mainnet ? { maxTotalSats: demoMainnetMaxTotal.toString(), maxPerTabSats: demoMainnetPerTab.toString() } : {}),
+  };
 }
 if (!mainnet && env.FAUCET_WIF) {
   const faucet = createFaucet({

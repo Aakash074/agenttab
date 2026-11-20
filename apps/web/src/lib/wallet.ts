@@ -46,6 +46,12 @@ async function findTabUtxo(net: Net, p: { ownerPub: Uint8Array; agentPub: Uint8A
   return { contract, utxo };
 }
 
+/** Read-only: is this tab's covenant coin still unspent? (For tabs the server may have forgotten; signing is untouched.) */
+export async function tabStillLocked(net: Net, p: { ownerPub: Uint8Array; agentPub: Uint8Array; providerPub: Uint8Array; timeout: bigint; txid: string; vout: number }) {
+  const contract = tabContract({ ownerPub: p.ownerPub, agentPub: p.agentPub, providerPub: p.providerPub, timeout: p.timeout }, chain(net));
+  return (await contract.getUtxos()).some((u) => u.txid === p.txid && u.vout === p.vout);
+}
+
 async function assertRefundable(net: Net, timeout: bigint) {
   // Lock tip, not raw height: after faster blocks (chipnet, 2026-11-15) nLockTime counts 10-minute units.
   const tip = await lockTipOf(net);

@@ -41,7 +41,9 @@ function journeyView(j: JourneyState, defaultPrice: bigint, route: string): View
   return {
     label: tabLabel(j.openTxid), who: 'your tab', status, budget: j.budget, calls: j.calls, price, route: j.route ?? route,
     spent: j.done ? settled : spent, back: j.done && j.returned ? BigInt(j.returned) : undefined,
-    openTxid: j.openTxid, closeTxid: j.closeTxid, pending: j.done || j.error ? 0 : Math.max(0, 3 - j.calls),
+    openTxid: j.openTxid, closeTxid: j.closeTxid,
+    // At most 3 call rows are drawn: placeholders fill up to 3, never past the run's total.
+    pending: j.done || j.error ? 0 : Math.min((j.total ?? 3) - j.calls, Math.max(0, 3 - Math.min(j.calls, 3))),
     coin: status === 'opening' || !!j.openTxid,
   };
 }
@@ -137,12 +139,12 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
 
   const status = inJourney ? (
     j.error ? <span className="text-bad">{j.error}{j.openTxid ? ' Your tab is safe in the covenant.' : ''}</span>
-    : j.hiccup ? <span className="flex items-center gap-2 text-warn"><Spinner />{j.openTxid ? 'Server hiccup, retrying. Your 5¢ is safe in the covenant.' : 'Getting free test coins… the server is slow, retrying.'}</span>
+    : j.hiccup ? <span className="flex items-center gap-2 text-warn"><Spinner />{j.openTxid ? 'Server hiccup, retrying. Your 5¢ is safe in the covenant.' : j.walletKind === 'wizard' ? 'The server is slow, retrying.' : 'Getting free test coins… the server is slow, retrying.'}</span>
     : v.status === 'waiting' ? <span className="flex items-center gap-2"><Spinner />{j.note ?? 'Getting a wallet ready…'}</span>
     : v.status === 'opening' ? <span className="flex items-center gap-2"><Spinner />{j.note ?? 'Opening the tab: 1 transaction'}</span>
-    : v.status === 'open' ? <span className="flex items-center gap-2"><Spinner />{j.calls < 3 ? `Agent paying call ${j.calls + 1} of 3 · no transaction` : 'Calls done'}</span>
+    : v.status === 'open' ? <span className="flex items-center gap-2"><Spinner />{j.calls < (j.total ?? 3) ? `Agent paying call ${j.calls + 1} of ${j.total ?? 3} · no transaction` : 'Calls done'}</span>
     : v.status === 'settling' ? <span className="flex items-center gap-2"><Spinner />Closing the tab: 1 transaction</span>
-    : <span className="font-medium text-bch-2">Done: {sats(v.back)} sats came back to you.</span>
+    : <span className="font-medium text-bch-2">Done: {sats(v.back)} sats came back to you.{j.action !== 'cancel' && <span className="font-normal text-muted"> {j.calls} calls · 2 txs</span>}</span>
   ) : null;
 
   return (
@@ -172,7 +174,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
           </div>
         )}
         {inJourney && j.capped && v.budget !== undefined && (
-          <p className="-mt-0.5 font-sans text-[11.5px] text-dim">Less than 20,000: capped to what your test wallet holds.</p>
+          <p className="-mt-0.5 font-sans text-[11.5px] text-dim">{j.walletKind === 'wizard' ? 'Less than ~5¢: capped to what your wallet holds.' : 'Less than 20,000: capped to what your test wallet holds.'}</p>
         )}
         {v.calls > 3 && <div className="text-dim">+ {v.calls - 3} earlier calls</div>}
         {lines.map((n, i) => {

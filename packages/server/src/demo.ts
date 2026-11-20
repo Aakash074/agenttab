@@ -32,6 +32,8 @@ export interface DemoOptions {
   extraRoutes?: { path: string; price: bigint }[];
   /** Hard cap on what the demo agent may sign in total (state file), e.g. on mainnet. */
   maxTotalSats?: bigint;
+  /** Cap on what the demo agent signs on any ONE visitor tab (mainnet: 10 calls), so nobody can drain a stranger's tab via /demo/call. */
+  maxPerVisitorTabSats?: bigint;
 }
 
 export function createDemo(o: DemoOptions) {
@@ -81,6 +83,10 @@ export function createDemo(o: DemoOptions) {
 
   async function call(preferTab?: string, routePath?: string, fromCron = false) {
     if (o.visitorTabsOnly && !preferTab) throw new PaymentError('needs_tab', 'On mainnet the demo agent only spends a tab you funded for it. Fund one first.', 400);
+    if (preferTab && o.maxPerVisitorTabSats !== undefined) {
+      const signed = BigInt(agent.tabs.get(preferTab)?.signed ?? o.ledger.tabs.get(preferTab)?.highest?.amount ?? '0');
+      if (signed + o.price > o.maxPerVisitorTabSats) throw new PaymentError('tab_call_cap', `The demo agent has made all its calls on this tab (${o.maxPerVisitorTabSats} sats). Close it to get the rest back.`, 409);
+    }
     const q = questions[Math.floor(Math.random() * questions.length)];
     try {
       const pool = [{ path: o.route, price: o.price }, ...(o.extraRoutes ?? [])];

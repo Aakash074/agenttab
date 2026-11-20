@@ -29,7 +29,7 @@ export function ProofStrip({ calls, txs, attacks, onCheat, chipnetNote }: {
 }
 
 /** Left column of the hero: status, headline, the one action. */
-export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, onResume, onTryChipnet, onHouse, houseBusy }: {
+export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, onResume, onTryChipnet, onHouse, houseBusy, walletTab }: {
   net: Net; waking?: boolean; apiDown?: boolean; queued?: boolean; journey: JourneyState;
   /** The free 5¢ demo runs on this network (chipnet). */
   demoHere: boolean;
@@ -38,6 +38,8 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
   onStart: () => void; onResume: () => void; onTryChipnet: () => void;
   /** Runs one house-agent call (needs no visitor coins): the main action while the faucet is out. */
   onHouse?: () => void; houseBusy?: boolean;
+  /** Mainnet: the 5¢ tab as the secondary action, funded from the visitor's own wallet (WizardConnect only). */
+  walletTab?: { calls: number; hint: string };
 }) {
   const j = journey;
   const running = j.active;
@@ -80,7 +82,7 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
             )}
             <p className="mt-2.5 min-h-[24px] text-sm text-muted" aria-live="polite">
               {waking && !running ? <span className="flex items-center gap-2"><Spinner />Waking the {net === 'mainnet' ? 'Mainnet' : 'Chipnet'} server (about 20 s).{queued ? ' Your run starts when it answers.' : ' You can press now.'}</span>
-                : j.done && j.returned ? <>3 calls · 2 transactions · <b className="text-fg">{sats(j.returned)} sats came back</b></>
+                : j.done && j.returned ? <>{j.total ?? 3} calls · 2 txs · <b className="text-fg">{sats(j.returned)} sats came back</b></>
                 : house ? 'Free test coins are out for now. The house agent pays from its own tab, no coins needed.'
                 : j.error ? (j.openTxid ? 'Your tab is safe in the covenant. Resume picks up where it stopped.' : 'Nothing was spent.')
                 : 'About 40 seconds · 2 transactions · free test coins'}
@@ -89,7 +91,23 @@ export function Hero({ net, waking, queued, journey, demoHere, direct, onStart, 
         ) : (
           <>
             {direct}
-            <button type="button" onClick={onTryChipnet} className="tap mt-1 text-sm font-medium text-bch-2 hover:underline">Or try the 5¢ tab free on Chipnet →</button>
+            {walletTab ? (
+              <div className="mt-2 sm:max-w-lg">
+                <button type="button" data-testid="wallet-tab" onClick={j.error && j.openTxid ? onResume : onStart} disabled={running || queued}
+                  className="tap inline-flex min-h-[44px] items-center gap-2 text-[15px] font-semibold text-bch-2 hover:underline disabled:cursor-wait disabled:no-underline disabled:opacity-80">
+                  {(running || queued) && <Spinner />}{label}{!running && !queued && <span aria-hidden>→</span>}
+                </button>
+                <p className="text-sm text-muted" aria-live="polite">
+                  {j.done && j.returned ? <>{j.calls} calls · 2 txs · <b className="text-fg">{sats(j.returned)} sats came back to your wallet</b></>
+                    : j.error ? (j.openTxid ? 'Your tab is safe in the covenant. Resume picks up where it stopped.' : 'Nothing was spent.')
+                    : running ? `${walletTab.calls} paid calls, then one settle tx returns the rest to you.`
+                    : walletTab.hint}
+                </p>
+                <button type="button" onClick={onTryChipnet} className="tap mt-1 text-sm text-muted hover:text-fg hover:underline">Or try it free on Chipnet</button>
+              </div>
+            ) : (
+              <button type="button" onClick={onTryChipnet} className="tap mt-1 text-sm font-medium text-bch-2 hover:underline">Or try the 5¢ tab free on Chipnet →</button>
+            )}
           </>
         )}
       </div>

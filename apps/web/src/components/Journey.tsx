@@ -1,6 +1,6 @@
 export type JourneyStep = 'wallet' | 'coins' | 'open' | 'calls' | 'close';
 
-/** The one-button run (connect → coins → open → 3 paid calls → close → change back). The ticket renders it. */
+/** The one-button run (connect → coins → open → N paid calls → close → change back). The ticket renders it. */
 export interface JourneyState {
   active: boolean;
   step?: JourneyStep;
@@ -12,6 +12,10 @@ export interface JourneyState {
   /** Tab timeout (lock units), needed to re-register the same tab on resume. */
   timeout?: number;
   calls: number;
+  /** Paid calls this run makes before the settle (3 on the Chipnet test wallet, 10 from a real wallet). */
+  total?: number;
+  /** Which wallet funds the run (copy differs: test coins vs real BCH). */
+  walletKind?: 'wizard' | 'burner';
   /** Price per call and the latest voucher total, from the API answers. */
   price?: bigint;
   spent?: bigint;

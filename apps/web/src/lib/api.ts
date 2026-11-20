@@ -56,7 +56,7 @@ export interface ServerInfo {
   bchUsd?: number;
   features?: {
     maxBudgetSats?: string | null;
-    demo?: { agentPub: string; cronSeconds: number };
+    demo?: { agentPub: string; cronSeconds: number; visitorTabsOnly?: boolean; maxTotalSats?: string; maxPerTabSats?: string };
     faucet?: { dripSats: string; address: string };
     attacks?: boolean;
     direct?: { path: string; payTo: string; priceSats: string };

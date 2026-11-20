@@ -265,6 +265,28 @@ describe('cancel path and mainnet demo mode', () => {
     assert.equal([...l.tabs.values()].filter((x) => x.agentPub === binToHex(pubFromPriv(dPriv))).length, 1);
     a3.close();
   });
+
+  test('mainnet demo mode: at most N calls per visitor tab, so a stranger cannot drain someone else\'s tab', async () => {
+    const n = new MockNetworkProvider();
+    const pPriv = generatePrivateKey(), dPriv = generatePrivateKey();
+    const l = new TabLedger({ provider: n, providerPriv: pPriv, network: 'mocknet' });
+    let b5 = '';
+    const d = createDemo({ ledger: l, provider: n, network: 'mocknet' as never, agentPriv: dPriv, selfUrl: () => b5, route: '/api/oracle', price: 600n, budgetSats: 5_000n,
+      perIpMs: 0, visitorTabsOnly: true, maxTotalSats: 50_000n, maxPerVisitorTabSats: 3n * 600n });
+    const a5 = createApp({ ledger: l, network: 'mocknet', extra: [d.handler], routes: [{ path: '/api/oracle', price: 600n, description: 't', handler: () => ({ answer: 'ok' }) }] });
+    await new Promise<void>((r) => a5.listen(0, r));
+    b5 = `http://127.0.0.1:${(a5.address() as AddressInfo).port}`;
+    const t = await tabFor(l, n, pubFromPriv(dPriv), pPriv);
+    for (const want of ['600', '1200', '1800']) {
+      const r = await (await fetch(`${b5}/demo/call`, { method: 'POST', body: JSON.stringify({ tab: t.id, route: '/api/oracle' }) })).json();
+      assert.equal(r.cumulativeSats, want);
+    }
+    const capped = await fetch(`${b5}/demo/call`, { method: 'POST', body: JSON.stringify({ tab: t.id, route: '/api/oracle' }) });
+    assert.equal(capped.status, 409);
+    assert.match((await capped.json()).message, /all its calls on this tab/);
+    assert.equal(l.tabs.get(t.id)!.highest!.amount, '1800');
+    a5.close();
+  });
 });
 
 test('regression: house demo agent survives visitors closing their tabs (no stale-tab errors, no hex in messages)', async () => {

@@ -22,6 +22,8 @@ import { useTheme } from './hooks/useTheme';
 import type { Wallet } from './lib/wallet';
 import { hex, loadWallet, sats, short, unhex } from './lib/format';
 import { reducedMotion, scrollToId } from './lib/motion';
+import { FEE_ROOM, assertJourneyWallet, journeyBudget, journeyCalls, mainnetTabCopy, WALLET_TAB_CALLS } from './lib/journeyPlan';
+import { saveLocalTab } from './lib/localTabs';
 
 function Logo() {
   return (
@@ -50,6 +52,36 @@ function ConnectDialog({ net, onWizard, onBurner, onClose, purpose }: { net: Net
         </button>
         <button onClick={onBurner} disabled={net !== 'chipnet'} className="mt-3 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60 disabled:opacity-40">
           <span><b>Chipnet test wallet</b><span className="block text-xs text-muted">{net === 'chipnet' ? 'A throwaway key in this browser, topped up with free test coins in one click.' : 'Chipnet only. Switch the network to use it.'}</span></span>
+          <span className="text-bch-2">→</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Mainnet 5¢ tab: says plainly it is real BCH and how the change comes back, then goes to WizardConnect. No test wallet here. */
+function WalletTabDialog({ copy, error, connected, onGo, onClose }: {
+  copy?: ReturnType<typeof mainnetTabCopy>; error?: string; connected: boolean; onGo: () => void; onClose: () => void;
+}) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-fg/40 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Give an AI agent a 5¢ tab">
+      <div className="fade-in relative w-full max-w-md rounded-2xl border border-line-2 bg-panel p-6" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-subtle hover:text-fg">✕</button>
+        <h3 className="pr-8 text-lg font-bold">Give an AI agent a 5¢ tab</h3>
+        {copy ? (
+          <>
+            <p data-testid="tab-amount" className="mt-3 font-semibold text-fg">{copy.title}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">{copy.body}</p>
+            <p className="mt-2 text-xs leading-relaxed text-dim">{copy.refund} Your keys never leave your wallet.</p>
+          </>
+        ) : <p className="mt-3 text-sm text-bad">{error ?? 'Loading the live price…'}</p>}
+        <button onClick={onGo} disabled={!copy} className="mt-5 flex w-full items-center justify-between rounded-xl border border-line-2 px-4 py-3.5 text-left hover:border-bch/60 disabled:opacity-50">
+          <span><b>{connected ? 'Approve in your wallet' : 'WizardConnect'}</b><span className="block text-xs text-muted">{connected ? 'Your connected wallet asks you to approve one transaction.' : 'Scan with Paytaca on Mainnet (Chipnet off in Settings).'}</span></span>
           <span className="text-bch-2">→</span>
         </button>
       </div>
@@ -174,6 +206,9 @@ export default function App() {
   const [section, setSectionState] = useState<SectionId>(() => hashSection() ?? 'feed');
   const [advOpen, setAdvOpen] = useState(() => ['fund', 'advanced'].includes(window.location.hash.slice(1)));
   const pendingJourney = useRef(false);
+  /** Resume target when a mainnet resume had to reconnect the wallet first. */
+  const pendingFrom = useRef<JourneyState | undefined>(undefined);
+  const [showTabConfirm, setShowTabConfirm] = useState(false);
   const pendingDirect = useRef(false);
   /** Bumped when the visitor closes the connect dialog / QR without connecting, so the 1¢ card goes back to idle. */
   const [connectCancelled, setConnectCancelled] = useState(0);
@@ -225,8 +260,10 @@ export default function App() {
 
   const fund = () => { setAdvOpen(true); goSection('how', true, 'advanced'); };
   const walletLabel = useMemo(() => wallet ? short(wallet.address.split(':')[1] ?? wallet.address, 4) : null, [wallet]);
-  // The demo agent only exists where the API hosts it (chipnet); never prefill it on mainnet.
+  // The demo agent is hosted on chipnet (free, house agent) and, visitor-tabs-only, on mainnet.
   const demoAgentPub = info ? info.features?.demo?.agentPub ?? '' : net === 'chipnet' ? DEMO_AGENT_PUB : '';
+  /** Mainnet demo mode: the agent only spends tabs a visitor funds from their own wallet (no house agent, no test coins). */
+  const demoVisitorOnly = !!info?.features?.demo?.visitorTabsOnly;
   const preferTab = useMemo(() => myTabs.find((t) => t.status === 'open' && t.agentPub === demoAgentPub.toLowerCase())?.id, [myTabs, demoAgentPub]);
   const journeyTab = journey.openTxid ? `${journey.openTxid}:0` : undefined;
   const mine = useMemo(() => new Set([...myTabs.map((t) => t.id), ...(journeyTab ? [journeyTab] : [])]), [myTabs, journeyTab]);
@@ -248,9 +285,20 @@ export default function App() {
     if (wallet) pendingDirect.current = false;
     prevWallet.current = wallet;
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
-  const demoEnabled = !!info?.features?.demo;
+  /** The house agent pays on its own here (chipnet). */
+  const demoEnabled = !!info?.features?.demo && !demoVisitorOnly;
   /** The free demo (house agent, test coins, attacks) is not hosted on this network: point to chipnet instead. */
-  const demoElsewhere = info ? !info.features?.demo : net === 'mainnet';
+  const demoElsewhere = info ? !demoEnabled : net === 'mainnet';
+  /** Mainnet: the 5¢ tab from the visitor's own wallet (WizardConnect) is available as the hero's second action. */
+  const walletTabHere = net === 'mainnet' && demoVisitorOnly;
+  const tabPrice = BigInt(info?.routes[0]?.price ?? 600);
+  const tabQuote = useMemo(() => {
+    if (!walletTabHere || !info) return { copy: undefined, error: undefined };
+    try {
+      const { budget } = journeyBudget({ net, price: tabPrice, calls: WALLET_TAB_CALLS, balance: 10n ** 12n, bchUsd: info.bchUsd });
+      return { copy: mainnetTabCopy({ budget, bchUsd: info.bchUsd!, calls: WALLET_TAB_CALLS, price: tabPrice }), budget, error: undefined };
+    } catch (e) { return { copy: undefined, error: (e as Error).message }; }
+  }, [walletTabHere, info, net, tabPrice]);
   const attacksElsewhere = info ? !info.features?.attacks : net === 'mainnet';
   useEffect(() => {
     const id = scrollAfterSwitch.current;
@@ -259,18 +307,8 @@ export default function App() {
     requestAnimationFrame(() => scrollToId(id));
   }, [info]);
 
-  // ---- One-button journey: connect → coins → open → 3 paid calls → close → change back ----
-  const FEE_ROOM = 600n;
-  /** Target ≈5¢ (20k sats on chipnet), never below what 3 calls + dust + settle need, never above the balance. */
-  function journeyBudget(price: bigint, balance: bigint) {
-    const min = 3n * price + 546n + 1_000n;
-    const target = net === 'chipnet' ? 20_000n
-      : (info?.bchUsd ? BigInt(Math.ceil((0.05 / info.bchUsd) * 1e8)) : 25_000n);
-    const capped = target > 30_000n ? 30_000n : target;
-    const afford = ((balance - FEE_ROOM) / 100n) * 100n;
-    const b = capped < afford ? capped : afford;
-    return { budget: b < min ? min : b, min, target: capped, enough: afford >= min };
-  }
+  // ---- One-button journey: connect → coins → open → N paid calls → settle → change back ----
+  // N = 3 on the Chipnet test wallet; 10 from a real wallet (WizardConnect), which is the only way on Mainnet.
   async function runJourney(w: Wallet, from?: JourneyState) {
     const upd = (p: Partial<JourneyState>) => setJourney((j) => ({ ...j, ...p }));
     /** Retry through server hiccups (asleep, restarting, unreachable) with backoff, about a minute in all. */
@@ -298,6 +336,9 @@ export default function App() {
     };
     try {
       if (!info) throw new Error('The demo server is unreachable right now.');
+      assertJourneyWallet(net, w); // mainnet: WizardConnect only, never a test wallet
+      const total = journeyCalls(net, w.kind);
+      upd({ total, walletKind: w.kind });
       const demoPub = info.features?.demo?.agentPub;
       if (!demoPub) throw new Error('This server is not hosting the demo agent.');
       const price = BigInt(info.routes[0]?.price ?? 1000);
@@ -308,7 +349,8 @@ export default function App() {
       if (!txid || timeout === undefined) {
         upd({ step: 'coins', note: 'Checking your balance…' });
         let bal = await w.balance();
-        let plan = journeyBudget(price, bal);
+        const planFor = (balance: bigint) => journeyBudget({ net, price, calls: total, balance, bchUsd: info.bchUsd });
+        let plan = planFor(bal);
         if (!plan.enough) {
           if (w.kind !== 'burner' || !info.features?.faucet) throw new Error(`Your wallet needs at least ${sats(plan.min + FEE_ROOM)} sats (a few cents) to open a tab.`);
           const t0 = Date.now();
@@ -326,7 +368,7 @@ export default function App() {
             await sleep(1000);
             upd({ note: `Getting free test coins… ${Math.round((Date.now() - t0) / 1000)} s` });
             bal = await w.balance();
-            plan = journeyBudget(price, bal);
+            plan = planFor(bal);
           }
           if (!plan.enough) throw new Error('The test coins have not shown up yet. Try again in a few seconds.');
         }
@@ -335,6 +377,8 @@ export default function App() {
         const { lockTipOf } = await loadWallet();
         timeout = (await lockTipOf(net)) + 12; // lock units (10-min), see lockTip
         txid = await w.openTab({ agentPub: unhex(demoPub), providerPub: unhex(info.providerPub), timeout: BigInt(timeout), budget });
+        // Remember it in this browser so "Your tabs" can offer the timeout refund even if the server forgets the tab.
+        saveLocalTab({ net, txid, vout: 0, timeout, budget: budget.toString(), ownerPub: hex(w.ownerPub), agentPub: demoPub.toLowerCase(), providerPub: info.providerPub, at: new Date().toISOString() });
         upd({ openTxid: txid, timeout, note: undefined });
       }
       const tab = `${txid}:0`;
@@ -353,13 +397,13 @@ export default function App() {
       setOpened((n) => n + 1);
       if (from?.openTxid) { const r = await closedRecord(tab); if (r) return finishFrom(r); }
       upd({ step: 'calls', note: undefined });
-      for (let i = (from?.calls ?? 0) + 1; i <= 3; i++) {
+      for (let i = (from?.calls ?? 0) + 1; i <= total; i++) {
         let r;
         try { r = await retrying(() => api.demoCall(tab, path), true); }
         catch (e) { const c = await closedRecord(tab); if (c) return finishFrom(c); throw e; }
         setRun({ busy: false, at: Date.now(), result: { ok: true, r } });
         upd({ calls: i, spent: BigInt(r.cumulativeSats), price: BigInt(r.priceSats) });
-        if (i < 3) await sleep(4300);
+        if (i < total) await sleep(4300);
       }
       upd({ step: 'close', note: undefined });
       await sleep(800);
@@ -383,6 +427,8 @@ export default function App() {
   };
   function startJourney() {
     if (!info) { setQueued(true); return; } // server still waking: start as soon as it answers
+    // Mainnet: real BCH, so say exactly what happens first; the dialog goes on to WizardConnect.
+    if (net === 'mainnet') { setShowTabConfirm(true); return; }
     setJourney({ active: true, step: 'wallet', calls: 0, note: net === 'chipnet' && !wallet ? 'Making a free test wallet…' : undefined });
     showTicket();
     if (!wallet) {
@@ -394,12 +440,28 @@ export default function App() {
     }
     void runJourney(wallet);
   }
+  /** Mainnet confirmation accepted: run with the connected wallet, or connect one via WizardConnect first. */
+  function confirmWalletTab() {
+    setShowTabConfirm(false);
+    setJourney({ ...IDLE_JOURNEY, active: true, step: 'wallet', calls: 0, total: WALLET_TAB_CALLS, walletKind: 'wizard',
+      note: wallet?.kind === 'wizard' ? undefined : 'Scan the code with Paytaca (Mainnet)…' });
+    showTicket();
+    if (wallet?.kind === 'wizard' && wallet.net === net) { void runJourney(wallet); return; }
+    pendingJourney.current = true;
+    wc.connect(); setShowQr(true);
+  }
   /** Pick up the same tab where it stopped (never opens a second one). */
   async function resumeJourney() {
     const from = journey;
     setJourney((j) => ({ ...j, active: true, error: undefined }));
     showTicket();
     let w = wallet;
+    if (!w && net === 'mainnet') {
+      // Mainnet never falls back to a test wallet: reconnect the same wallet, then pick up the same tab.
+      pendingJourney.current = true; pendingFrom.current = from;
+      wc.connect(); setShowQr(true);
+      return;
+    }
     if (!w) w = (await loadWallet()).burnerWallet();
     void runJourney(w, from);
   }
@@ -408,7 +470,12 @@ export default function App() {
     if (info && queued) { setQueued(false); startJourney(); }
   }, [info, queued]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (wallet && pendingJourney.current) { pendingJourney.current = false; void runJourney(wallet); }
+    if (wallet && pendingJourney.current) {
+      pendingJourney.current = false;
+      const from = pendingFrom.current; pendingFrom.current = undefined;
+      if (net === 'mainnet' && wallet.kind !== 'wizard') return; // never a test wallet on mainnet
+      void runJourney(wallet, from);
+    }
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** "Run agent on this tab": three paid calls, so closing afterwards settles instead of being waived. */
@@ -517,6 +584,7 @@ export default function App() {
           <div className="min-w-0 md:col-start-1 md:row-start-1">
             <Hero net={net} waking={waking} apiDown={!info} queued={queued} journey={journey} demoHere={!demoElsewhere}
               direct={direct(true)} onStart={journey.done || journey.error ? restartJourney : startJourney} onResume={() => void resumeJourney()} onTryChipnet={() => tryChipnet()}
+              walletTab={walletTabHere ? { calls: WALLET_TAB_CALLS, hint: tabQuote.copy ? `Real BCH, ${tabQuote.copy.title.replace(/^Real BCH, /, '')} · ${WALLET_TAB_CALLS} calls · change back on settle` : 'Real BCH, ~5¢ from your wallet · change back on settle' } : undefined}
               houseBusy={run.busy} onHouse={demoEnabled ? () => { setJourney({ ...IDLE_JOURNEY, faucetOut: true, retryAt: journey.retryAt }); void runDemo(); } : undefined} />
           </div>
           <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1">
@@ -538,7 +606,7 @@ export default function App() {
             : info?.features?.attacks ? <ErrorBoundary label="The attack panel"><Suspense fallback={<div className="skeleton h-40 rounded-2xl" />}><CheatPanel net={net} onResult={proof.onAttackRun} /></Suspense></ErrorBoundary>
             : <div className="skeleton h-40 rounded-2xl" aria-label="Loading" />,
           how: <HowItWorks stats={stats} bchUsd={info?.bchUsd} direct={demoElsewhere ? undefined : direct(false)} advancedOpen={advOpen} onAdvancedToggle={setAdvOpen}
-            advanced={<FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
+            advanced={<FundTab wallet={wallet} info={info} infoErr={infoErr} net={net} demoAgentPub={demoElsewhere ? '' : demoAgentPub} onConnect={() => setShowConnect(true)} onOpened={() => setOpened((n) => n + 1)}
               openTabs={wallet ? openTabs : undefined} />} />,
           agent: (
             <div className="grid gap-5 lg:grid-cols-2">
@@ -562,9 +630,14 @@ export default function App() {
           onBurner={() => { loadWallet().then(({ burnerWallet }) => setWallet(burnerWallet())); setShowConnect(false); }}
           onWizard={() => { setShowConnect(false); wc.connect(); setShowQr(true); }} />
       )}
+      {showTabConfirm && (
+        <WalletTabDialog copy={tabQuote.copy} error={tabQuote.error} connected={wallet?.kind === 'wizard'} onGo={confirmWalletTab} onClose={() => setShowTabConfirm(false)} />
+      )}
       {showQr && wc.uri && wc.qrUri && wc.state !== 'connected' && (
-        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); cancelDirect(); if (pendingJourney.current) { pendingJourney.current = false; setJourney(IDLE_JOURNEY); } }}
-          title="Connect with WizardConnect" subtitle={pendingDirect.current ? 'Scan with Paytaca to pay 1¢ for an oracle answer' : "Scan with Paytaca to fund your agent's tab"}
+        <WizardConnectQRDialog show uri={wc.uri} qrUri={wc.qrUri} onClose={() => { setShowQr(false); cancelDirect(); if (pendingJourney.current) { pendingJourney.current = false; const f = pendingFrom.current; pendingFrom.current = undefined; setJourney(f ?? IDLE_JOURNEY); } }}
+          title="Connect with WizardConnect" subtitle={pendingDirect.current ? 'Scan with Paytaca to pay 1¢ for an oracle answer'
+            : net === 'mainnet' && pendingJourney.current ? `Scan with Paytaca (Mainnet) to fund a real-BCH tab of ${tabQuote.copy?.title.replace(/^Real BCH, /, '') ?? '~5¢'}`
+            : "Scan with Paytaca to fund your agent's tab"}
           theme={theme.resolved === 'dark'
             ? { dialogBackground: '#0e1513', headerBackground: '#0e1513', borderColor: '#2a3a35', titleColor: '#e8f3ef', subtitleColor: '#a3b8b1', uriRowBackground: '#131c19', uriTextColor: '#a3b8b1' }
             : { backdropColor: 'rgba(17,26,23,0.45)', dialogBackground: '#ffffff', headerBackground: '#ffffff', borderColor: '#e3ded2', titleColor: '#111a17', subtitleColor: '#44514c', uriRowBackground: '#f1eee6', uriTextColor: '#44514c', closeButtonColor: '#44514c', copyButtonColor: '#44514c', qrForeground: '#111a17' }} />
