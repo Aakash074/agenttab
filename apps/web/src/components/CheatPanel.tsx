@@ -60,7 +60,7 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
         <div className="flex items-baseline gap-3">
           {!run && !busy ? <span className="text-3xl font-bold">7 cheats to try</span> : <>
           <span className="font-mono text-5xl font-bold tabular-nums">{busy ? '–' : count}/{total}</span>
-          <span className="text-lg font-semibold text-muted">cheats rejected</span></>}
+          <span className="text-lg font-semibold text-muted">cheats blocked</span></>}
         </div>
         <button onClick={go} disabled={busy}
           className="btn-primary flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
@@ -68,23 +68,25 @@ export function CheatPanel({ net, onResult }: { net: Net; onResult?: (run: Attac
           {busy ? 'Attacking chipnet (about 15 s)' : run ? 'Run the 7 attacks again' : 'Run the 7 attacks'}
         </button>
       </div>
-      <p className="mt-2 max-w-2xl text-sm text-muted">Each run sends real cheating transactions at a fresh chipnet tab. Open a row for the node's reply.</p>
+      <p className="mt-2 max-w-2xl text-sm text-muted">Each run tries 7 cheats against a fresh chipnet tab: 6 real cheating transactions that the node must reject, and 1 replayed voucher that the paywall server must refuse. Open a row for the verbatim reply.</p>
       {note && <p className="mt-2 text-sm text-warn" role="status">{note}</p>}
       <ol className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel card">
         {busy || !run ? PLANNED.map((t, i) => (
           <li key={t} className="flex min-h-[48px] items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-            <span className="flex min-w-0 items-center gap-3"><span className="font-mono text-xs text-dim">{i + 1}</span><span className="truncate text-muted">{t}</span></span>
+            <span className="flex min-w-0 items-center gap-3"><span className="font-mono text-xs text-dim">{i + 1}</span><span className="text-muted sm:truncate">{t}</span></span>
             <span className="flex shrink-0 items-center gap-2 text-xs text-dim">{busy && <span className="h-1.5 w-1.5 rounded-full bg-warn pulse-dot" />}{busy ? 'trying' : ''}</span>
           </li>
         )) : run.results.map((r, i) => (
           <li key={r.id}>
             <details className="group">
               <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 hover:bg-subtle sm:px-5">
-                <span className="flex min-w-0 items-center gap-3"><span className="font-mono text-xs text-dim">{i + 1}</span><span className="truncate font-medium">{r.title}</span></span>
+                <span className="flex min-w-0 items-center gap-3"><span className="font-mono text-xs text-dim">{i + 1}</span><span className="font-medium leading-snug sm:truncate">{r.title}</span></span>
                 {i < shown ? (
                   <span key="done" className="fade-in flex shrink-0 items-center gap-2">
-                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${r.outcome === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-warn/15 text-warn'}`}>
-                      {r.outcome === 'rejected' ? `Rejected by ${/node/i.test(r.layer) ? 'node' : 'server'}` : 'Accepted'}
+                    {/* Blocked = the covenant worked: accent, not red. Red is kept for a cheat that got through. */}
+                    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold ${r.outcome === 'rejected' ? 'bg-bch/10 text-bch-2' : 'bg-bad/10 text-bad'}`}>
+                      {r.outcome === 'rejected' && <svg aria-hidden viewBox="0 0 12 12" fill="none" className="h-3 w-3"><path d="m2.5 6.2 2.3 2.3 4.7-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                      {r.outcome === 'rejected' ? `Blocked by ${/node/i.test(r.layer) ? 'node' : 'server'}` : 'Got through'}
                     </span>
                     <svg aria-hidden viewBox="0 0 12 12" fill="none" className="h-3 w-3 shrink-0 text-dim transition-transform group-open:rotate-180"><path d="M2.75 4.5 6 7.75 9.25 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </span>

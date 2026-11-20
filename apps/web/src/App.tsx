@@ -90,16 +90,20 @@ function WalletTabDialog({ copy, error, connected, onGo, onClose }: {
 }
 
 function McpSection() {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'setup' | 'json' | null>(null);
+  const repo = BANNER.repoUrl || 'https://github.com/Aakash074/agenttab';
+  const setup = `git clone ${repo}.git && cd agenttab && npm install`;
   const json = `{
   "mcpServers": {
     "agenttab": {
-      "command": "node",
-      "args": ["packages/mcp/src/index.ts"],
-      "env": { "AGENT_WIF": "…", "MAX_BUDGET_SATS": "20000" }
+      "command": "npx",
+      "args": ["-y", "tsx", "/full/path/to/agenttab/packages/mcp/src/index.ts"],
+      "env": { "AGENT_WIF": "<chipnet WIF>", "NETWORK": "chipnet", "MAX_BUDGET_SATS": "20000" }
     }
   }
 }`;
+  const copy = (k: 'setup' | 'json', text: string) => { navigator.clipboard?.writeText(text); setCopied(k); setTimeout(() => setCopied(null), 1500); };
+  const btn = 'absolute right-2 top-2 min-h-[36px] rounded-lg border border-line-2 bg-panel px-3 text-xs font-medium text-muted hover:text-fg';
   return (
     <section id="mcp" className="card min-w-0 scroll-mt-24 rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <h3 className="text-lg font-semibold">Give Claude (or any MCP agent) a tab</h3>
@@ -107,11 +111,14 @@ function McpSection() {
         The MCP server pays any <code className="font-mono">402 bch-credit</code> API from a tab, with per-call and total spend caps.
         Tools: <code className="font-mono">fetch_paid</code>, <code className="font-mono">tab_status</code>, <code className="font-mono">close_tab</code>, <code className="font-mono">agent_info</code>.
       </p>
-      <div className="relative mt-4 min-w-0 rounded-xl border border-line bg-panel-2">
-        <button onClick={() => { navigator.clipboard?.writeText(json); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-          className="absolute right-2 top-2 min-h-[36px] rounded-lg border border-line-2 bg-panel px-3 text-xs font-medium text-muted hover:text-fg">
-          {copied ? 'Copied' : 'Copy'}
-        </button>
+      <p className="mt-4 text-sm font-medium">1. Get the code (once)</p>
+      <div className="relative mt-2 min-w-0 rounded-xl border border-line bg-panel-2">
+        <button onClick={() => copy('setup', setup)} className={btn}>{copied === 'setup' ? 'Copied' : 'Copy'}</button>
+        <pre className="overflow-x-auto p-4 pr-20 font-mono text-[12px] leading-5 text-muted">{setup}</pre>
+      </div>
+      <p className="mt-4 text-sm font-medium">2. Add it to your MCP client, with the full path to your clone</p>
+      <div className="relative mt-2 min-w-0 rounded-xl border border-line bg-panel-2">
+        <button onClick={() => copy('json', json)} className={btn}>{copied === 'json' ? 'Copied' : 'Copy'}</button>
         <pre className="overflow-x-auto p-4 pr-20 font-mono text-[12px] leading-5 text-muted">{json}</pre>
       </div>
     </section>
@@ -139,8 +146,8 @@ const hashSection = (): SectionId | undefined => HASH_SECTION[window.location.ha
 function CheatOnChipnet({ onSwitch }: { onSwitch: () => void }) {
   return (
     <div id="cheat" className="card card-lift rounded-2xl border border-line bg-panel p-5 sm:p-6">
-      <h3 className="text-lg font-semibold">Seven real cheating transactions, all rejected by the node</h3>
-      <p className="mt-1.5 max-w-2xl text-sm text-muted">They spend coins, so they run on Chipnet, against the same compiled covenant as Mainnet.</p>
+      <h3 className="text-lg font-semibold">7 cheats, all blocked: 6 by the node, 1 by the server</h3>
+      <p className="mt-1.5 max-w-2xl text-sm text-muted">Six are real cheating transactions the node rejects; the seventh replays an old voucher, which the paywall server refuses. They spend coins, so they run on Chipnet, against the same compiled covenant as Mainnet.</p>
       <button onClick={onSwitch} className="btn-primary mt-4 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-bch px-6 font-semibold text-on-bch hover:bg-bch-hover sm:w-auto">
         Run the 7 attacks on Chipnet →
       </button>
@@ -148,15 +155,16 @@ function CheatOnChipnet({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
-/** Headline proof (calls, txs, cheats rejected). Mainnet has little traffic yet, so the strip reads Chipnet's numbers there. */
+/** Headline proof: calls and txs on the network being viewed (never mixed), cheats blocked from the Chipnet attack panel.
+ *  While a server wakes or rebuilds from the chain, it keeps the last known counts (or skeletons), never a false 0. */
 function useProof(net: Net, stats: Stats | null) {
-  const [chip, setChip] = useState<Stats | null>(null);
   const [attacks, setAttacks] = useState<{ rejected: number; total: number } | undefined>();
+  const good = useRef<{ net: Net; s: Stats } | null>(null);
+  if (stats && !stats.restoring) good.current = { net, s: stats };
   useEffect(() => {
     let stop = false;
     const base = SERVERS.chipnet;
     const load = () => {
-      if (net !== 'chipnet') fetch(`${base}/feed?limit=1`, { signal: AbortSignal.timeout(45_000) }).then((r) => r.json()).then((f) => !stop && f?.stats && setChip(f.stats)).catch(() => {});
       fetch(`${base}/attacks`, { signal: AbortSignal.timeout(45_000) }).then((r) => r.json()).then((a) => {
         const run = a?.last as AttackRun | null;
         if (!stop && run?.results?.length) setAttacks({ rejected: run.results.filter((x) => x.outcome === 'rejected').length, total: run.results.length });
@@ -166,9 +174,9 @@ function useProof(net: Net, stats: Stats | null) {
     const t = setInterval(load, 60_000);
     return () => { stop = true; clearInterval(t); };
   }, [net]);
-  const s = net === 'chipnet' ? stats : chip;
+  const s = good.current?.net === net ? good.current.s : null;
   const onAttackRun = (run: AttackRun) => setAttacks({ rejected: run.results.filter((x) => x.outcome === 'rejected').length, total: run.results.length });
-  return { calls: s?.paidCalls, txs: s?.onchainTxs, attacks, onAttackRun, chipnetNote: net !== 'chipnet' };
+  return { calls: s?.paidCalls, txs: s?.onchainTxs, attacks, onAttackRun };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -291,6 +299,8 @@ export default function App() {
   const demoElsewhere = info ? !demoEnabled : net === 'mainnet';
   /** Mainnet: the 5¢ tab from the visitor's own wallet (WizardConnect) is available as the hero's second action. */
   const walletTabHere = net === 'mainnet' && demoVisitorOnly;
+  /** The hero keeps the 5¢ tab button while the Mainnet server wakes, so nothing jumps when it answers. */
+  const walletTabHero = net === 'mainnet' && (!info || demoVisitorOnly);
   const tabPrice = BigInt(info?.routes[0]?.price ?? 600);
   const tabQuote = useMemo(() => {
     if (!walletTabHere || !info) return { copy: undefined, error: undefined };
@@ -505,7 +515,7 @@ export default function App() {
   useEffect(() => { setMyTabs([]); }, [wallet, net]);
 
   const direct = (hero: boolean) => (
-    <DirectPay hero={hero} wallet={wallet} net={net} info={info} waking={waking} connectCancelled={connectCancelled}
+    <DirectPay hero={hero} secondary={hero && walletTabHero} wallet={wallet} net={net} info={info} waking={waking} connectCancelled={connectCancelled}
       onConnect={() => { pendingDirect.current = true; setShowConnect(true); }} />
   );
   const houseAction = demoEnabled && !journey.active ? (
@@ -584,16 +594,16 @@ export default function App() {
           <div className="min-w-0 md:col-start-1 md:row-start-1">
             <Hero net={net} waking={waking} apiDown={!info} queued={queued} journey={journey} demoHere={!demoElsewhere}
               direct={direct(true)} onStart={journey.done || journey.error ? restartJourney : startJourney} onResume={() => void resumeJourney()} onTryChipnet={() => tryChipnet()}
-              walletTab={walletTabHere ? { calls: WALLET_TAB_CALLS, hint: tabQuote.copy ? `Real BCH, ${tabQuote.copy.title.replace(/^Real BCH, /, '')} · ${WALLET_TAB_CALLS} calls · change back on settle` : 'Real BCH, ~5¢ from your wallet · change back on settle' } : undefined}
+              walletTab={walletTabHero ? { calls: WALLET_TAB_CALLS, hint: `~5¢ of real BCH · 1 approval in Paytaca · ${WALLET_TAB_CALLS} paid calls, 0 txs for them · the rest comes back on settle` } : undefined}
               houseBusy={run.busy} onHouse={demoEnabled ? () => { setJourney({ ...IDLE_JOURNEY, faucetOut: true, retryAt: journey.retryAt }); void runDemo(); } : undefined} />
           </div>
           <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1">
             <Ticket events={events} net={net} bchUsd={info?.bchUsd} journey={journey} inJourney={inJourney} tab={focusTab} mine={!!visitorTab && focusTab === visitorTab}
-              waking={waking} onTryChipnet={demoElsewhere ? () => tryChipnet() : undefined}
+              waking={waking} onTryChipnet={demoElsewhere ? () => tryChipnet() : undefined} onCheat={() => goSection('cheat')}
               defaultPrice={BigInt(info?.routes[0]?.price ?? 1000)} route={info?.routes[0]?.path ?? '/api/oracle'} />
           </div>
           <div className="min-w-0 md:col-start-1 md:row-start-2">
-            <ProofStrip calls={proof.calls} txs={proof.txs} attacks={proof.attacks} chipnetNote={proof.chipnetNote} onCheat={() => goSection('cheat')} />
+            <ProofStrip net={net} calls={proof.calls} txs={proof.txs} attacks={proof.attacks} onCheat={() => goSection('cheat')} />
           </div>
         </section>
       </ErrorBoundary>

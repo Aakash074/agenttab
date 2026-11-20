@@ -95,7 +95,7 @@
   --bg-grain-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 .6 .6 0 .17 .6 .6 .6 0 .17 .6 .6 .6 0 .17 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --bg-grain-blend: multiply;
   --bg-grain-opacity: 0.4;
-  --ticket-run-h: 572px;                  /* the receipt's settled height in the 5¢ run, reserved so nothing jumps */
+  --ticket-run-h: 440px;                  /* the receipt's settled height in the 5¢ run (measured), reserved while it runs so nothing jumps */
   --tab-active: var(--color-panel);
   --notch: color-mix(in oklab, var(--color-ink) 84%, var(--color-bch)); /* punched holes show the (teal-tinted) page */
 }

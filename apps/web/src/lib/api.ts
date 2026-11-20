@@ -8,6 +8,8 @@ export interface FeedEvent {
   tab: string;
   txid?: string;
   amount?: string;
+  /** Settle: what the provider's output received (settled amount minus the miner fee it pays). */
+  providerSats?: string;
   price?: string;
   route?: string;
   auto?: boolean;

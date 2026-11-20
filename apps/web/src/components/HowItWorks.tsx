@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FeedEvent, ServerInfo, TabRecord } from '../lib/api';
 import { api } from '../lib/api';
 import { plural, sats, short } from '../lib/format';
-import { CONTRACT_SOURCE_URL, SERVERS, explorerTx, type Net } from '../config';
+import { CONTRACT_SOURCE_URL, SERVERS, VERIFIED_SETTLES, explorerTx, type Net } from '../config';
 
 const I = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 const STEPS = [
@@ -53,7 +53,10 @@ const PER_CALL_FEE = 226;
 
 function TxCount({ ex }: { ex: Example | null }) {
   const tab = ex?.tab;
-  const fee = tab?.openTxBytes && tab.settleTxBytes ? tab.openTxBytes + tab.settleTxBytes : undefined;
+  // Exact fees where they were read off the chain; otherwise the two txs' size (≈ sats at 1 sat/byte), or nothing.
+  const known = tab?.settledTxid ? VERIFIED_SETTLES[tab.settledTxid] : undefined;
+  const exactFee = known ? known.openFeeSats + known.settleFeeSats : undefined;
+  const fee = exactFee ?? (tab?.openTxBytes && tab.settleTxBytes ? tab.openTxBytes + tab.settleTxBytes : undefined);
   const link = (txid: string, label: string) => (
     <a className="font-mono text-[12.5px] text-bch-2 hover:underline" href={explorerTx(ex!.net, txid)} target="_blank" rel="noreferrer">{label} {short(txid, 4)}</a>
   );
@@ -61,9 +64,10 @@ function TxCount({ ex }: { ex: Example | null }) {
     <p className="text-sm text-muted">
       <b className="text-fg">A tab always takes 2 on-chain transactions, however many calls it covers</b>: one to open, one to close.
       The 5¢ demo stops at 3 calls to keep it short; 100 calls would still be 2 transactions, not 100.
-      {tab && <> {ex!.net === 'mainnet' ? 'Mainnet tab' : 'Recent tab'}{ex!.hostedAgent ? ` (a visitor-funded tab${AUTHOR_FUNDED.has(tab.outpoint.txid) ? ", from the author's own wallet," : ''} spent by our hosted demo agent)` : ''}:{' '}
+      {tab && <> {ex!.net === 'mainnet' ? 'Mainnet tab' : 'Recent tab'}{ex!.hostedAgent ? (AUTHOR_FUNDED.has(tab.outpoint.txid)
+        ? " (funded from the author's own Paytaca wallet, spent by our hosted demo agent)" : ' (funded by a visitor, spent by our hosted demo agent)') : ''}:{' '}
         <b className="text-fg">{plural(tab.requests, 'call')} · 2 transactions</b> ({link(tab.outpoint.txid, 'open')}, {link(tab.settledTxid!, 'close')}).</>}
-      {tab && fee !== undefined && <> Its two transactions cost {sats(fee)} sats in miner fees; paying each call on-chain would cost
+      {tab && fee !== undefined && <> Its two transactions cost {exactFee === undefined ? 'about ' : ''}{sats(fee)} sats in miner fees{known ? ` (open ${sats(known.openFeeSats)} + settle ${sats(known.settleFeeSats)})` : ''}; paying each call on-chain would cost
         about {sats(tab.requests * PER_CALL_FEE)}, so a tab is <b className="text-bch-2">cheaper from {Math.floor(fee / PER_CALL_FEE) + 1} calls</b>.</>}
     </p>
   );
@@ -98,7 +102,7 @@ export function HowItWorks({ events, net, direct, advanced, advancedOpen, onAdva
           the rest back to the owner. The agent can never withdraw. If the provider vanishes, the owner takes everything back after the timeout.
         </p>
         <TxCount ex={example} />
-        <a className="tap text-sm font-medium text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant (AgentTab.cash) ↗</a>
+        <a className="tap text-sm font-medium text-bch-2 hover:underline" href={CONTRACT_SOURCE_URL || api.contractUrl()} target="_blank" rel="noreferrer">Read the covenant source ↗</a>
       </div>
       {direct}
       <details id="advanced" open={advancedOpen} onToggle={(e) => onAdvancedToggle((e.target as HTMLDetailsElement).open)}

@@ -3,7 +3,7 @@ import { emitLanded } from './Backdrop';
 import type { FeedEvent } from '../lib/api';
 import { ago, sats, short, usd } from '../lib/format';
 import { useCountUp } from '../lib/motion';
-import { explorerTx, type Net } from '../config';
+import { VERIFIED_SETTLES, explorerTx, type Net } from '../config';
 import { useNow } from './Feed';
 import type { JourneyState } from './Journey';
 
@@ -27,11 +27,21 @@ interface View {
   direct?: boolean;
   /** Per-call route/price for the latest calls (feed tabs mix routes). */
   rows?: { route: string; price?: bigint }[];
+  /** Settled: what the provider's output received after paying the miner fee, when the chain data is known. */
+  providerNet?: bigint;
+}
+
+/** The provider's output on a settle, from the server's event or the hand-checked mainnet record; never estimated. */
+function providerNetOf(e?: FeedEvent): bigint | undefined {
+  if (!e || e.type !== 'settle') return undefined;
+  if (e.providerSats) return BigInt(e.providerSats);
+  const known = e.txid ? VERIFIED_SETTLES[e.txid] : undefined;
+  return known ? BigInt(known.providerSats) : undefined;
 }
 
 const tabLabel = (id?: string) => (id ? `TAB #${id.slice(0, 4).toUpperCase()}` : 'TAB #----');
 
-function journeyView(j: JourneyState, defaultPrice: bigint, route: string): View {
+function journeyView(j: JourneyState, defaultPrice: bigint, route: string, events: FeedEvent[]): View {
   const price = j.price ?? defaultPrice;
   const spent = j.spent ?? BigInt(j.calls) * price;
   const status: Status = j.done ? (j.action === 'cancel' ? 'waived' : 'settled')
@@ -42,6 +52,7 @@ function journeyView(j: JourneyState, defaultPrice: bigint, route: string): View
     label: tabLabel(j.openTxid), who: 'your tab', status, budget: j.budget, calls: j.calls, price, route: j.route ?? route,
     spent: j.done ? settled : spent, back: j.done && j.returned ? BigInt(j.returned) : undefined,
     openTxid: j.openTxid, closeTxid: j.closeTxid,
+    providerNet: j.done && j.closeTxid ? providerNetOf(events.find((e) => e.type === 'settle' && e.txid === j.closeTxid)) : undefined,
     // At most 3 call rows are drawn: placeholders fill up to 3, never past the run's total.
     pending: j.done || j.error ? 0 : Math.min((j.total ?? 3) - j.calls, Math.max(0, 3 - Math.min(j.calls, 3))),
     coin: status === 'opening' || !!j.openTxid,
@@ -62,7 +73,7 @@ function feedView(events: FeedEvent[], tab: string, mine: boolean): View {
     at: (close ?? last ?? open)?.at, status: close ? (close.type === 'settle' ? 'settled' : 'waived') : 'open',
     budget, calls, price, route: last?.route ?? '/api/oracle', spent,
     back: close && budget !== undefined ? (close.type === 'settle' ? budget - spent : budget) : undefined,
-    openTxid: open?.txid, closeTxid: close?.txid,
+    openTxid: open?.txid, closeTxid: close?.txid, providerNet: providerNetOf(close),
     rows: pays.length ? pays.slice(-3).map((p) => ({ route: p.route ?? '/api/oracle', price: p.price ? BigInt(p.price) : undefined })) : undefined,
   };
 }
@@ -87,13 +98,15 @@ function Burst({ delay = 0, reach = 22 }: { delay?: number; reach?: number }) {
 const Spinner = () => <span aria-hidden className="spin inline-block h-3 w-3 shrink-0 rounded-full border-2 border-current border-r-transparent" />;
 
 /** The receipt slip: the live stage for the run (and the latest real tab when nothing is running). */
-export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, waking, onTryChipnet, defaultPrice, route }: {
+export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, waking, onTryChipnet, onCheat, defaultPrice, route }: {
   events: FeedEvent[]; net: Net; bchUsd?: number; journey: JourneyState; inJourney: boolean; tab?: string; mine?: boolean;
   waking?: boolean; onTryChipnet?: () => void; defaultPrice: bigint; route: string;
+  /** After SETTLED: go to the attack panel. */
+  onCheat?: () => void;
 }) {
   const now = useNow(1000);
   const direct = net === 'mainnet' ? events.find((e) => e.type === 'direct') : undefined;
-  const v: View | undefined = inJourney ? journeyView(journey, defaultPrice, route)
+  const v: View | undefined = inJourney ? journeyView(journey, defaultPrice, route, events)
     : tab ? feedView(events, tab, !!mine)
     : direct ? directView(direct) : undefined;
 
@@ -148,7 +161,7 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
   ) : null;
 
   return (
-    <div id="ticket" className={`slip relative min-w-0 scroll-mt-24 font-mono text-[12.5px] ${inJourney ? 'md:min-h-[var(--ticket-run-h)]' : ''}`} aria-live="polite">
+    <div id="ticket" className={`slip relative min-w-0 scroll-mt-24 font-mono text-[12.5px] ${inJourney && !closed && !j.error ? 'md:min-h-[var(--ticket-run-h)]' : ''}`} aria-live="polite">
       <div className="px-5 pt-4">
         <div className="flex items-center justify-between gap-3 text-[13px] font-semibold">
           <span className="tracking-[0.2em]">AGENTTAB</span>
@@ -219,6 +232,9 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
               <span className={closed ? 'text-bch-2' : 'text-dim'}>{closed ? `provider ${sats(v.spent)}` : `${sats(v.spent)} spent`}</span>
               <span className={closed ? 'font-semibold text-fg' : 'text-dim'}>{closed ? `${backN.toLocaleString('en-US')} back to ${owner}` : `${backN.toLocaleString('en-US')} left`}</span>
             </div>
+            {v.status === 'settled' && v.providerNet !== undefined && v.providerNet < v.spent && (
+              <p className="mt-1 text-[11.5px] text-dim">provider got {sats(v.providerNet)} after the {sats(v.spent - v.providerNet)}-sat fee</p>
+            )}
           </div>
         )}
       </div>
@@ -228,6 +244,11 @@ export function Ticket({ events, net, bchUsd, journey, inJourney, tab, mine, wak
         <span><span className="text-dim">{v.direct ? 'tx ' : v.status === 'waived' ? 'waive ' : 'settle '}</span>{v.closeTxid
           ? <a className={link} href={explorerTx(net, v.closeTxid)} target="_blank" rel="noreferrer">{short(v.closeTxid, 4)} ↗</a>
           : <span className="text-dim">on close</span>}</span>
+        {v.status === 'settled' && onCheat && (
+          <button type="button" onClick={onCheat} className="tap mt-2 inline-flex basis-full items-center gap-1.5 font-sans text-sm font-semibold text-bch-2 hover:underline">
+            Now try to cheat it <span aria-hidden>→</span>
+          </button>
+        )}
       </div>
     </div>
   );

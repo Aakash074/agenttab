@@ -24,10 +24,12 @@ function signError(e: unknown): string {
 }
 
 /** "1¢ direct pay": the simplest human path. One on-chain payment from your own wallet, one oracle answer. */
-export function DirectPay({ wallet, net, info, waking, onConnect, connectCancelled = 0, hero = false }: {
+export function DirectPay({ wallet, net, info, waking, onConnect, connectCancelled = 0, hero = false, secondary = false }: {
   wallet: Wallet | null; net: Net; info: ServerInfo | null; waking?: boolean; onConnect: () => void;
   /** Hero: the page's one filled button (mainnet). Otherwise a quieter card (inside "How it works"). */
   hero?: boolean;
+  /** Hero, but drawn as an outlined button under the 5¢ tab (styling only; the payment is the same). */
+  secondary?: boolean;
   /** Changes when the visitor closed the connect dialog without connecting. */
   connectCancelled?: number;
 }) {
@@ -120,7 +122,9 @@ export function DirectPay({ wallet, net, info, waking, onConnect, connectCancell
     return (
       <div id="direct" className="scroll-mt-24 sm:max-w-lg">
         <button type="button" data-stream-src onClick={start} disabled={busy}
-          className="btn-primary flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto">
+          className={secondary
+            ? 'flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-line-2 bg-panel px-6 text-base font-semibold text-fg transition hover:bg-subtle disabled:cursor-wait disabled:opacity-70 sm:w-auto'
+            : 'btn-primary flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-bch px-6 text-base font-semibold text-on-bch hover:bg-bch-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto'}>
           {busy && <span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent" />}
           Pay {price} for a live BCH price
         </button>
