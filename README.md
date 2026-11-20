@@ -13,6 +13,8 @@ Paying for each call on-chain costs one transaction per call. AgentTab is a paym
 
 **Live on BCH mainnet:** a visitor-funded 5¢ tab from a real Paytaca wallet was spent by our hosted demo agent on **10 API calls off-chain, and the tab settled in 2 transactions in total**: open [`2e6bc19dd2…`](https://explorer.selene.cash/tx/2e6bc19dd27c3225981a4c24e66b8874325f9b3955baa0639d7218145a89d7e8?network=mainnet), settle [`fe4560302f…`](https://explorer.selene.cash/tx/fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df?network=mainnet) with exactly 18,597 sats returned to the owner by the covenant. Plus a 1¢ direct pay [`33d32acd51…`](https://explorer.selene.cash/tx/33d32acd51481b100fbaf43d6e5ffdbdec69d297cfe8e6b00ec02f0f16f7efe3?network=mainnet). Details: [docs/mainnet-proof.md](docs/mainnet-proof.md).
 
+**Demo video (1:24):** https://youtu.be/bNDT09rOvoo · **Live app:** https://agenttab-bch.onrender.com
+
 The previous URL https://agenttab-wihk.onrender.com still serves the same build as a mirror.
 
 ## Verify it in 5 minutes (chipnet)

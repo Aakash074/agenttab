@@ -10,9 +10,9 @@ AgentTab: a refundable tab for your AI agent on Bitcoin Cash. One transaction to
 ## Links
 - Live demo: https://agenttab-bch.onrender.com (opens on Mainnet; the free 5¢ tab demo is at https://agenttab-bch.onrender.com/?net=chipnet; free hosting, so the first load can take up to a minute)
 - Repo: https://github.com/Aakash074/agenttab
-- Widget Factory deck: [link]
+- Widget Factory deck: https://docs.google.com/presentation/d/1HWXYkITgDgsd3Xc6NcHcST592q_E5ljSumN9d2bI-l4/edit?usp=sharing
 - CashTokens address: bitcoincash:zqcgm29z05erjdk440n6pj2vwmc8x5gxzcnwfnnrul
-- Demo video (<2 min): [link]
+- Demo video (1:24): https://youtu.be/bNDT09rOvoo
 - Pre-hackathon disclosure: a small throwaway prototype lives in a separate repo, https://github.com/Aakash074/agenttab-prototype. The main repo started from scratch after kickoff (Nov 14 14:00 UTC).
 
 ## Problem
