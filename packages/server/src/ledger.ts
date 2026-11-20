@@ -5,10 +5,17 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { NetworkProvider } from 'cashscript';
+import { decodeTransaction } from '@bitauth/libauth';
 import {
   DUST, buildCancel, buildSettle, hexToBin, binToHex, lockTip, pubFromPriv, tabContract, verifyVoucher,
   type Network, type Outpoint, type Voucher,
 } from '@agenttab/covenant';
+
+/** Settle tx: output 0 pays the provider (the covenant fixes the order). */
+function providerOut(hex: string): string | undefined {
+  const tx = decodeTransaction(hexToBin(hex));
+  return typeof tx === 'string' ? undefined : tx.outputs[0]?.valueSatoshis.toString();
+}
 
 export interface TabRecord {
   id: string; // txid:vout
@@ -27,6 +34,8 @@ export interface TabRecord {
   /** Sizes of the tab's on-chain transactions (fees ≈ bytes at 1 sat/byte). */
   openTxBytes?: number;
   settleTxBytes?: number;
+  /** Settle only: the provider's output, i.e. the settled amount minus the miner fee the provider pays. */
+  settleProviderSats?: string;
   /** e.g. 'attack' for tabs opened by the cheat panel (excluded from the headline counter). */
   tag?: string;
   /** Rebuilt from the chain after a restart: `requests` is a lower bound and no voucher signature is kept. */
@@ -52,6 +61,8 @@ export interface FeedEvent {
   restored?: boolean;
   /** Restored settle: calls derived from the settled amount ÷ the highest per-call price. */
   calls?: number;
+  /** Settle: what the provider's output received (settled amount minus the miner fee it pays). */
+  providerSats?: string;
   /** Restored unconfirmed tx: the real time is unknown (`at` is when the server rebuilt it). */
   timeUnknown?: boolean;
 }
@@ -153,7 +164,8 @@ export class TabLedger extends EventEmitter {
       this.tabs.set(rec.id, rec);
       const base = { tab: rec.id, contract: rec.contractAddress, agent: rec.agentPub, demo: this.demoAgentPub !== undefined && rec.agentPub === this.demoAgentPub, restored: true, ...(rec.tag ? { tag: rec.tag } : {}) };
       restored.push({ ...base, id: 0, at: rec.openedAt, type: 'open', txid: rec.outpoint.txid, amount: rec.budget });
-      restored.push({ ...base, id: 0, at: settledAt, type: 'settle', txid: rec.settledTxid, amount: rec.settledAmount, calls: rec.requests });
+      restored.push({ ...base, id: 0, at: settledAt, type: 'settle', txid: rec.settledTxid, amount: rec.settledAmount, calls: rec.requests,
+        ...(rec.settleProviderSats ? { providerSats: rec.settleProviderSats } : {}) });
     }
     const all = [...restored, ...this.events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.id - b.id);
     const max = this.o.maxEvents ?? 500;
@@ -263,9 +275,11 @@ export class TabLedger extends EventEmitter {
       }).send();
       rec.settledTxid = tx.txid;
       rec.settledAmount = rec.highest.amount;
-      rec.settleTxBytes = (tx as { hex?: string }).hex ? (tx as { hex: string }).hex.length / 2 : undefined;
+      const hex = (tx as { hex?: string }).hex;
+      rec.settleTxBytes = hex ? hex.length / 2 : undefined;
+      rec.settleProviderSats = hex ? providerOut(hex) : undefined;
       rec.status = 'settled';
-      this.emitEvent({ type: 'settle', tab: id, txid: tx.txid, amount: rec.highest.amount, auto });
+      this.emitEvent({ type: 'settle', tab: id, txid: tx.txid, amount: rec.highest.amount, auto, ...(rec.settleProviderSats ? { providerSats: rec.settleProviderSats } : {}) });
       this.persist();
       return tx.txid;
     } finally {

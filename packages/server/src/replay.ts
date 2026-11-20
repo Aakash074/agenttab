@@ -45,6 +45,8 @@ const pushData = (i: unknown) => (i && typeof i === 'object' && 'data' in i ? (i
 export interface ParsedSettle {
   tab: string; openTxid: string; vout: number; ownerPub: string; agentPub: string; timeout: number;
   amount: bigint; budget: bigint; settleTxid: string; settleBytes: number; redeemHex: string;
+  /** What the provider's output actually received: the settled amount minus the miner fee it pays. */
+  providerSats: bigint;
 }
 
 /** Returns the tab a tx settled to `providerPub`, or undefined if the tx is anything else. */
@@ -72,6 +74,7 @@ export function parseSettle(txid: string, hex: string, providerPub: Uint8Array):
   return {
     tab: `${openTxid}:${vout}`, openTxid, vout, ownerPub: binToHex(owner), agentPub: binToHex(agent), timeout: Number(timeout),
     amount, budget: amount + tx.outputs[1].valueSatoshis, settleTxid: txid, settleBytes: hex.length / 2, redeemHex: binToHex(redeem),
+    providerSats: tx.outputs[0].valueSatoshis,
   };
 }
 
@@ -144,6 +147,7 @@ export async function replayFromChain(ledger: TabLedger, src: ChainSource, o: Re
       budget: p.budget.toString(), contractAddress: ledger.contractFor(p).address,
       highest: { amount: p.amount.toString(), sig: '' }, requests, openedAt: openAt ?? at, status: 'settled',
       settledTxid: p.settleTxid, settledAmount: p.amount.toString(), settleTxBytes: p.settleBytes, openTxBytes: openBytes,
+      settleProviderSats: p.providerSats.toString(),
       restored: true, ...(tag ? { tag } : {}),
     };
     return { rec, settledAt: at };

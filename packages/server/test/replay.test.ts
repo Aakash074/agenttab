@@ -62,6 +62,11 @@ test('a wiped server rebuilds settled tabs, stats and feed from the provider add
   t.openTxBytes = undefined;
   assert.equal(fresh.stats().feeSats, null, 'unknown size: no fee figure');
   t.openTxBytes = openBytes;
+  // The provider's real output (settled amount minus the miner fee it pays), live and after a rebuild.
+  const liveSettle = live.events.find((e) => e.type === 'settle' && e.tab === settled)!;
+  const restoredSettle = fresh.events.find((e) => e.type === 'settle' && e.tab === settled)!;
+  assert.equal(restoredSettle.providerSats, liveSettle.providerSats);
+  assert.ok(BigInt(restoredSettle.providerSats!) < 3000n && BigInt(restoredSettle.providerSats!) > 2000n);
   assert.deepEqual(fresh.events.map((e) => [e.id, e.type]), [[1, 'open'], [2, 'settle'], [3, 'open'], [4, 'settle']]);
   assert.equal(fresh.events.find((e) => e.type === 'settle' && e.tab === settled)!.calls, 3, 'calls derived from the settle tx');
   assert.notEqual(fresh.epoch, epoch);
