@@ -8,6 +8,15 @@ export const BANNER = {
   donationZAddress: import.meta.env.VITE_DONATION_ZADDR ?? '',
   prototypeUrl: import.meta.env.VITE_PROTOTYPE_URL ?? '',
 };
+/** The prototype repo at its last pre-kickoff commit (no hosted demo of it ever existed). */
+export const PROTOTYPE_COMMIT = '631e586';
+export const PROTOTYPE_PRE_KICKOFF_URL = BANNER.prototypeUrl ? `${BANNER.prototypeUrl.replace(/\/$/, '')}/tree/${PROTOTYPE_COMMIT}` : '';
+
+/** Facts read off the chain by hand for the first mainnet tab (docs/mainnet-proof.md), shown until the server reports them itself. */
+export const VERIFIED_SETTLES: Record<string, { providerSats: number; openFeeSats: number; settleFeeSats: number }> = {
+  // open 2e6bc19d… (fee 231) · settle fe456030…: 5,451 to the provider (6,000 − 549 fee), 18,597 back to the owner
+  fe4560302f626ee884f83f766e92544511ec824899014bb076d1deb91a8b64df: { providerSats: 5451, openFeeSats: 231, settleFeeSats: 549 },
+};
 
 /** Paywall server base URL per network ('' = same origin / Vite dev proxy). */
 export const SERVERS: Record<Net, string> = {

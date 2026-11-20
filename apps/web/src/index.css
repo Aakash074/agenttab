@@ -118,7 +118,7 @@ body::before {
   }
   /* Phones: once the page scrolls, the banner slides up under the top edge and only the nav stays (no layout shift). */
   @media (max-width: 639px) {
-    .site-header.is-scrolled { transform: translateY(-45px); }
+    .site-header.is-scrolled { transform: translateY(-69px); } /* the two-row banner: 2 × 34px + 1px border */
     /* Once the header slides up, part of the blurred box is above the viewport and Chromium blurs the visible nav
        only weakly; so the glass moves onto the nav itself. */
     .site-header.is-scrolled { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
